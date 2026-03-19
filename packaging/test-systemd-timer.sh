@@ -3,6 +3,7 @@ set -eu
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH='' cd -- "$script_dir/.." && pwd)
+. "$script_dir/lib.sh"
 
 usage() {
 	cat <<'EOF' >&2
@@ -58,9 +59,11 @@ esac
 
 case "$(uname -m)" in
 x86_64 | amd64)
+	target=amd64
 	goarch=amd64
 	;;
 aarch64 | arm64)
+	target=rpi64
 	goarch=arm64
 	;;
 *)
@@ -74,6 +77,35 @@ command -v docker >/dev/null 2>&1 || {
 	exit 1
 }
 
+mode=${PACKAGING_SYSTEMD_TEST_MODE:-auto}
+use_package=0
+case "$mode" in
+package)
+	use_package=1
+	;;
+raw)
+	use_package=0
+	;;
+auto)
+	case "$family" in
+	debian | ubuntu)
+		if command -v dpkg-deb >/dev/null 2>&1; then
+			use_package=1
+		fi
+		;;
+	fedora)
+		if command -v rpmbuild >/dev/null 2>&1; then
+			use_package=1
+		fi
+		;;
+	esac
+	;;
+*)
+	echo "unsupported PACKAGING_SYSTEMD_TEST_MODE: $mode" >&2
+	exit 2
+	;;
+esac
+
 mkdir -p "$repo_root/out"
 tmpdir=$(mktemp -d "$repo_root/out/systemd-test.XXXXXX")
 image_tag="dns-update-systemd-$label-$$"
@@ -86,16 +118,56 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-GOOS=linux GOARCH="$goarch" CGO_ENABLED=0 go build -o "$tmpdir/dns-update" "$repo_root/cmd/dns-update"
+case "$family" in
+debian | ubuntu)
+	package_ext=deb
+	package_install_cmd='dpkg -i /fixtures/dns-update-package.deb'
+	;;
+fedora)
+	package_ext=rpm
+	package_install_cmd='rpm -Uvh --replacepkgs /fixtures/dns-update-package.rpm'
+	;;
+esac
 
-cp "$repo_root/deploy/systemd/dns-update.service" "$tmpdir/dns-update.service"
-cp "$repo_root/deploy/systemd/dns-update.timer" "$tmpdir/dns-update.timer"
-cp "$repo_root/deploy/systemd/dns-update.env" "$tmpdir/dns-update.env"
-# Shorten the calendar cadence so the integration test can observe a real
-# timer-fired recovery quickly while still exercising OnCalendar semantics.
-sed 's/^OnCalendar=.*/OnCalendar=*-*-* *:*:0\/15/' \
-	"$tmpdir/dns-update.timer" > "$tmpdir/dns-update.timer.tmp"
-mv "$tmpdir/dns-update.timer.tmp" "$tmpdir/dns-update.timer"
+if [ "$use_package" -eq 1 ]; then
+	case "$family" in
+	debian | ubuntu)
+		PACKAGING_FORCE_DIRECT_DEB=1 \
+		PACKAGING_SKIP_NATIVE_TESTS=1 \
+		PACKAGING_SKIP_SIGN=1 \
+			"$repo_root/packaging/build-deb.sh" "$target"
+		set -- "$repo_root"/out/packages/deb/"$target"/*.deb
+		;;
+	fedora)
+		PACKAGING_LINUX_MACROS=1 \
+		PACKAGING_SKIP_BUILDDEPS=1 \
+		PACKAGING_SKIP_NATIVE_TESTS=1 \
+		PACKAGING_SKIP_SIGN=1 \
+			"$repo_root/packaging/build-rpm.sh" "$target"
+		set -- "$repo_root"/out/packages/rpm/"$target"/*.rpm
+		;;
+	esac
+
+	[ -e "$1" ] || {
+		echo "expected package artifact for $family $target, found none" >&2
+		exit 1
+	}
+	[ "$#" -eq 1 ] || {
+		echo "expected one package artifact for $family $target, found $#" >&2
+		exit 1
+	}
+	cp "$1" "$tmpdir/dns-update-package.$package_ext"
+else
+	GOOS=linux GOARCH="$goarch" CGO_ENABLED=0 go build -o "$tmpdir/dns-update" "$repo_root/cmd/dns-update"
+	cp "$repo_root/deploy/systemd/dns-update.service" "$tmpdir/dns-update.service"
+	cp "$repo_root/deploy/systemd/dns-update.timer" "$tmpdir/dns-update.timer"
+	cp "$repo_root/deploy/systemd/dns-update.env" "$tmpdir/dns-update.env"
+	# Shorten the calendar cadence so the integration test can observe a real
+	# timer-fired recovery quickly while still exercising OnCalendar semantics.
+	sed 's/^OnCalendar=.*/OnCalendar=*-*-* *:*:0\/15/' \
+		"$tmpdir/dns-update.timer" > "$tmpdir/dns-update.timer.tmp"
+	mv "$tmpdir/dns-update.timer.tmp" "$tmpdir/dns-update.timer"
+fi
 
 cat >"$tmpdir/config.json" <<'EOF'
 {
@@ -137,10 +209,19 @@ set -eu
 
 fixtures_dir=/fixtures
 
+if [ "__USE_PACKAGE__" -eq 1 ]; then
+__PACKAGE_INSTALL_CMD__
+else
 install -D -m 0644 "$fixtures_dir/dns-update.env" /etc/dns-update/dns-update.env
 install -D -m 0644 "$fixtures_dir/dns-update.service" /etc/systemd/system/dns-update.service
 install -D -m 0644 "$fixtures_dir/dns-update.timer" /etc/systemd/system/dns-update.timer
+fi
 install -D -m 0644 "$fixtures_dir/integration.conf" /etc/systemd/system/dns-update.service.d/integration.conf
+
+if [ "__USE_PACKAGE__" -eq 1 ]; then
+	sed 's/^OnCalendar=.*/OnCalendar=*-*-* *:*:0\/15/' \
+		/usr/lib/systemd/system/dns-update.timer > /etc/systemd/system/dns-update.timer
+fi
 
 systemctl daemon-reload
 systemctl enable dns-update.timer
@@ -176,7 +257,9 @@ fi
 last_trigger_before=$(systemctl show dns-update.timer -p LastTriggerUSecMonotonic --value)
 success_since=$(date '+%Y-%m-%d %H:%M:%S')
 
+if [ "__USE_PACKAGE__" -eq 0 ]; then
 install -D -m 0755 "$fixtures_dir/dns-update" /usr/bin/dns-update
+fi
 install -D -m 0644 "$fixtures_dir/config.json" /etc/dns-update/config.json
 install -D -m 0600 "$fixtures_dir/cloudflare.token" /etc/dns-update/cloudflare.token
 
@@ -209,6 +292,11 @@ if [ "$(systemctl show dns-update.service -p Result --value)" != "success" ]; th
 	exit 1
 fi
 EOF
+sed -i.bak \
+	-e "s|__USE_PACKAGE__|$use_package|g" \
+	-e "s|__PACKAGE_INSTALL_CMD__|$package_install_cmd|" \
+	"$tmpdir/container-check.sh"
+rm -f "$tmpdir/container-check.sh.bak"
 chmod 0755 "$tmpdir/container-check.sh"
 
 cat >"$tmpdir/Dockerfile" <<EOF

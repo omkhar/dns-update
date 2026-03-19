@@ -38,9 +38,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            rpm \
-            upx-ucl
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends rpm
 
       - name: Build Debian packages
         run: |

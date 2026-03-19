@@ -2,6 +2,13 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.0.3 - 2026-03-19
+
+- Stops UPX-packing packaged binaries so the shipped systemd service remains
+  compatible with `MemoryDenyWriteExecute=yes` on distros such as Debian 12.
+- Extends the multi-distro systemd integration test to install and exercise the
+  built `.deb` and `.rpm` packages, not just a raw development binary.
+
 ## 1.0.2 - 2026-03-19
 
 - Switches the packaged systemd timer to `OnCalendar=*:00/5` so future runs stay

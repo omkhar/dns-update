@@ -60,7 +60,6 @@ build_without_debhelper() {
 	require_cmd dpkg-deb
 	require_cmd gzip
 	require_cmd install
-	require_cmd upx
 
 	tmpdir=$(mktemp -d)
 	cleanup() {
@@ -106,7 +105,6 @@ build_without_debhelper() {
 			-o "$build_dir/dns-update" \
 			./cmd/dns-update
 	)
-	upx --best "$build_dir/dns-update"
 
 	install_file 0755 "$build_dir/dns-update" \
 		"$package_dir/usr/bin/dns-update"

@@ -61,7 +61,15 @@ jobs:
           go-version-file: go.mod
           check-latest: true
 
+      - name: Install packaging tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends rpm
+
       - name: Run systemd timer integration test
+        env:
+          PACKAGING_SYSTEMD_TEST_MODE: package
         run: |
           chmod +x packaging/test-systemd-timer.sh
           ./packaging/test-systemd-timer.sh \

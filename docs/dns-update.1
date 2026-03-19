@@ -24,6 +24,8 @@ at
 .I /etc/dns-update/cloudflare.token
 and is materialized into the service credential directory by
 .BR LoadCredential= .
+Published packages intentionally avoid self-unpacking binary compression so the
+installed binary remains compatible with the hardened systemd unit.
 .SH OPTIONS
 .TP
 .B \-\-config

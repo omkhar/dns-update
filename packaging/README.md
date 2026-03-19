@@ -14,6 +14,10 @@ Both package layouts install:
 - `/etc/dns-update/cloudflare.token.example` as a shipped placeholder token file
 - hardened systemd units at the distro-standard unit path
 
+Packaged binaries are intentionally not UPX-packed. That keeps the installed
+service compatible with the hardened unit settings, including
+`MemoryDenyWriteExecute=yes`.
+
 The package intentionally does not install a live `/etc/dns-update/config.json`
 or `/etc/dns-update/cloudflare.token`. Create those files before enabling the
 timer.
@@ -68,7 +72,6 @@ Requirements:
   packaging path, or `dpkg-deb` for the direct fallback path
 - `cosign`
 - `golang-any`
-- `upx`
 
 Build:
 
@@ -107,8 +110,6 @@ Requirements:
 - `rpmbuild`
 - `cosign`
 - `golang >= 1.26.1`
-- `systemd-rpm-macros`
-- `upx`
 - `tar` or `gtar` (GNU tar is preferred on macOS)
 
 Build:
@@ -120,7 +121,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.0.2 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.0.3 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -149,9 +150,10 @@ PACKAGING_LINUX_MACROS=1 ./packaging/build-rpm.sh
 
 GitHub Actions also runs `packaging/test-systemd-timer.sh` across Debian
 stable/sid, Ubuntu stable/latest, and Fedora stable/rawhide to validate the
-installed timer/service flow on each distro family, including the regression
-where the first activation is skipped before later timer runs are due and a
-later timer-fired activation must succeed automatically.
+installed timer/service flow on each distro family using the actual built
+package for that family, including the regression where the first activation is
+skipped before later timer runs are due and a later timer-fired activation must
+succeed automatically.
 
 For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
 supports amd64 and arm64 hosts.
@@ -181,14 +183,14 @@ Verify an artifact with:
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.0.2-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.0.3-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.0.2-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.0.3-1.x86_64.rpm
 ```
 
 ## Maintainer metadata

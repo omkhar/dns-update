@@ -47,6 +47,7 @@ $TAR -C "$repo_root" \
 
 for target in $targets; do
 	rpm_target=$(rpm_target_for_target "$target")
+	rpm_build_target=$rpm_target
 	topdir=$topdir_root/$target
 	target_dir=$output_root/$target
 
@@ -66,23 +67,27 @@ for target in $targets; do
 	# When PACKAGING_LINUX_MACROS=1, force Linux filesystem macros and prepend
 	# GNU coreutils so 'install -D' works outside of Linux.
 	rpm_env_home=$HOME
+	if [ "${PACKAGING_LINUX_MACROS:-}" = 1 ]; then
+		# Prefer GNU coreutils gnubin when available, but keep the normal PATH on
+		# Linux builders where install(1) already supports -D.
+		gnu_coreutils_bin=/opt/homebrew/opt/coreutils/libexec/gnubin
+		rpm_env_path=$PATH
+		rpm_build_target=$rpm_target-linux
+		if [ -d "$gnu_coreutils_bin" ]; then
+			rpm_env_path="$gnu_coreutils_bin:$PATH"
+		fi
+	fi
+
 	set -- rpmbuild -ba "$topdir/SPECS/dns-update.spec" \
 		--without check \
 		${PACKAGING_SKIP_BUILDDEPS:+--nodeps} \
-		--target "$rpm_target" \
+		--target "$rpm_build_target" \
 		--define "_topdir $topdir" \
 		--define "pkg_version $version" \
 		--define "pkg_release $release" \
 		--define "release_goflags $release_goflags" \
 		--define "release_ldflags $release_ldflags"
 	if [ "${PACKAGING_LINUX_MACROS:-}" = 1 ]; then
-		# Prefer GNU coreutils gnubin when available, but keep the normal PATH on
-		# Linux builders where install(1) already supports -D.
-		gnu_coreutils_bin=/opt/homebrew/opt/coreutils/libexec/gnubin
-		rpm_env_path=$PATH
-		if [ -d "$gnu_coreutils_bin" ]; then
-			rpm_env_path="$gnu_coreutils_bin:$PATH"
-		fi
 		set -- "$@" \
 			--define "_prefix /usr" \
 			--define "_exec_prefix /usr" \
