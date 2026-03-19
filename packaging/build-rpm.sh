@@ -76,9 +76,13 @@ for target in $targets; do
 		--define "release_goflags $release_goflags" \
 		--define "release_ldflags $release_ldflags"
 	if [ "${PACKAGING_LINUX_MACROS:-}" = 1 ]; then
-		# Find GNU coreutils gnubin for 'install -D' support on macOS.
+		# Prefer GNU coreutils gnubin when available, but keep the normal PATH on
+		# Linux builders where install(1) already supports -D.
 		gnu_coreutils_bin=/opt/homebrew/opt/coreutils/libexec/gnubin
-		rpm_env_path="$gnu_coreutils_bin:$PATH"
+		rpm_env_path=$PATH
+		if [ -d "$gnu_coreutils_bin" ]; then
+			rpm_env_path="$gnu_coreutils_bin:$PATH"
+		fi
 		set -- "$@" \
 			--define "_prefix /usr" \
 			--define "_exec_prefix /usr" \

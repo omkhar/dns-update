@@ -51,6 +51,7 @@ jobs:
 
       - name: Build RPM packages
         run: |
+          PACKAGING_LINUX_MACROS=1 \
           PACKAGING_SKIP_BUILDDEPS=1 \
           PACKAGING_SKIP_SIGN=1 \
           PACKAGING_SKIP_NATIVE_TESTS=1 \
