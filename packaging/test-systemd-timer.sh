@@ -91,6 +91,11 @@ GOOS=linux GOARCH="$goarch" CGO_ENABLED=0 go build -o "$tmpdir/dns-update" "$rep
 cp "$repo_root/deploy/systemd/dns-update.service" "$tmpdir/dns-update.service"
 cp "$repo_root/deploy/systemd/dns-update.timer" "$tmpdir/dns-update.timer"
 cp "$repo_root/deploy/systemd/dns-update.env" "$tmpdir/dns-update.env"
+# Shorten the calendar cadence so the integration test can observe a real
+# timer-fired recovery quickly while still exercising OnCalendar semantics.
+sed 's/^OnCalendar=.*/OnCalendar=*-*-* *:*:0\/15/' \
+	"$tmpdir/dns-update.timer" > "$tmpdir/dns-update.timer.tmp"
+mv "$tmpdir/dns-update.timer.tmp" "$tmpdir/dns-update.timer"
 
 cat >"$tmpdir/config.json" <<'EOF'
 {
@@ -168,22 +173,32 @@ if [ -z "$next_elapse" ] || [ "$next_elapse" = "n/a" ] || [ "$next_elapse" = "0"
 	exit 1
 fi
 
+last_trigger_before=$(systemctl show dns-update.timer -p LastTriggerUSecMonotonic --value)
+success_since=$(date '+%Y-%m-%d %H:%M:%S')
+
 install -D -m 0755 "$fixtures_dir/dns-update" /usr/bin/dns-update
 install -D -m 0644 "$fixtures_dir/config.json" /etc/dns-update/config.json
 install -D -m 0600 "$fixtures_dir/cloudflare.token" /etc/dns-update/cloudflare.token
 
 i=0
-while [ "$i" -lt 30 ]; do
-	systemctl start dns-update.service || true
-	if journalctl -u dns-update.service --no-pager 2>/dev/null | grep -q 'config is valid'; then
+while [ "$i" -lt 60 ]; do
+	if journalctl -u dns-update.service --since "$success_since" --no-pager 2>/dev/null | grep -q 'config is valid'; then
 		break
 	fi
 	i=$((i + 1))
 	sleep 1
 done
 
-if ! journalctl -u dns-update.service --no-pager | grep -q 'config is valid'; then
+if ! journalctl -u dns-update.service --since "$success_since" --no-pager | grep -q 'config is valid'; then
 	systemctl status dns-update.service --no-pager || true
+	journalctl -u dns-update.service --no-pager || true
+	exit 1
+fi
+
+last_trigger_after=$(systemctl show dns-update.timer -p LastTriggerUSecMonotonic --value)
+if [ -z "$last_trigger_after" ] || [ "$last_trigger_after" = "$last_trigger_before" ]; then
+	systemctl status dns-update.timer --no-pager || true
+	systemctl list-timers dns-update.timer --all --no-pager || true
 	journalctl -u dns-update.service --no-pager || true
 	exit 1
 fi

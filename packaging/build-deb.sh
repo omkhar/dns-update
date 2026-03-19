@@ -178,14 +178,16 @@ run_native_tests "$repo_root"
 
 parent_dir=$(CDPATH='' cd -- "$repo_root/.." && pwd)
 
-for target in $targets; do
-	deb_arch=$(deb_arch_for_target "$target")
-	target_dir=$output_root/$target
-	prepare_clean_dir "$target_dir"
-	if command -v dpkg-buildpackage >/dev/null 2>&1 && command -v dh >/dev/null 2>&1; then
-		build_with_debhelper "$target" "$deb_arch" "$target_dir" "$parent_dir"
-		continue
-	fi
+	for target in $targets; do
+		deb_arch=$(deb_arch_for_target "$target")
+		target_dir=$output_root/$target
+		prepare_clean_dir "$target_dir"
+		if [ "${PACKAGING_FORCE_DIRECT_DEB:-}" != 1 ] && \
+			command -v dpkg-buildpackage >/dev/null 2>&1 && \
+			command -v dh >/dev/null 2>&1; then
+			build_with_debhelper "$target" "$deb_arch" "$target_dir" "$parent_dir"
+			continue
+		fi
 
 	build_without_debhelper "$target" "$deb_arch" "$target_dir"
 done

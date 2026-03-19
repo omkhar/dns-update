@@ -1,0 +1,58 @@
+---
+name: Package Validation
+
+'on':
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: Build packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          cache: false
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Install packaging tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            rpm \
+            upx-ucl
+
+      - name: Build Debian packages
+        run: |
+          PACKAGING_FORCE_DIRECT_DEB=1 \
+          PACKAGING_SKIP_SIGN=1 \
+          PACKAGING_SKIP_NATIVE_TESTS=1 \
+            ./packaging/build-deb.sh
+
+      - name: Build RPM packages
+        run: |
+          PACKAGING_LINUX_MACROS=1 \
+          PACKAGING_SKIP_BUILDDEPS=1 \
+          PACKAGING_SKIP_SIGN=1 \
+          PACKAGING_SKIP_NATIVE_TESTS=1 \
+            ./packaging/build-rpm.sh

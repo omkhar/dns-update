@@ -52,6 +52,14 @@ Artifacts are written under:
 both package builders with `PACKAGING_SKIP_NATIVE_TESTS=1` so the package loops
 do not rerun the same native tests.
 
+GitHub Actions runs package creation in two places:
+
+- `Package Validation` builds `.deb` and `.rpm` artifacts on pull requests and
+  `main` pushes without publishing or signing them.
+- The tag-driven `Release` workflow rebuilds the same package formats on the
+  GitHub-hosted runner, signs those package files with Sigstore, and publishes
+  the package files plus their `*.sigstore.json` bundles as release assets.
+
 ## Debian build
 
 Requirements:
@@ -83,6 +91,9 @@ When `dh` is unavailable on the build host, the wrapper falls back to direct
 `dpkg-deb` assembly and still produces the `.deb` artifact with the same
 installed payload. The native Debian path additionally emits `.buildinfo` and
 `.changes` files.
+
+Set `PACKAGING_FORCE_DIRECT_DEB=1` to force the direct `dpkg-deb` path even
+when `dh` is installed.
 
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus
@@ -139,7 +150,8 @@ PACKAGING_LINUX_MACROS=1 ./packaging/build-rpm.sh
 GitHub Actions also runs `packaging/test-systemd-timer.sh` across Debian
 stable/sid, Ubuntu stable/latest, and Fedora stable/rawhide to validate the
 installed timer/service flow on each distro family, including the regression
-where the first activation is skipped before later timer runs are due.
+where the first activation is skipped before later timer runs are due and a
+later timer-fired activation must succeed automatically.
 
 For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
 supports amd64 and arm64 hosts.
