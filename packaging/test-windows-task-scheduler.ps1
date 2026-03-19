@@ -7,8 +7,12 @@ $binaryPath = Join-Path $tempRoot "dns-update.exe"
 $configPath = Join-Path $tempRoot "config.json"
 $tokenPath = Join-Path $tempRoot "cloudflare.token"
 $logPath = Join-Path $tempRoot "dns-update.log"
+$deployRoot = Join-Path $tempRoot "deploy\windows"
+$registerScriptPath = Join-Path $deployRoot "register-scheduled-task.ps1"
+$invokeScriptPath = Join-Path $deployRoot "invoke-dns-update.ps1"
 
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $deployRoot -Force | Out-Null
 
 Import-Module ScheduledTasks -ErrorAction Stop | Out-Null
 
@@ -23,6 +27,7 @@ function Cleanup {
 function ShowTaskState {
     try {
         Get-ScheduledTask -TaskName $taskName | Format-List *
+        Get-ScheduledTask -TaskName $taskName | Select-Object -ExpandProperty Actions | Format-List *
         Get-ScheduledTaskInfo -TaskName $taskName | Format-List *
     } catch {
     }
@@ -34,6 +39,8 @@ trap {
 }
 
 go build -o $binaryPath (Join-Path $repoRoot "cmd/dns-update")
+Copy-Item (Join-Path $repoRoot "deploy/windows/register-scheduled-task.ps1") $registerScriptPath -Force
+Copy-Item (Join-Path $repoRoot "deploy/windows/invoke-dns-update.ps1") $invokeScriptPath -Force
 
 $configJson = @"
 {
@@ -55,7 +62,7 @@ $configJson = @"
 Set-Content -LiteralPath $configPath -Value $configJson -Encoding utf8
 Set-Content -LiteralPath $tokenPath -Value "dummy-token`n" -Encoding utf8
 
-& (Join-Path $repoRoot "deploy/windows/register-scheduled-task.ps1") `
+& $registerScriptPath `
     -TaskName $taskName `
     -BinaryPath $binaryPath `
     -ConfigPath $configPath `
