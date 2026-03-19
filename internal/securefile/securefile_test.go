@@ -80,6 +80,24 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestValidateAcceptsSystemdCredentialPermissionMask(t *testing.T) {
+	rootDir := filepath.Join(t.TempDir(), "run", "credentials")
+	credDir := filepath.Join(rootDir, "test.service")
+	if err := os.MkdirAll(credDir, 0o700); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+
+	secretPath := filepath.Join(credDir, "cloudflare.token")
+	if err := os.WriteFile(secretPath, []byte("secret"), 0o440); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	t.Setenv("CREDENTIALS_DIRECTORY", credDir)
+	if err := Validate(secretPath); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+}
+
 func TestReadSingleToken(t *testing.T) {
 	t.Parallel()
 
@@ -94,6 +112,29 @@ func TestReadSingleToken(t *testing.T) {
 		t.Fatalf("ReadSingleToken() error = %v", err)
 	}
 	if got, want := token, "secret-token"; got != want {
+		t.Fatalf("ReadSingleToken() = %q, want %q", got, want)
+	}
+}
+
+func TestReadSingleTokenAcceptsSystemdCredentialPermissionMask(t *testing.T) {
+	rootDir := filepath.Join(t.TempDir(), "run", "credentials")
+	credDir := filepath.Join(rootDir, "test.service")
+	if err := os.MkdirAll(credDir, 0o700); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+
+	secretPath := filepath.Join(credDir, "cloudflare.token")
+	if err := os.WriteFile(secretPath, []byte("secret\n"), 0o440); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	t.Setenv("CREDENTIALS_DIRECTORY", credDir)
+
+	token, err := ReadSingleToken(secretPath)
+	if err != nil {
+		t.Fatalf("ReadSingleToken() error = %v", err)
+	}
+	if got, want := token, "secret"; got != want {
 		t.Fatalf("ReadSingleToken() = %q, want %q", got, want)
 	}
 }
@@ -194,9 +235,11 @@ func TestReadSingleTokenErrors(t *testing.T) {
 func TestReadSingleTokenInternalErrors(t *testing.T) {
 	originalStatFile := statFile
 	originalReadTokenBytes := readTokenBytes
+	originalLookupEnv := lookupEnv
 	t.Cleanup(func() {
 		statFile = originalStatFile
 		readTokenBytes = originalReadTokenBytes
+		lookupEnv = originalLookupEnv
 	})
 
 	dir := t.TempDir()
@@ -244,5 +287,69 @@ func TestValidateParentDirectory(t *testing.T) {
 	}
 	if err := validateParentDirectory(filepath.Join(parentFile, "secret")); err == nil {
 		t.Fatal("validateParentDirectory() error = nil, want non-directory parent error")
+	}
+}
+
+func TestIsSystemdCredentialPath(t *testing.T) {
+	originalLookupEnv := lookupEnv
+	t.Cleanup(func() {
+		lookupEnv = originalLookupEnv
+	})
+
+	lookupEnv = func(key string) (string, bool) {
+		if key != "CREDENTIALS_DIRECTORY" {
+			return "", false
+		}
+		return "/run/credentials/test.service", true
+	}
+
+	if !isSystemdCredentialPath("/run/credentials/test.service/cloudflare.token") {
+		t.Fatal("isSystemdCredentialPath() = false, want true for child path")
+	}
+	if isSystemdCredentialPath("/run/credentials/test.service") {
+		t.Fatal("isSystemdCredentialPath() = true, want false for directory root")
+	}
+	if isSystemdCredentialPath("/run/credentials/other.service/cloudflare.token") {
+		t.Fatal("isSystemdCredentialPath() = true, want false for sibling path")
+	}
+	if isSystemdCredentialPath("/run/credentials/test.service/../other.service/cloudflare.token") {
+		t.Fatal("isSystemdCredentialPath() = true, want false for escaped path")
+	}
+
+	lookupEnv = func(key string) (string, bool) {
+		return "", false
+	}
+	if isSystemdCredentialPath("/run/credentials/test.service/cloudflare.token") {
+		t.Fatal("isSystemdCredentialPath() = true, want false when CREDENTIALS_DIRECTORY is unset")
+	}
+
+	lookupEnv = func(key string) (string, bool) {
+		if key != "CREDENTIALS_DIRECTORY" {
+			return "", false
+		}
+		return "   ", true
+	}
+	if isSystemdCredentialPath("/run/credentials/test.service/cloudflare.token") {
+		t.Fatal("isSystemdCredentialPath() = true, want false when CREDENTIALS_DIRECTORY is blank")
+	}
+
+	lookupEnv = func(key string) (string, bool) {
+		if key != "CREDENTIALS_DIRECTORY" {
+			return "", false
+		}
+		return "/tmp/test.service", true
+	}
+	if isSystemdCredentialPath("/tmp/test.service/cloudflare.token") {
+		t.Fatal("isSystemdCredentialPath() = true, want false outside /run/credentials")
+	}
+
+	lookupEnv = func(key string) (string, bool) {
+		if key != "CREDENTIALS_DIRECTORY" {
+			return "", false
+		}
+		return "run/credentials/test.service", true
+	}
+	if isSystemdCredentialPath("/run/credentials/test.service/cloudflare.token") {
+		t.Fatal("isSystemdCredentialPath() = true, want false for relative/absolute mismatch")
 	}
 }

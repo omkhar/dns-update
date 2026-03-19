@@ -1,0 +1,70 @@
+---
+name: Systemd Integration
+
+'on':
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  systemd:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Debian Stable
+            label: debian-stable
+            image: debian:trixie-slim
+            family: debian
+          - name: Debian Sid
+            label: debian-sid
+            image: debian:sid-slim
+            family: debian
+          - name: Ubuntu Stable
+            label: ubuntu-stable
+            image: ubuntu:24.04
+            family: ubuntu
+          - name: Ubuntu Latest
+            label: ubuntu-latest
+            image: ubuntu:25.10
+            family: ubuntu
+          - name: Fedora Stable
+            label: fedora-stable
+            image: quay.io/fedora/fedora:43
+            family: fedora
+          - name: Fedora Rawhide
+            label: fedora-rawhide
+            image: quay.io/fedora/fedora:rawhide
+            family: fedora
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Run systemd timer integration test
+        run: |
+          chmod +x packaging/test-systemd-timer.sh
+          ./packaging/test-systemd-timer.sh \
+            --label "${{ matrix.label }}" \
+            --image "${{ matrix.image }}" \
+            --family "${{ matrix.family }}"
