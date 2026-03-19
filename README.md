@@ -117,9 +117,13 @@ Behavior notes:
   reviewed packages over broad frameworks.
 - No inline secrets in config; store the Cloudflare API token in a separate
   file.
-- Restrict the token file permissions (for example `chmod 600`).
-- Keep the token file in a non-writable directory; the app rejects token paths
-  whose parent directory is writable by group or other users.
+- On Unix-like systems, restrict the token file permissions (for example
+  `chmod 600`).
+- On Unix-like systems, keep the token file in a non-writable directory; the
+  app rejects token paths whose parent directory is writable by group or other
+  users.
+- Windows deployments rely on NTFS ACLs instead of Unix owner/group/other mode
+  bits for token-file directory privacy.
 - The token file itself must not be a symlink, its direct parent directory must
   not be a symlink, and on Unix-like systems the token file is opened without
   following symlinks, then revalidated at read time.

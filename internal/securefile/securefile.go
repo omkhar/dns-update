@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -19,6 +20,9 @@ var (
 		return io.ReadAll(io.LimitReader(file, maxTokenBytes+1))
 	}
 	lookupEnv = os.LookupEnv
+	usesUnixPermissionBits = func() bool {
+		return runtime.GOOS != "windows"
+	}
 )
 
 // Validate ensures path points to a non-symlink regular file with private permissions.
@@ -98,13 +102,17 @@ func validateParentDirectory(path string) error {
 	if !info.IsDir() {
 		return errors.New("parent path must be a directory")
 	}
-	if info.Mode().Perm()&0o022 != 0 {
+	if usesUnixPermissionBits() && info.Mode().Perm()&0o022 != 0 {
 		return errors.New("parent directory must not be writable by group or other users")
 	}
 	return nil
 }
 
 func hasSecurePermissions(path string, perm os.FileMode) bool {
+	if !usesUnixPermissionBits() {
+		return true
+	}
+
 	if perm&0o077 == 0 {
 		return true
 	}

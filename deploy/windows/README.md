@@ -2,6 +2,10 @@
 
 Use Task Scheduler for native scheduled execution on Windows.
 
+Windows deployments rely on normal NTFS ACLs for token-file privacy. The
+Unix-style `chmod 600` and parent-directory mode-bit checks documented for
+systemd deployments do not apply on this platform.
+
 The helper scripts in this directory:
 
 - register a recurring scheduled task that runs as `SYSTEM`

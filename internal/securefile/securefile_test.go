@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -44,7 +45,9 @@ func TestValidate(t *testing.T) {
 	if err := os.WriteFile(insecure, []byte("secret"), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if err := Validate(insecure); err == nil {
+	if err := Validate(insecure); runtime.GOOS == "windows" && err != nil {
+		t.Fatalf("Validate() error = %v, want Windows permission-bit bypass", err)
+	} else if runtime.GOOS != "windows" && err == nil {
 		t.Fatal("Validate() error = nil, want permission error")
 	}
 
@@ -59,7 +62,9 @@ func TestValidate(t *testing.T) {
 	if err := os.WriteFile(writablePath, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if err := Validate(writablePath); err == nil {
+	if err := Validate(writablePath); runtime.GOOS == "windows" && err != nil {
+		t.Fatalf("Validate() error = %v, want Windows permission-bit bypass", err)
+	} else if runtime.GOOS != "windows" && err == nil {
 		t.Fatal("Validate() error = nil, want parent-directory permission error")
 	}
 
@@ -139,6 +144,39 @@ func TestReadSingleTokenAcceptsSystemdCredentialPermissionMask(t *testing.T) {
 	}
 }
 
+func TestValidateAndReadSingleTokenAllowWindowsPermissionBits(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+	})
+	usesUnixPermissionBits = func() bool { return false }
+
+	writableDir := filepath.Join(t.TempDir(), "writable")
+	if err := os.Mkdir(writableDir, 0o733); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+	if err := os.Chmod(writableDir, 0o733); err != nil {
+		t.Fatalf("Chmod() error = %v", err)
+	}
+
+	tokenPath := filepath.Join(writableDir, "cloudflare.token")
+	if err := os.WriteFile(tokenPath, []byte("secret\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := Validate(tokenPath); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+
+	token, err := ReadSingleToken(tokenPath)
+	if err != nil {
+		t.Fatalf("ReadSingleToken() error = %v", err)
+	}
+	if got, want := token, "secret"; got != want {
+		t.Fatalf("ReadSingleToken() = %q, want %q", got, want)
+	}
+}
+
 func TestReadSingleTokenErrors(t *testing.T) {
 	t.Parallel()
 
@@ -168,7 +206,9 @@ func TestReadSingleTokenErrors(t *testing.T) {
 	if err := os.WriteFile(insecure, []byte("secret"), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if _, err := ReadSingleToken(insecure); err == nil {
+	if _, err := ReadSingleToken(insecure); runtime.GOOS == "windows" && err != nil {
+		t.Fatalf("ReadSingleToken() error = %v, want Windows permission-bit bypass", err)
+	} else if runtime.GOOS != "windows" && err == nil {
 		t.Fatal("ReadSingleToken() error = nil, want permission error")
 	}
 
@@ -211,7 +251,9 @@ func TestReadSingleTokenErrors(t *testing.T) {
 	if err := os.WriteFile(writablePath, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if _, err := ReadSingleToken(writablePath); err == nil {
+	if _, err := ReadSingleToken(writablePath); runtime.GOOS == "windows" && err != nil {
+		t.Fatalf("ReadSingleToken() error = %v, want Windows permission-bit bypass", err)
+	} else if runtime.GOOS != "windows" && err == nil {
 		t.Fatal("ReadSingleToken() error = nil, want parent-directory permission error")
 	}
 
