@@ -211,8 +211,9 @@ Example hardened systemd units live in `deploy/systemd/`.
   `DynamicUser`, no ambient capabilities, a read-only filesystem view, and a
   private systemd credential for the Cloudflare token.
 - `deploy/systemd/dns-update.timer` starts the service immediately at boot or
-  enable time, reruns it every five minutes, and with `Persistent=yes` catches
-  up a missed run after downtime.
+  enable time, reruns it on five-minute clock boundaries, keeps future runs
+  queued even if an early service start is skipped, and with `Persistent=yes`
+  catches up one missed run after downtime.
 - `deploy/systemd/dns-update.env` shows how to override runtime options
   such as `DNS_UPDATE_TIMEOUT` without editing the unit.
 

@@ -132,9 +132,6 @@ set -eu
 
 fixtures_dir=/fixtures
 
-install -D -m 0755 "$fixtures_dir/dns-update" /usr/bin/dns-update
-install -D -m 0644 "$fixtures_dir/config.json" /etc/dns-update/config.json
-install -D -m 0600 "$fixtures_dir/cloudflare.token" /etc/dns-update/cloudflare.token
 install -D -m 0644 "$fixtures_dir/dns-update.env" /etc/dns-update/dns-update.env
 install -D -m 0644 "$fixtures_dir/dns-update.service" /etc/systemd/system/dns-update.service
 install -D -m 0644 "$fixtures_dir/dns-update.timer" /etc/systemd/system/dns-update.timer
@@ -146,17 +143,44 @@ systemctl start dns-update.timer
 
 i=0
 while [ "$i" -lt 30 ]; do
-	if journalctl -u dns-update.service --no-pager 2>/dev/null | grep -q 'config is valid'; then
+	if journalctl -u dns-update.service --no-pager 2>/dev/null | grep -q 'unmet condition check'; then
 		break
 	fi
 	i=$((i + 1))
 	sleep 1
 done
 
+if ! journalctl -u dns-update.service --no-pager | grep -q 'unmet condition check'; then
+	systemctl status dns-update.service --no-pager || true
+	journalctl -u dns-update.service --no-pager || true
+	exit 1
+fi
+
 if ! systemctl is-active --quiet dns-update.timer; then
 	systemctl status dns-update.timer --no-pager || true
 	exit 1
 fi
+
+next_elapse=$(systemctl show dns-update.timer -p NextElapseUSecRealtime --value)
+if [ -z "$next_elapse" ] || [ "$next_elapse" = "n/a" ] || [ "$next_elapse" = "0" ]; then
+	systemctl status dns-update.timer --no-pager || true
+	systemctl list-timers dns-update.timer --all --no-pager || true
+	exit 1
+fi
+
+install -D -m 0755 "$fixtures_dir/dns-update" /usr/bin/dns-update
+install -D -m 0644 "$fixtures_dir/config.json" /etc/dns-update/config.json
+install -D -m 0600 "$fixtures_dir/cloudflare.token" /etc/dns-update/cloudflare.token
+
+i=0
+while [ "$i" -lt 30 ]; do
+	systemctl start dns-update.service || true
+	if journalctl -u dns-update.service --no-pager 2>/dev/null | grep -q 'config is valid'; then
+		break
+	fi
+	i=$((i + 1))
+	sleep 1
+done
 
 if ! journalctl -u dns-update.service --no-pager | grep -q 'config is valid'; then
 	systemctl status dns-update.service --no-pager || true

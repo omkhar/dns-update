@@ -4,7 +4,7 @@ Description=Run dns-update periodically
 [Timer]
 Unit=dns-update.service
 OnBootSec=0
-OnUnitActiveSec=5m
+OnCalendar=*:00/5
 AccuracySec=1s
 Persistent=yes
 
