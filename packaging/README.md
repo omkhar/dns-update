@@ -24,6 +24,11 @@ and `/etc/dns-update/cloudflare.token.example` to
 systemd service does not read the sample files directly, and placeholders such
 as `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_TOKEN` must be replaced.
 
+At runtime the packaged service uses `LoadCredential=` to copy
+`/etc/dns-update/cloudflare.token` into a private systemd credential directory.
+That runtime file is systemd-managed and may appear with a read-only mode such
+as `0400` or `0440`.
+
 Default package targets:
 
 - `amd64`
@@ -103,6 +108,10 @@ Build one target explicitly:
 
 The RPM wrapper runs `go test ./...` once natively, then cross-builds each
 package with `rpmbuild --without check`.
+
+GitHub Actions also runs `packaging/test-systemd-timer.sh` across Debian
+stable/sid, Ubuntu stable/latest, and Fedora stable/rawhide to validate the
+installed timer/service flow on each distro family.
 
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus
