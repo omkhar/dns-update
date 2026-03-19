@@ -520,7 +520,6 @@ func TestBatchHelpers(t *testing.T) {
 	}
 }
 
-
 func TestErrorFormattingAndNormalization(t *testing.T) {
 	t.Parallel()
 

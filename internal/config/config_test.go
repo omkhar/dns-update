@@ -599,7 +599,6 @@ func TestValidateTrustedHostFallbackError(t *testing.T) {
 	}
 }
 
-
 func TestValidateCloudflareTTL(t *testing.T) {
 	t.Parallel()
 
