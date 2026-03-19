@@ -93,6 +93,9 @@ The service still needs outbound network access for DNS resolution, the probe
 URLs, and the Cloudflare API. It intentionally does not get write access to the
 host filesystem.
 
+Published packages also avoid self-unpacking binary compression so the shipped
+`/usr/bin/dns-update` remains compatible with `MemoryDenyWriteExecute=yes`.
+
 Depending on the distro/systemd combination, the runtime credential presented in
 `$CREDENTIALS_DIRECTORY` may show up as `0400` or `0440`. That is still treated
 as a private systemd-managed credential by `dns-update`.

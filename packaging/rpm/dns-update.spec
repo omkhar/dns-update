@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.0.2
+%global upstream_version 1.0.3
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -50,7 +50,6 @@ case "%{_target_cpu}" in
 esac
 mkdir -p build/bin
 go build -ldflags "$GO_LDFLAGS" -o build/bin/dns-update ./cmd/dns-update
-upx --best build/bin/dns-update
 
 %if %{with check}
 %check
@@ -103,6 +102,10 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.3-1
+- Stop UPX-packing packaged binaries so the hardened systemd service remains compatible with MemoryDenyWriteExecute=yes
+- Extend the multi-distro systemd integration test to install and exercise the actual built .deb and .rpm packages
+
 * Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.2-1
 - Fix the packaged systemd timer so future runs stay scheduled after an initial condition-check skip
 - Extend the multi-distro systemd timer integration test to cover that skipped-first-activation regression

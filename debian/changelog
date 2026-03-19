@@ -1,3 +1,13 @@
+dns-update (1.0.3-1) unstable; urgency=medium
+
+  * Stop UPX-packing packaged binaries so the hardened systemd service remains
+    compatible with MemoryDenyWriteExecute=yes on Debian 12 and similar
+    systems.
+  * Extend the multi-distro systemd integration test to install and exercise
+    the actual built .deb and .rpm packages.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Thu, 19 Mar 2026 10:01:16 -0400
+
 dns-update (1.0.2-1) unstable; urgency=medium
 
   * Fix the packaged systemd timer so future runs stay scheduled after an

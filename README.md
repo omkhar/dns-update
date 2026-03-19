@@ -251,6 +251,10 @@ Package builds install:
 - `/etc/dns-update/cloudflare.token.example` as a shipped placeholder token file
 - distro-standard systemd units for `dns-update.service` and `dns-update.timer`
 
+Packaged binaries are intentionally shipped without self-unpacking compression
+so they remain compatible with the hardened systemd unit, including
+`MemoryDenyWriteExecute=yes`.
+
 Build helpers:
 
 ```sh
