@@ -10,12 +10,22 @@ $logPath = Join-Path $tempRoot "dns-update.log"
 
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 
+Import-Module ScheduledTasks -ErrorAction Stop | Out-Null
+
 function Cleanup {
     try {
-        & schtasks.exe /Delete /TN $taskName /F | Out-Null
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Stop | Out-Null
     } catch {
     }
     Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+function ShowTaskState {
+    try {
+        Get-ScheduledTask -TaskName $taskName | Format-List *
+        Get-ScheduledTaskInfo -TaskName $taskName | Format-List *
+    } catch {
+    }
 }
 
 trap {
@@ -67,13 +77,13 @@ while ((Get-Date) -lt $deadline) {
 }
 
 if (-not (Test-Path -LiteralPath $logPath)) {
-    & schtasks.exe /Query /TN $taskName /V /FO LIST
+    ShowTaskState
     throw "scheduled task did not produce a log file"
 }
 
 $logContent = Get-Content -LiteralPath $logPath -Raw
 if ($logContent -notmatch "config is valid") {
-    & schtasks.exe /Query /TN $taskName /V /FO LIST
+    ShowTaskState
     Write-Host $logContent
     throw "scheduled task did not validate the config successfully"
 }
