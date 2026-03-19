@@ -194,6 +194,9 @@ The token is mounted into the service with `LoadCredential=` and exposed to the
 binary through
 `DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=%d/cloudflare.token`, so the
 credential never needs to be stored in the JSON config path used by the unit.
+On some systems the runtime credential file may appear with a read-only mode
+such as `0400` or `0440`; that is expected for systemd-managed credentials and
+does not require any manual chmod under `/run/credentials/`.
 
 See `deploy/systemd/README.md` for installation steps.
 
@@ -259,6 +262,16 @@ repository-level quality gates:
 The mutation and coverage skip environment variables are only for the nested
 subprocesses launched by those tests and normally should remain unset during
 regular use.
+
+GitHub Actions additionally runs the dedicated `Systemd Integration` workflow
+to validate the installed timer/service flow on:
+
+- Debian Stable
+- Debian Sid
+- Ubuntu Stable
+- Ubuntu Latest
+- Fedora Stable
+- Fedora Rawhide
 
 ## Package Docs
 

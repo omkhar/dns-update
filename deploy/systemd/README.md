@@ -33,6 +33,10 @@ timer.
    install -o root -g root -m 0600 /etc/dns-update/cloudflare.token.example /etc/dns-update/cloudflare.token
    ```
 
+   Keep the source token at `0600`. Do not manually create or chmod files under
+   `/run/credentials/`; `LoadCredential=` materializes that runtime file for the
+   service on each start.
+
 3. Install the unit files:
 
    ```sh
@@ -75,3 +79,7 @@ The service uses:
 The service still needs outbound network access for DNS resolution, the probe
 URLs, and the Cloudflare API. It intentionally does not get write access to the
 host filesystem.
+
+Depending on the distro/systemd combination, the runtime credential presented in
+`$CREDENTIALS_DIRECTORY` may show up as `0400` or `0440`. That is still treated
+as a private systemd-managed credential by `dns-update`.
