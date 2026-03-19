@@ -1,0 +1,22 @@
+Source: dns-update
+Section: net
+Priority: optional
+Maintainer: dns-update Maintainers <opensource@dns-update.invalid>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ golang-any:native
+Standards-Version: 4.7.2
+
+Package: dns-update
+Architecture: any
+Depends:
+ ${misc:Depends},
+ systemd
+Description: Keep DNS A and AAAA records aligned with egress IP addresses
+ dns-update probes the host's current egress IPv4 and IPv6 addresses and keeps
+ one DNS hostname's A and AAAA records aligned with that state.
+ .
+ The package installs a hardened systemd service, a timer, a commented
+ environment override file plus sample config and token placeholder files under
+ /etc/dns-update.

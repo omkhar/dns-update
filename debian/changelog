@@ -1,0 +1,5 @@
+dns-update (1.0-1) unstable; urgency=medium
+
+  * Initial public release.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Wed, 18 Mar 2026 12:00:00 -0400

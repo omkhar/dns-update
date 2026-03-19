@@ -1,0 +1,45 @@
+.TH DNS-UPDATE 1 "March 2026" "dns-update" "User Commands"
+.SH NAME
+dns-update \- keep DNS A and AAAA records aligned with egress IP addresses
+.SH SYNOPSIS
+.B dns-update
+[\fB\-\-config\fR \fIPATH\fR]
+[\fB\-\-dry-run\fR]
+[\fB\-\-timeout\fR \fIDURATION\fR]
+[\fB\-\-verbose\fR]
+.SH DESCRIPTION
+.B dns-update
+probes the current IPv4 and IPv6 egress addresses of the local host and updates
+the configured DNS A and AAAA records when the observed addresses differ from
+the current provider state.
+.P
+The program is intended for timer-driven operation, including systemd timer
+deployments. It supports dry-run execution, bounded retries, and provider
+reconciliation against the live DNS record state before applying changes.
+.SH OPTIONS
+.TP
+.B \-\-config
+Load configuration from the specified JSON file.
+.TP
+.B \-\-dry-run
+Print the changes that would be made without mutating DNS records.
+.TP
+.B \-\-timeout
+Apply a global execution timeout to the entire reconciliation run.
+.TP
+.B \-\-verbose
+Enable verbose logging, including no-op status output.
+.SH FILES
+.TP
+.I /etc/dns-update/dns-update.env
+Optional environment overrides for packaged systemd deployments.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B non-zero
+The run failed and no successful reconciliation was completed.
+.SH SEE ALSO
+.BR systemd (1),
+.BR systemd.timer (5)

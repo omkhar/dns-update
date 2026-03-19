@@ -1,0 +1,3 @@
+dns-update: initial-upload-closes-no-bugs
+dns-update: statically-linked-binary
+dns-update: unstripped-binary-or-object

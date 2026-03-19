@@ -1,0 +1,12 @@
+[Unit]
+Description=Run dns-update periodically
+
+[Timer]
+Unit=dns-update.service
+OnBootSec=0
+OnUnitActiveSec=5m
+AccuracySec=1s
+Persistent=yes
+
+[Install]
+WantedBy=timers.target

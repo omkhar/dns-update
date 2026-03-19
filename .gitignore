@@ -1,0 +1,17 @@
+/.claude/
+/.DS_Store
+/dns-update
+/*.test
+/coverage.out
+/coverage.*
+/dist/
+/out/
+/debian/.debhelper/
+/debian/.build/
+/debian/debhelper-build-stamp
+/debian/dns-update/
+/debian/files
+/debian/substvars
+/debian/*.debhelper.log
+/debian/*.postrm.debhelper
+/debian/*.substvars

@@ -1,0 +1,60 @@
+---
+name: CI
+
+'on':
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: Check packaging shell syntax
+        run: sh -n packaging/*.sh
+
+      - name: Test
+        run: go test ./...
+
+      - name: Race test
+        env:
+          DNS_UPDATE_SKIP_COVERAGE_TEST: "1"
+          DNS_UPDATE_SKIP_MUTATION_TEST: "1"
+        run: go test -race ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...

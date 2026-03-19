@@ -1,0 +1,5 @@
+deploy/systemd/dns-update.service usr/lib/systemd/system/
+deploy/systemd/dns-update.timer usr/lib/systemd/system/
+deploy/systemd/dns-update.env etc/dns-update/
+config.example.json etc/dns-update/
+cloudflare.token.example etc/dns-update/

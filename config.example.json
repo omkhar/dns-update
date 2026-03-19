@@ -1,0 +1,23 @@
+{
+  "record": {
+    "name": "host.example.com.",
+    "zone": "example.com.",
+    "ttl_seconds": 300
+  },
+  "probe": {
+    "ipv4_url": "https://4.ip.omsab.net/",
+    "ipv6_url": "https://6.ip.omsab.net/",
+    "timeout": "10s",
+    "allow_insecure_http": false
+  },
+  "provider": {
+    "type": "cloudflare",
+    "timeout": "10s",
+    "cloudflare": {
+      "zone_id": "CLOUDFLARE_ZONE_ID",
+      "api_token_file": "/etc/dns-update/cloudflare.token.example",
+      "base_url": "https://api.cloudflare.com/client/v4/",
+      "proxied": false
+    }
+  }
+}

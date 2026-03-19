@@ -1,0 +1,32 @@
+---
+name: Feature request
+description: Suggest a focused improvement to dns-update.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: >-
+        What operator or contributor problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful change.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you consider?
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks or compatibility concerns
+      description: Mention any operational, security, or migration concerns.

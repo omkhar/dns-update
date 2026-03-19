@@ -1,0 +1,123 @@
+---
+name: Release
+
+'on':
+  push:
+    tags:
+      - 'v*'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build and publish release assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Verify tag matches packaged version
+        shell: bash
+        run: |
+          . ./packaging/lib.sh
+          version="$(package_version "$PWD")"
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [[ "$tag_version" != "$version" ]]; then
+            echo "tag version $tag_version does not match packaged version $version" >&2
+            exit 1
+          fi
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
+
+      - name: Check packaging shell syntax
+        run: sh -n packaging/*.sh
+
+      - name: Test
+        run: go test ./...
+
+      - name: Race test
+        env:
+          DNS_UPDATE_SKIP_COVERAGE_TEST: "1"
+          DNS_UPDATE_SKIP_MUTATION_TEST: "1"
+        run: go test -race ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build Linux release archives
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          out_dir="$PWD/out/release"
+          tmp_dir="$PWD/out/release-tmp"
+          mkdir -p "$out_dir" "$tmp_dir"
+
+          while read -r goos goarch goarm suffix; do
+            [[ -n "$goos" ]] || continue
+
+            stage_dir="$tmp_dir/dns-update_${version}_${suffix}"
+            binary_path="$stage_dir/dns-update"
+
+            rm -rf "$stage_dir"
+            mkdir -p "$stage_dir"
+
+            env_args=("CGO_ENABLED=0" "GOOS=$goos" "GOARCH=$goarch")
+            if [[ "$goarm" != "-" ]]; then
+              env_args+=("GOARM=$goarm")
+            fi
+
+            env "${env_args[@]}" go build \
+              -trimpath \
+              -buildvcs=false \
+              -ldflags "-s -w -buildid=" \
+              -o "$binary_path" \
+              ./cmd/dns-update
+
+            cp README.md CHANGELOG.md LICENSE "$stage_dir/"
+
+            tar -C "$tmp_dir" \
+              -czf "$out_dir/dns-update_${version}_${suffix}.tar.gz" \
+              "dns-update_${version}_${suffix}"
+          done <<'EOF'
+          linux amd64 - linux_amd64
+          linux arm64 - linux_arm64
+          linux arm 7 linux_armv7
+          EOF
+
+          (
+            cd "$out_dir"
+            sha256sum *.tar.gz > checksums.txt
+          )
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" \
+              --title "dns-update ${GITHUB_REF_NAME}" \
+              --generate-notes \
+              --latest
+          gh release upload "$GITHUB_REF_NAME" out/release/* --clobber

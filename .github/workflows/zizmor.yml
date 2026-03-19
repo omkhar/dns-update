@@ -1,0 +1,44 @@
+---
+name: zizmor
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/**
+      - .github/dependabot.yml
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - .github/dependabot.yml
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@e639db99335bc9038abc0e066dfcd72e23d26fb4
+        with:
+          inputs: |
+            .github/workflows
+            .github/dependabot.yml

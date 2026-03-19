@@ -1,0 +1,3 @@
+/etc/dns-update/dns-update.env
+/etc/dns-update/config.example.json
+/etc/dns-update/cloudflare.token.example
