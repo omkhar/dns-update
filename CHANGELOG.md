@@ -7,9 +7,12 @@ All notable public releases of `dns-update` are documented in this file.
 - Switches the packaged systemd timer to `OnCalendar=*:00/5` so future runs stay
   scheduled even if the first activation is skipped by unmet unit conditions.
 - Extends the systemd integration test to verify the timer keeps a queued future
-  run after an initial condition-check skip.
+  run after an initial condition-check skip and later succeeds from a real
+  timer-fired activation.
 - Publishes signed `.deb` and `.rpm` release assets from the GitHub-hosted
   release builder in addition to the signed Linux tarballs.
+- Adds a separate package-validation workflow so package creation is exercised
+  before release publishing.
 
 ## 1.0.1 - 2026-03-19
 
