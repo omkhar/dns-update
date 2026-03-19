@@ -31,6 +31,16 @@ jobs:
           go-version-file: go.mod
           check-latest: true
 
+      - name: Install YAML lint
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/yamllint-venv"
+          "$RUNNER_TEMP/yamllint-venv/bin/pip" install --disable-pip-version-check yamllint==1.37.1
+          echo "$RUNNER_TEMP/yamllint-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Lint YAML
+        run: yamllint .github .yamllint.yml
+
       - name: Verify tag matches packaged version
         shell: bash
         run: |
@@ -53,8 +63,17 @@ jobs:
       - name: Check packaging shell syntax
         run: sh -n packaging/*.sh
 
-      - name: Test
-        run: go test ./...
+      - name: Unit and integration tests
+        shell: bash
+        run: |
+          mapfile -t packages < <(go list ./... | grep -v '^dns-update/internal/quality$')
+          go test -count=1 "${packages[@]}"
+
+      - name: Coverage gate
+        run: go test -count=1 -run '^TestCoverageThreshold$' ./internal/quality
+
+      - name: Mutation gate
+        run: go test -count=1 -run '^TestMutationSuite$' ./internal/quality
 
       - name: Race test
         env:
@@ -62,7 +81,7 @@ jobs:
           DNS_UPDATE_SKIP_MUTATION_TEST: "1"
         run: go test -race ./...
 
-      - name: Vet
+      - name: Lint Go
         run: go vet ./...
 
       - name: Build Linux release archives
