@@ -125,7 +125,7 @@ debian | ubuntu)
 	;;
 fedora)
 	package_ext=rpm
-	package_install_cmd='rpm -Uvh --replacepkgs /fixtures/dns-update-package.rpm'
+	package_install_cmd='rpm -Uvh --replacepkgs --nosignature /fixtures/dns-update-package.rpm'
 	;;
 esac
 
