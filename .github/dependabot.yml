@@ -1,7 +1,7 @@
 ---
 version: 2
 updates:
-  - package-ecosystem: gomod
+  - package-ecosystem: gomod  # zizmor: ignore[dependabot-cooldown] no cooldown on main
     directory: /
     target-branch: main
     schedule:
@@ -19,7 +19,7 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 5
-  - package-ecosystem: github-actions
+  - package-ecosystem: github-actions  # zizmor: ignore[dependabot-cooldown] no cooldown on main
     directory: /
     target-branch: main
     schedule:

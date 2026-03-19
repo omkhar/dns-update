@@ -86,6 +86,139 @@ func TestLoadRejectsGroupReadableTokenFile(t *testing.T) {
 	}
 }
 
+func TestLoadWithOptionsUsesWorkingDirectoryConfigWhenPathIsImplicit(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	tokenFile := writeTokenFile(t, dir, "cloudflare.token")
+	configPath := filepath.Join(dir, defaultConfigFileName)
+	writeConfigFile(t, configPath, tokenFile)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		WorkingDir: dir,
+		Env:        map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	if got, want := cfg.SourcePath, configPath; got != want {
+		t.Fatalf("cfg.SourcePath = %q, want %q", got, want)
+	}
+	if got, want := cfg.Provider.Cloudflare.APITokenFile, tokenFile; got != want {
+		t.Fatalf("cfg.Provider.Cloudflare.APITokenFile = %q, want %q", got, want)
+	}
+}
+
+func TestLoadWithOptionsFallsBackToSystemConfigWhenWorkingDirectoryConfigIsMissing(t *testing.T) {
+	originalCandidates := defaultConfigCandidates
+	t.Cleanup(func() {
+		defaultConfigCandidates = originalCandidates
+	})
+
+	dir := t.TempDir()
+	fallbackDir := t.TempDir()
+	tokenFile := writeTokenFile(t, fallbackDir, "cloudflare.token")
+	fallbackPath := filepath.Join(fallbackDir, "dns-update.json")
+	writeConfigFile(t, fallbackPath, tokenFile)
+
+	defaultConfigCandidates = func(workingDir string) []string {
+		return []string{
+			filepath.Join(workingDir, defaultConfigFileName),
+			fallbackPath,
+		}
+	}
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		WorkingDir: dir,
+		Env:        map[string]string{},
+	})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+
+	if got, want := cfg.SourcePath, fallbackPath; got != want {
+		t.Fatalf("cfg.SourcePath = %q, want %q", got, want)
+	}
+}
+
+func TestLoadWithOptionsImplicitMissingConfigFailsClearly(t *testing.T) {
+	originalCandidates := defaultConfigCandidates
+	t.Cleanup(func() {
+		defaultConfigCandidates = originalCandidates
+	})
+
+	dir := t.TempDir()
+	missingLocal := filepath.Join(dir, defaultConfigFileName)
+	missingFallback := filepath.Join(dir, "etc-dns-update.json")
+
+	defaultConfigCandidates = func(string) []string {
+		return []string{missingLocal, missingFallback}
+	}
+
+	_, err := LoadWithOptions(LoadOptions{
+		WorkingDir: dir,
+		Env:        map[string]string{},
+	})
+	if err == nil {
+		t.Fatal("LoadWithOptions() error = nil, want missing implicit config error")
+	}
+	for _, expected := range []string{
+		"config file not found",
+		missingLocal,
+		missingFallback,
+	} {
+		if !strings.Contains(err.Error(), expected) {
+			t.Fatalf("LoadWithOptions() error = %v, want substring %q", err, expected)
+		}
+	}
+}
+
+func TestLoadWithOptionsImplicitConfigReadError(t *testing.T) {
+	originalCandidates := defaultConfigCandidates
+	t.Cleanup(func() {
+		defaultConfigCandidates = originalCandidates
+	})
+
+	dir := t.TempDir()
+	defaultConfigCandidates = func(string) []string {
+		return []string{dir}
+	}
+
+	_, err := LoadWithOptions(LoadOptions{
+		WorkingDir: dir,
+		Env:        map[string]string{},
+	})
+	if err == nil || !strings.Contains(err.Error(), "read config") {
+		t.Fatalf("LoadWithOptions() error = %v, want implicit config read error", err)
+	}
+}
+
+func TestResolveDefaultConfigPathReturnsStatError(t *testing.T) {
+	originalCandidates := defaultConfigCandidates
+	originalStat := statConfigPath
+	t.Cleanup(func() {
+		defaultConfigCandidates = originalCandidates
+		statConfigPath = originalStat
+	})
+
+	candidate := "/tmp/config.json"
+	defaultConfigCandidates = func(string) []string {
+		return []string{candidate}
+	}
+	statConfigPath = func(path string) (os.FileInfo, error) {
+		if path != candidate {
+			t.Fatalf("statConfigPath(%q), want %q", path, candidate)
+		}
+		return nil, errors.New("boom")
+	}
+
+	_, err := resolveDefaultConfigPath(t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), `stat config "/tmp/config.json": boom`) {
+		t.Fatalf("resolveDefaultConfigPath() error = %v, want stat error", err)
+	}
+}
+
 func TestLoadAcceptsSystemdCredentialPermissionMask(t *testing.T) {
 	dir := t.TempDir()
 	rootDir := filepath.Join(dir, "run", "credentials")
@@ -883,4 +1016,37 @@ func viewConfig(cfg Config) configView {
 		view.CloudflareProxied = cfg.Provider.Cloudflare.Proxied
 	}
 	return view
+}
+
+func writeTokenFile(t *testing.T, dir string, name string) string {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte("secret"), 0o600); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	}
+	return path
+}
+
+func writeConfigFile(t *testing.T, path string, tokenFile string) {
+	t.Helper()
+
+	configJSON := `{
+  "record": {
+    "name": "host.example.com.",
+    "zone": "example.com.",
+    "ttl_seconds": 300
+  },
+  "provider": {
+    "type": "cloudflare",
+    "cloudflare": {
+      "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
+      "api_token_file": "` + tokenFile + `"
+    }
+  }
+}`
+
+	if err := os.WriteFile(path, []byte(configJSON), 0o600); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", path, err)
+	}
 }

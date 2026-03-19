@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,6 +69,28 @@ func TestHandleIntrospection(t *testing.T) {
 		}
 		if got := stdout.String(); got == "" {
 			t.Fatal("handleIntrospection() output = empty, want JSON")
+		}
+	})
+
+	t.Run("print effective config uses resolved source path", func(t *testing.T) {
+		t.Parallel()
+
+		cfgWithSource := cfg
+		cfgWithSource.SourcePath = "/etc/dns-update/config.json"
+
+		var stdout bytes.Buffer
+		handled, err := handleIntrospection(&stdout, cfgWithSource, runtimeOptions{
+			configPath:        "config.json",
+			introspectionMode: introspectionModePrintEffectiveConfig,
+		})
+		if err != nil {
+			t.Fatalf("handleIntrospection() error = %v", err)
+		}
+		if !handled {
+			t.Fatal("handleIntrospection() handled = false, want true")
+		}
+		if got := stdout.String(); !strings.Contains(got, `"config_path": "/etc/dns-update/config.json"`) {
+			t.Fatalf("handleIntrospection() output = %q, want resolved config path", got)
 		}
 	})
 

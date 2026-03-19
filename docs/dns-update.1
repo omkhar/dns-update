@@ -5,6 +5,8 @@ dns-update \- keep DNS A and AAAA records aligned with egress IP addresses
 .B dns-update
 [\fB\-\-config\fR \fIPATH\fR]
 [\fB\-\-dry-run\fR]
+[\fB\-\-validate-config\fR]
+[\fB\-\-print-effective-config\fR]
 [\fB\-\-timeout\fR \fIDURATION\fR]
 [\fB\-\-verbose\fR]
 .SH DESCRIPTION
@@ -16,20 +18,70 @@ the current provider state.
 The program is intended for timer-driven operation, including systemd timer
 deployments. It supports dry-run execution, bounded retries, and provider
 reconciliation against the live DNS record state before applying changes.
+.P
+In the packaged systemd deployment, the Cloudflare token source file is stored
+at
+.I /etc/dns-update/cloudflare.token
+and is materialized into the service credential directory by
+.BR LoadCredential= .
 .SH OPTIONS
 .TP
 .B \-\-config
-Load configuration from the specified JSON file.
+Load configuration from the specified JSON file. If omitted and
+.B DNS_UPDATE_CONFIG
+is unset, the program first looks for
+.I config.json
+in the current working directory and then
+.I /etc/dns-update/config.json .
 .TP
 .B \-\-dry-run
 Print the changes that would be made without mutating DNS records.
 .TP
+.B \-\-validate-config
+Validate the assembled configuration, print
+.B config is valid
+to standard output, and exit without contacting the DNS provider.
+.TP
+.B \-\-print-effective-config
+Print the fully assembled effective configuration as JSON and exit without
+contacting the DNS provider.
+.TP
 .B \-\-timeout
-Apply a global execution timeout to the entire reconciliation run.
+Apply a global execution timeout to the entire reconciliation run. A value of
+.B 0
+disables the global timeout.
 .TP
 .B \-\-verbose
 Enable verbose logging, including no-op status output.
+.SH ENVIRONMENT
+.TP
+.B DNS_UPDATE_CONFIG
+Path to the JSON configuration file. This has the same effect as
+.BR \-\-config .
+.TP
+.B DNS_UPDATE_DRY_RUN
+Boolean override for
+.BR \-\-dry-run .
+.TP
+.B DNS_UPDATE_VERBOSE
+Boolean override for
+.BR \-\-verbose .
+.TP
+.B DNS_UPDATE_TIMEOUT
+Duration override for
+.BR \-\-timeout .
+.TP
+.B DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE
+Override only the configured Cloudflare token-file path. This is primarily used
+by the packaged systemd service to point the binary at a systemd-managed
+credential file.
 .SH FILES
+.TP
+.I /etc/dns-update/config.json
+Primary JSON configuration file for packaged and systemd deployments.
+.TP
+.I /etc/dns-update/cloudflare.token
+Source file for the Cloudflare API token used by packaged systemd deployments.
 .TP
 .I /etc/dns-update/dns-update.env
 Optional environment overrides for packaged systemd deployments.
