@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.0
+%global upstream_version 1.0.1
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -97,5 +97,11 @@ install -D -m 0644 docs/dns-update.1 %{buildroot}%{_mandir}/man1/dns-update.1
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.1-1
+- Accept systemd-managed credential files with read-only 0440-style modes
+- Fall back to /etc/dns-update/config.json for implicit CLI runs when a local config.json is absent
+- Add multi-distro systemd timer integration coverage
+- Refresh systemd and packaging documentation for the release
+
 * Wed Mar 18 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0-1
 - Initial public release

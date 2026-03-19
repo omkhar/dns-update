@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,8 +31,9 @@ func LoadWithOptions(options LoadOptions) (Config, error) {
 
 	raw := fileConfig{}
 	baseDir := workingDir
+	sourcePath := strings.TrimSpace(options.Path)
 
-	if options.Path != "" || options.ExplicitPath {
+	if sourcePath != "" || options.ExplicitPath {
 		fileConfig, fileBaseDir, err := loadFileConfig(options.Path, options.ExplicitPath)
 		if err != nil {
 			return Config{}, err
@@ -40,10 +42,50 @@ func LoadWithOptions(options LoadOptions) (Config, error) {
 		if fileBaseDir != "" {
 			baseDir = fileBaseDir
 		}
+	} else {
+		defaultPath, err := resolveDefaultConfigPath(workingDir)
+		if err != nil {
+			return Config{}, err
+		}
+
+		fileConfig, fileBaseDir, err := loadFileConfig(defaultPath, true)
+		if err != nil {
+			return Config{}, err
+		}
+		raw = fileConfig
+		sourcePath = defaultPath
+		if fileBaseDir != "" {
+			baseDir = fileBaseDir
+		}
 	}
 
 	raw = applyEnvironment(raw, options.Env, workingDir)
-	return normalize(raw, baseDir)
+	cfg, err := normalize(raw, baseDir)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.SourcePath = sourcePath
+	return cfg, nil
+}
+
+func resolveDefaultConfigPath(workingDir string) (string, error) {
+	candidates := defaultConfigCandidates(workingDir)
+	for _, candidate := range candidates {
+		_, err := statConfigPath(candidate)
+		if err == nil {
+			return candidate, nil
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		return "", fmt.Errorf("stat config %q: %w", candidate, err)
+	}
+
+	quoted := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		quoted = append(quoted, fmt.Sprintf("%q", candidate))
+	}
+	return "", fmt.Errorf("config file not found; tried %s", strings.Join(quoted, " and "))
 }
 
 func normalize(raw fileConfig, baseDir string) (Config, error) {

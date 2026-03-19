@@ -11,6 +11,15 @@ import (
 	"strings"
 )
 
+var defaultConfigCandidates = func(workingDir string) []string {
+	return []string{
+		filepath.Join(workingDir, defaultConfigFileName),
+		systemConfigPath,
+	}
+}
+
+var statConfigPath = os.Stat
+
 func resolveWorkingDir(workingDir string) (string, error) {
 	if strings.TrimSpace(workingDir) != "" {
 		return workingDir, nil

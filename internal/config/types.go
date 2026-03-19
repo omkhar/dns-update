@@ -13,6 +13,8 @@ const (
 	defaultTimeout           = 10 * time.Second
 	defaultCloudflareBaseURL = "https://api.cloudflare.com/client/v4/"
 	cloudflareZoneIDExample  = "CLOUDFLARE_ZONE_ID"
+	defaultConfigFileName    = "config.json"
+	systemConfigPath         = "/etc/dns-update/config.json"
 )
 
 var cloudflareZoneIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
@@ -22,9 +24,10 @@ const envProviderCloudflareAPITokenFile = "DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TO
 
 // Config is the validated runtime configuration.
 type Config struct {
-	Record   RecordConfig
-	Probe    ProbeConfig
-	Provider ProviderConfig
+	SourcePath string
+	Record     RecordConfig
+	Probe      ProbeConfig
+	Provider   ProviderConfig
 }
 
 // RecordConfig defines the managed DNS record.

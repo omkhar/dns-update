@@ -37,6 +37,14 @@ timer.
    `/run/credentials/`; `LoadCredential=` materializes that runtime file for the
    service on each start.
 
+   A config copied from `config.example.json` can keep its sample
+   `api_token_file` value for the packaged timer because the unit overrides only
+   that field at runtime. If you plan to run `/usr/bin/dns-update` directly
+   outside the unit, either change `provider.cloudflare.api_token_file` to
+   `/etc/dns-update/cloudflare.token` or export
+   `DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`
+   for that command.
+
 3. Install the unit files:
 
    ```sh
@@ -45,7 +53,9 @@ timer.
    ```
 
 4. Optionally install `/etc/dns-update/dns-update.env` from
-   `deploy/systemd/dns-update.env`.
+   `deploy/systemd/dns-update.env`. Use it for runtime flags such as
+   `DNS_UPDATE_TIMEOUT`, `DNS_UPDATE_VERBOSE`, `DNS_UPDATE_DRY_RUN`, or
+   `DNS_UPDATE_CONFIG`; keep record and provider settings in the JSON config.
 
 5. Reload systemd and enable the timer:
 
@@ -55,7 +65,9 @@ timer.
    ```
 
    The first timer run happens immediately at boot or immediately after the
-   timer is enabled, then repeats every five minutes.
+   timer is enabled, then repeats every five minutes. Because the timer uses
+   `Persistent=yes`, a missed run is triggered once when the timer comes back
+   after downtime.
 
 6. Run one immediate reconciliation if you want to validate the setup before the
    next scheduled timer event:

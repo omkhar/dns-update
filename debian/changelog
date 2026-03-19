@@ -1,3 +1,13 @@
+dns-update (1.0.1-1) unstable; urgency=medium
+
+  * Accept systemd-managed credential files with read-only 0440-style modes.
+  * Fall back to /etc/dns-update/config.json for implicit CLI runs when a
+    local config.json is absent.
+  * Add multi-distro systemd timer integration coverage.
+  * Refresh systemd and packaging documentation for the release.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Thu, 19 Mar 2026 06:30:00 -0400
+
 dns-update (1.0-1) unstable; urgency=medium
 
   * Initial public release.

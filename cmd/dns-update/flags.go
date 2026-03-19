@@ -115,7 +115,7 @@ func resolveConfigPath(flagValue string, set bool, lookupEnv func(string) (strin
 	if value, ok := lookupEnv(envConfigPath); ok {
 		return value, true
 	}
-	return "config.json", false
+	return "", false
 }
 
 func resolveBoolFlag(flagValue bool, set bool, lookupEnv func(string) (string, bool), envName string, defaultValue bool) (bool, error) {

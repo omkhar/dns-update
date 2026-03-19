@@ -24,7 +24,15 @@ and `/etc/dns-update/cloudflare.token.example` to
 systemd service does not read the sample files directly, and placeholders such
 as `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_TOKEN` must be replaced.
 
-At runtime the packaged service uses `LoadCredential=` to copy
+If you want to run `dns-update` directly outside the packaged systemd unit,
+either edit `/etc/dns-update/config.json` so
+`provider.cloudflare.api_token_file` points at
+`/etc/dns-update/cloudflare.token`, or export
+`DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`
+for that invocation. The packaged systemd unit overrides only that field at
+runtime.
+
+At runtime the packaged service uses `LoadCredential=` to materialize
 `/etc/dns-update/cloudflare.token` into a private systemd credential directory.
 That runtime file is systemd-managed and may appear with a read-only mode such
 as `0400` or `0440`.
@@ -35,6 +43,15 @@ Default package targets:
 - `rpi32` for Raspberry Pi OS / Linux ARMv7 (`armhf` / `armv7hl`)
 - `rpi64` for Raspberry Pi OS / Linux ARM64 (`arm64` / `aarch64`)
 
+Artifacts are written under:
+
+- `out/packages/deb/<target>/`
+- `out/packages/rpm/<target>/`
+
+`./packaging/build-packages.sh` runs the native test suite once, then invokes
+both package builders with `PACKAGING_SKIP_NATIVE_TESTS=1` so the package loops
+do not rerun the same native tests.
+
 ## Debian build
 
 Requirements:
@@ -43,6 +60,7 @@ Requirements:
   packaging path, or `dpkg-deb` for the direct fallback path
 - `cosign`
 - `golang-any`
+- `upx`
 
 Build:
 
@@ -79,6 +97,8 @@ Requirements:
 - `cosign`
 - `golang >= 1.26.1`
 - `systemd-rpm-macros`
+- `upx`
+- `tar` or `gtar` (GNU tar is preferred on macOS)
 
 Build:
 
@@ -89,7 +109,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.0 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.0.1 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -109,9 +129,19 @@ Build one target explicitly:
 The RPM wrapper runs `go test ./...` once natively, then cross-builds each
 package with `rpmbuild --without check`.
 
+On macOS with Homebrew `rpmbuild`, set `PACKAGING_LINUX_MACROS=1` to force
+Linux-style filesystem macros and prepend GNU coreutils where needed:
+
+```sh
+PACKAGING_LINUX_MACROS=1 ./packaging/build-rpm.sh
+```
+
 GitHub Actions also runs `packaging/test-systemd-timer.sh` across Debian
 stable/sid, Ubuntu stable/latest, and Fedora stable/rawhide to validate the
 installed timer/service flow on each distro family.
+
+For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
+supports amd64 and arm64 hosts.
 
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus
@@ -123,24 +153,29 @@ their existing defaults.
 Each generated `.deb` and `.rpm` is signed with `cosign sign-blob` and a
 Sigstore bundle written next to the artifact as `*.sigstore.json`.
 
+This is detached blob signing. If you inspect an RPM directly with
+`rpm -qip`, the header signature field will still show `Signature: (none)`;
+the attestation lives in the adjacent Sigstore bundle instead.
+
 Default signing mode is keyless. That follows the Sigstore blob-signing flow and
 requires an identity that Cosign can use.
 
-You can also sign with a managed key by setting `COSIGN_KEY`.
+If keyless auth is not available on the local build host, sign with a managed
+key by setting `COSIGN_KEY`.
 
 Verify an artifact with:
 
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.0-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.0.1-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.0-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.0.1-1.x86_64.rpm
 ```
 
 ## Maintainer metadata

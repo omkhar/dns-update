@@ -67,9 +67,9 @@ The app reads JSON config with this schema:
 - `provider.cloudflare.proxied` (optional): whether Cloudflare should proxy the
   managed A/AAAA records. Defaults to `false`.
 
-See `config.example.json` for a complete sample. The shipped sample remains
-loadable as-is, but placeholder values such as `CLOUDFLARE_ZONE_ID` and
-`CLOUDFLARE_TOKEN` must be replaced before production use.
+See `config.example.json` for a complete sample. The shipped sample shows the
+full schema, but placeholder values and the token-file path should be adjusted
+for the deployment that will actually run `dns-update`.
 
 ## Configuration Sources
 
@@ -86,13 +86,22 @@ Runtime settings:
   `provider.cloudflare.api_token_file`, which is primarily useful for systemd
   credentials
 
+CLI-only introspection settings:
+
+- `-validate-config` validates the assembled configuration, prints
+  `config is valid`, and exits without contacting Cloudflare
+- `-print-effective-config` prints the fully assembled effective configuration
+  as JSON and exits without contacting Cloudflare
+- `-validate-config` and `-print-effective-config` are mutually exclusive
+
 Record and provider settings otherwise come from JSON config file fields.
 
 Behavior notes:
 
 - If `-config` or `DNS_UPDATE_CONFIG` is set, that path is required and must
   exist.
-- If neither is set, the app falls back to `config.json`.
+- If neither is set, the app first looks for `config.json` in the current
+  working directory, then `/etc/dns-update/config.json`.
 - Built-in defaults still apply for optional unset values such as probe URLs,
   timeouts, and the Cloudflare base URL.
 
@@ -160,6 +169,10 @@ Run one reconciliation cycle:
 ./dns-update -config /etc/dns-update/config.json
 ```
 
+On a host that uses the packaged layout, `dns-update` without `-config` will
+also pick up `/etc/dns-update/config.json` automatically when there is no
+`config.json` in the current working directory.
+
 Cap the entire run, including retries and backoff:
 
 ```sh
@@ -172,6 +185,24 @@ Preview planned changes without applying them:
 ./dns-update -config /etc/dns-update/config.json -dry-run
 ```
 
+Validate that the assembled configuration is accepted:
+
+```sh
+./dns-update -config /etc/dns-update/config.json -validate-config
+```
+
+Print the effective configuration after JSON loading plus runtime overrides:
+
+```sh
+DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token \
+./dns-update -config /etc/dns-update/config.json -print-effective-config
+```
+
+If `/etc/dns-update/config.json` was copied from the packaged sample without
+editing `provider.cloudflare.api_token_file`, direct CLI runs outside the
+systemd unit need either that JSON field updated to
+`/etc/dns-update/cloudflare.token` or the environment override shown above.
+
 ## systemd
 
 Example hardened systemd units live in `deploy/systemd/`.
@@ -179,8 +210,9 @@ Example hardened systemd units live in `deploy/systemd/`.
 - `deploy/systemd/dns-update.service` runs one reconciliation with a locked-down
   `DynamicUser`, no ambient capabilities, a read-only filesystem view, and a
   private systemd credential for the Cloudflare token.
-- `deploy/systemd/dns-update.timer` starts the service immediately at boot and
-  then reruns it every five minutes.
+- `deploy/systemd/dns-update.timer` starts the service immediately at boot or
+  enable time, reruns it every five minutes, and with `Persistent=yes` catches
+  up a missed run after downtime.
 - `deploy/systemd/dns-update.env` shows how to override runtime options
   such as `DNS_UPDATE_TIMEOUT` without editing the unit.
 
@@ -226,11 +258,24 @@ Build helpers:
 ./packaging/build-packages.sh
 ```
 
-Those wrappers build and sign the default release targets:
+Those wrappers build and sign the default package targets:
 
 - `amd64`
 - `rpi32`
 - `rpi64`
+
+Package artifacts are written under:
+
+- `out/packages/deb/<target>/`
+- `out/packages/rpm/<target>/`
+
+Each package is signed with `cosign sign-blob`, with a Sigstore bundle written
+next to the artifact as `*.sigstore.json`. Package builds do not embed native
+Debian or RPM repository signatures.
+
+GitHub's `Release` workflow is separate from the native package scripts. It
+publishes signed Linux release archives under `out/release/` and does not
+currently upload `.deb` or `.rpm` artifacts to GitHub Releases.
 
 Before enabling the packaged timer, create:
 
@@ -239,10 +284,17 @@ Before enabling the packaged timer, create:
 
 The packaged `/etc/dns-update/config.example.json` and
 `/etc/dns-update/cloudflare.token.example` are there as starting points only.
-The default systemd service still reads `/etc/dns-update/config.json` and the
-credential-backed `/etc/dns-update/cloudflare.token`.
+The packaged systemd service overrides only
+`provider.cloudflare.api_token_file` and reads the live token through a
+credential-backed `/etc/dns-update/cloudflare.token`. If you copy the sample
+config unchanged and want to run the binary directly outside the unit, either
+update that JSON field to `/etc/dns-update/cloudflare.token` or export
+`DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`
+for that command.
 
 See `packaging/README.md` for package build requirements and notes.
+Use `./packaging/verify-artifacts.sh ...` to verify a package against its
+adjacent Sigstore bundle.
 
 ## Release Notes
 
@@ -262,6 +314,10 @@ repository-level quality gates:
 The mutation and coverage skip environment variables are only for the nested
 subprocesses launched by those tests and normally should remain unset during
 regular use.
+
+The `CI` workflow also checks YAML style, Go formatting, packaging shell
+syntax, `go vet`, and `go build ./...`. The separate `Systemd Integration`
+workflow runs the multi-distro timer matrix below.
 
 GitHub Actions additionally runs the dedicated `Systemd Integration` workflow
 to validate the installed timer/service flow on:
