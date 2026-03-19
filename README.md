@@ -43,8 +43,8 @@ On each run, the service:
 
 The app reads JSON config with this schema:
 
-- `record.name` (required): FQDN with trailing dot.
-- `record.zone` (required): FQDN with trailing dot. `record.name` must be either
+- `record.name` (required): FQDN.
+- `record.zone` (required): FQDN. `record.name` must be either
   this exact zone apex or a true subdomain within it.
 - `record.ttl_seconds` (required): positive integer TTL for created records. For
   Cloudflare this must be `1` (automatic) or between `30` and `86400`.
