@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -30,6 +31,12 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
+
+      - name: Install cosign
+        shell: bash
+        run: |
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.2
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       - name: Install YAML lint
         shell: bash
@@ -128,6 +135,13 @@ jobs:
             cd "$out_dir"
             sha256sum *.tar.gz > checksums.txt
           )
+
+      - name: Sign release artifacts
+        shell: bash
+        run: |
+          . ./packaging/lib.sh
+          set -- out/release/*
+          sign_artifacts "$@"
 
       - name: Publish GitHub release
         env:
