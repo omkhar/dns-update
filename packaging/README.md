@@ -52,6 +52,10 @@ Artifacts are written under:
 both package builders with `PACKAGING_SKIP_NATIVE_TESTS=1` so the package loops
 do not rerun the same native tests.
 
+The GitHub release workflow builds `.deb` and `.rpm` artifacts on the
+GitHub-hosted runner, signs those package files with Sigstore, and publishes
+the package files plus their `*.sigstore.json` bundles as release assets.
+
 ## Debian build
 
 Requirements:
@@ -83,6 +87,9 @@ When `dh` is unavailable on the build host, the wrapper falls back to direct
 `dpkg-deb` assembly and still produces the `.deb` artifact with the same
 installed payload. The native Debian path additionally emits `.buildinfo` and
 `.changes` files.
+
+Set `PACKAGING_FORCE_DIRECT_DEB=1` to force the direct `dpkg-deb` path even
+when `dh` is installed.
 
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus

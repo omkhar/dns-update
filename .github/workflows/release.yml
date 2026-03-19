@@ -46,6 +46,14 @@ jobs:
           "$RUNNER_TEMP/yamllint-venv/bin/pip" install --disable-pip-version-check yamllint==1.37.1
           echo "$RUNNER_TEMP/yamllint-venv/bin" >> "$GITHUB_PATH"
 
+      - name: Install packaging tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            rpm \
+            upx-ucl
+
       - name: Lint YAML
         run: yamllint .github .yamllint.yml
 
@@ -92,7 +100,7 @@ jobs:
       - name: Lint Go
         run: go vet ./...
 
-      - name: Build Linux release archives
+      - name: Build Linux release assets
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
@@ -132,9 +140,22 @@ jobs:
           linux arm 7 linux_armv7
           EOF
 
+          PACKAGING_FORCE_DIRECT_DEB=1 \
+          PACKAGING_SKIP_NATIVE_TESTS=1 \
+          PACKAGING_SKIP_SIGN=1 \
+            ./packaging/build-deb.sh
+
+          PACKAGING_SKIP_BUILDDEPS=1 \
+          PACKAGING_SKIP_NATIVE_TESTS=1 \
+          PACKAGING_SKIP_SIGN=1 \
+            ./packaging/build-rpm.sh
+
+          find "$PWD/out/packages/deb" -type f -name '*.deb' -exec cp {} "$out_dir/" \;
+          find "$PWD/out/packages/rpm" -type f -name '*.rpm' -exec cp {} "$out_dir/" \;
+
           (
             cd "$out_dir"
-            sha256sum *.tar.gz > checksums.txt
+            sha256sum *.tar.gz *.deb *.rpm > checksums.txt
           )
 
       - name: Sign release artifacts

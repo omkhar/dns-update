@@ -8,6 +8,8 @@ All notable public releases of `dns-update` are documented in this file.
   scheduled even if the first activation is skipped by unmet unit conditions.
 - Extends the systemd integration test to verify the timer keeps a queued future
   run after an initial condition-check skip.
+- Publishes signed `.deb` and `.rpm` release assets from the GitHub-hosted
+  release builder in addition to the signed Linux tarballs.
 
 ## 1.0.1 - 2026-03-19
 

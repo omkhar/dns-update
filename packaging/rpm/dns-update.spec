@@ -14,8 +14,9 @@ Summary:        Keep DNS records aligned with egress IP addresses
 License:        Apache-2.0
 Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  golang
-BuildRequires:  systemd-rpm-macros
-%{?systemd_requires}
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
 
 %description
 dns-update probes the host's current egress IPv4 and IPv6 addresses and keeps
@@ -72,13 +73,18 @@ install -D -m 0644 packaging/README.md %{buildroot}%{_docdir}/%{name}/packaging-
 install -D -m 0644 docs/dns-update.1 %{buildroot}%{_mandir}/man1/dns-update.1
 
 %post
-%systemd_post dns-update.service dns-update.timer
+if [ "$1" -eq 1 ] ; then
+    systemctl preset dns-update.service dns-update.timer >/dev/null 2>&1 || :
+fi
+systemctl daemon-reload >/dev/null 2>&1 || :
 
 %preun
-%systemd_preun dns-update.service dns-update.timer
+if [ "$1" -eq 0 ] ; then
+    systemctl --no-reload disable --now dns-update.timer dns-update.service >/dev/null 2>&1 || :
+fi
 
 %postun
-%systemd_postun dns-update.service dns-update.timer
+systemctl daemon-reload >/dev/null 2>&1 || :
 
 %files
 %defattr(-,root,root,-)
