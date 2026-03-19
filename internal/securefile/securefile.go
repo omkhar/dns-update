@@ -19,7 +19,7 @@ var (
 	readTokenBytes = func(file *os.File) ([]byte, error) {
 		return io.ReadAll(io.LimitReader(file, maxTokenBytes+1))
 	}
-	lookupEnv = os.LookupEnv
+	lookupEnv              = os.LookupEnv
 	usesUnixPermissionBits = func() bool {
 		return runtime.GOOS != "windows"
 	}
