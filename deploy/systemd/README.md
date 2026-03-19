@@ -1,7 +1,8 @@
 # systemd deployment
 
 These units run `dns-update` as a locked-down `Type=oneshot` service behind a
-timer.
+timer. They are the Linux-specific scheduler integration; macOS and Windows use
+the native helpers under `deploy/launchd` and `deploy/windows`.
 
 ## Files
 

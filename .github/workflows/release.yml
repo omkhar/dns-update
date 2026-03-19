@@ -74,8 +74,8 @@ jobs:
             exit 1
           fi
 
-      - name: Check packaging shell syntax
-        run: sh -n packaging/*.sh
+      - name: Check shell syntax
+        run: sh -n packaging/*.sh deploy/launchd/*.sh
 
       - name: Unit and integration tests
         shell: bash
@@ -98,64 +98,13 @@ jobs:
       - name: Lint Go
         run: go vet ./...
 
-      - name: Build Linux release assets
+      - name: Build release assets
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          out_dir="$PWD/out/release"
-          tmp_dir="$PWD/out/release-tmp"
-          mkdir -p "$out_dir" "$tmp_dir"
-
-          while read -r goos goarch goarm suffix; do
-            [[ -n "$goos" ]] || continue
-
-            stage_dir="$tmp_dir/dns-update_${version}_${suffix}"
-            binary_path="$stage_dir/dns-update"
-
-            rm -rf "$stage_dir"
-            mkdir -p "$stage_dir"
-
-            env_args=("CGO_ENABLED=0" "GOOS=$goos" "GOARCH=$goarch")
-            if [[ "$goarm" != "-" ]]; then
-              env_args+=("GOARM=$goarm")
-            fi
-
-            env "${env_args[@]}" go build \
-              -trimpath \
-              -buildvcs=false \
-              -ldflags "-s -w -buildid=" \
-              -o "$binary_path" \
-              ./cmd/dns-update
-
-            cp README.md CHANGELOG.md LICENSE "$stage_dir/"
-
-            tar -C "$tmp_dir" \
-              -czf "$out_dir/dns-update_${version}_${suffix}.tar.gz" \
-              "dns-update_${version}_${suffix}"
-          done <<'EOF'
-          linux amd64 - linux_amd64
-          linux arm64 - linux_arm64
-          linux arm 7 linux_armv7
-          EOF
-
           PACKAGING_FORCE_DIRECT_DEB=1 \
-          PACKAGING_SKIP_NATIVE_TESTS=1 \
-          PACKAGING_SKIP_SIGN=1 \
-            ./packaging/build-deb.sh
-
           PACKAGING_LINUX_MACROS=1 \
           PACKAGING_SKIP_BUILDDEPS=1 \
-          PACKAGING_SKIP_NATIVE_TESTS=1 \
-          PACKAGING_SKIP_SIGN=1 \
-            ./packaging/build-rpm.sh
-
-          find "$PWD/out/packages/deb" -type f -name '*.deb' -exec cp {} "$out_dir/" \;
-          find "$PWD/out/packages/rpm" -type f -name '*.rpm' -exec cp {} "$out_dir/" \;
-
-          (
-            cd "$out_dir"
-            sha256sum *.tar.gz *.deb *.rpm > checksums.txt
-          )
+            ./packaging/build-release-assets.sh
 
       - name: Sign release artifacts
         shell: bash

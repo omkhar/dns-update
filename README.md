@@ -279,8 +279,15 @@ next to the artifact as `*.sigstore.json`. Package builds do not embed native
 Debian or RPM repository signatures.
 
 GitHub's `Release` workflow is separate from the native package scripts. It
-publishes signed Linux release archives under `out/release/` and does not
-currently upload `.deb` or `.rpm` artifacts to GitHub Releases.
+publishes a full signed release asset set under `out/release/`:
+
+- Linux `.deb` packages for `amd64`, `arm64`, and `armhf`
+- Linux `.rpm` packages for `x86_64`, `aarch64`, and `armv7hl`
+- Linux archive builds for `amd64`, `arm64`, and `armv7`
+- macOS archive builds for `amd64` and `arm64`
+- Windows archive builds for `amd64` and `arm64`
+
+Each published artifact also has an adjacent `*.sigstore.json` bundle.
 
 Before enabling the packaged timer, create:
 
@@ -300,6 +307,11 @@ for that command.
 See `packaging/README.md` for package build requirements and notes.
 Use `./packaging/verify-artifacts.sh ...` to verify a package against its
 adjacent Sigstore bundle.
+
+macOS and Windows release archives also include native scheduler helpers under:
+
+- `deploy/launchd`
+- `deploy/windows`
 
 ## Release Notes
 
@@ -328,11 +340,16 @@ GitHub Actions additionally runs the dedicated `Systemd Integration` workflow
 to validate the installed timer/service flow on:
 
 - Debian Stable
-- Debian Sid
+- Debian Unstable
 - Ubuntu Stable
-- Ubuntu Latest
+- Ubuntu Unstable
 - Fedora Stable
-- Fedora Rawhide
+- Fedora Unstable
+
+GitHub Actions also runs native scheduler integration tests on:
+
+- macOS `launchd`
+- Windows Task Scheduler
 
 ## Package Docs
 

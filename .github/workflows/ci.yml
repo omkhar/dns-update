@@ -51,8 +51,8 @@ jobs:
             exit 1
           fi
 
-      - name: Check packaging shell syntax
-        run: sh -n packaging/*.sh
+      - name: Check shell syntax
+        run: sh -n packaging/*.sh deploy/launchd/*.sh
 
       - name: Unit and integration tests
         shell: bash

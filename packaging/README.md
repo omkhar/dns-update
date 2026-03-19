@@ -4,6 +4,8 @@ This repository ships native packaging metadata for:
 
 - Debian-family `.deb` packages
 - RPM-family `.rpm` packages
+- macOS release archives
+- Windows release archives
 
 Both package layouts install:
 
@@ -51,6 +53,8 @@ Artifacts are written under:
 
 - `out/packages/deb/<target>/`
 - `out/packages/rpm/<target>/`
+- `out/release/` for signed release assets and unsigned local release-asset
+  builds
 
 `./packaging/build-packages.sh` runs the native test suite once, then invokes
 both package builders with `PACKAGING_SKIP_NATIVE_TESTS=1` so the package loops
@@ -58,11 +62,27 @@ do not rerun the same native tests.
 
 GitHub Actions runs package creation in two places:
 
-- `Package Validation` builds `.deb` and `.rpm` artifacts on pull requests and
-  `main` pushes without publishing or signing them.
-- The tag-driven `Release` workflow rebuilds the same package formats on the
-  GitHub-hosted runner, signs those package files with Sigstore, and publishes
-  the package files plus their `*.sigstore.json` bundles as release assets.
+- `Package Validation` builds `.deb` and `.rpm` artifacts plus the cross-
+  platform release archives on pull requests and `main` pushes without
+  publishing or signing them.
+- The tag-driven `Release` workflow rebuilds the same package and archive
+  formats on the GitHub-hosted runner, signs those files with Sigstore, and
+  publishes the artifacts plus their `*.sigstore.json` bundles as release
+  assets.
+
+Build the full unsigned local release asset set with:
+
+```sh
+./packaging/build-release-assets.sh
+```
+
+That produces:
+
+- Linux `.deb` packages for `amd64`, `arm64`, and `armhf`
+- Linux `.rpm` packages for `x86_64`, `aarch64`, and `armv7hl`
+- Linux archives for `amd64`, `arm64`, and `armv7`
+- macOS archives for `amd64` and `arm64`
+- Windows archives for `amd64` and `arm64`
 
 ## Debian build
 
@@ -149,11 +169,16 @@ PACKAGING_LINUX_MACROS=1 ./packaging/build-rpm.sh
 ```
 
 GitHub Actions also runs `packaging/test-systemd-timer.sh` across Debian
-stable/sid, Ubuntu stable/latest, and Fedora stable/rawhide to validate the
-installed timer/service flow on each distro family using the actual built
-package for that family, including the regression where the first activation is
-skipped before later timer runs are due and a later timer-fired activation must
-succeed automatically.
+stable/unstable, Ubuntu stable/unstable, and Fedora stable/unstable to validate
+the installed timer/service flow on each Linux distro family using the actual
+built package for that family, including the regression where the first
+activation is skipped before later timer runs are due and a later timer-fired
+activation must succeed automatically.
+
+Separate native scheduler integration jobs validate:
+
+- `deploy/launchd/install-launchd-job.sh` on `macos-latest`
+- `deploy/windows/register-scheduled-task.ps1` on `windows-latest`
 
 For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
 supports amd64 and arm64 hosts.

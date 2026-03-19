@@ -1,7 +1,23 @@
 #!/bin/sh
 
-default_targets() {
+package_targets() {
 	printf '%s\n' amd64 rpi32 rpi64
+}
+
+default_targets() {
+	package_targets
+}
+
+release_archive_targets() {
+	cat <<'EOF'
+linux amd64 - linux_amd64 tar.gz
+linux arm64 - linux_arm64 tar.gz
+linux arm 7 linux_armv7 tar.gz
+darwin amd64 - darwin_amd64 tar.gz
+darwin arm64 - darwin_arm64 tar.gz
+windows amd64 - windows_amd64 zip
+windows arm64 - windows_arm64 zip
+EOF
 }
 
 require_cmd() {
@@ -44,9 +60,9 @@ release_ldflags() {
 	printf '%s\n' "-s -w -buildid="
 }
 
-resolve_targets() {
+resolve_package_targets() {
 	if [ "$#" -eq 0 ]; then
-		default_targets
+		package_targets
 		return 0
 	fi
 
@@ -62,6 +78,10 @@ resolve_targets() {
 			;;
 		esac
 	done
+}
+
+resolve_targets() {
+	resolve_package_targets "$@"
 }
 
 deb_arch_for_target() {
