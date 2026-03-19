@@ -23,6 +23,8 @@ $binaryPath = (Resolve-Path $BinaryPath).Path
 $configPath = (Resolve-Path $ConfigPath).Path
 $tokenPath = (Resolve-Path $TokenPath).Path
 $logPath = [System.IO.Path]::GetFullPath($LogPath)
+$powerShellPath = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+$workingDirectory = Split-Path -Parent $binaryPath
 
 $logDir = Split-Path -Parent $logPath
 if ($logDir) {
@@ -45,7 +47,10 @@ if ($ValidateConfig) {
     $taskArguments += "-ValidateConfig"
 }
 
-$action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument ($taskArguments -join " ")
+$action = New-ScheduledTaskAction `
+    -Execute $powerShellPath `
+    -Argument ($taskArguments -join " ") `
+    -WorkingDirectory $workingDirectory
 $trigger = New-ScheduledTaskTrigger `
     -Once `
     -At (Get-Date).AddMinutes(1) `

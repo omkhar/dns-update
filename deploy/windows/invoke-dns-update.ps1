@@ -18,6 +18,15 @@ if ($logDir) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
 
+function Write-LogLine {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    $Message | Out-File -FilePath $LogPath -Append -Encoding utf8
+}
+
 $env:DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE = $TokenPath
 $env:DNS_UPDATE_TIMEOUT = $Timeout
 
@@ -26,12 +35,23 @@ if ($ValidateConfig) {
     $arguments = @("-validate-config") + $arguments
 }
 
-$output = & $BinaryPath @arguments 2>&1
-$output | Out-File -FilePath $LogPath -Append -Encoding utf8
+Write-LogLine ("[{0}] starting dns-update" -f (Get-Date).ToString("o"))
 
-$exitCode = $LASTEXITCODE
-if ($null -eq $exitCode) {
-    $exitCode = 0
+try {
+    $output = & $BinaryPath @arguments 2>&1
+    if ($output) {
+        $output | Out-File -FilePath $LogPath -Append -Encoding utf8
+    }
+
+    $exitCode = $LASTEXITCODE
+    if ($null -eq $exitCode) {
+        $exitCode = 0
+    }
+} catch {
+    $_ | Out-String | Out-File -FilePath $LogPath -Append -Encoding utf8
+    $exitCode = 1
 }
+
+Write-LogLine ("[{0}] exit code: {1}" -f (Get-Date).ToString("o"), $exitCode)
 
 exit $exitCode
