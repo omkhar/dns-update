@@ -15,7 +15,7 @@ const maxResponseHeaderBytes = 8 << 10
 var ErrRedirectNotAllowed = errors.New("redirects are not allowed")
 
 // UserAgent is the product user-agent used for outbound HTTP requests.
-const UserAgent = "dns-update/1.0.3"
+const UserAgent = "dns-update/1.0.4"
 
 func dialContext(timeout time.Duration, forcedNetwork string) func(context.Context, string, string) (net.Conn, error) {
 	dialer := &net.Dialer{
