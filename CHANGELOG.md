@@ -2,6 +2,13 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.0.2 - 2026-03-19
+
+- Switches the packaged systemd timer to `OnCalendar=*:00/5` so future runs stay
+  scheduled even if the first activation is skipped by unmet unit conditions.
+- Extends the systemd integration test to verify the timer keeps a queued future
+  run after an initial condition-check skip.
+
 ## 1.0.1 - 2026-03-19
 
 - Accepts systemd-managed credential files that surface with read-only modes

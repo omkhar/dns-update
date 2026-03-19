@@ -65,9 +65,10 @@ timer.
    ```
 
    The first timer run happens immediately at boot or immediately after the
-   timer is enabled, then repeats every five minutes. Because the timer uses
-   `Persistent=yes`, a missed run is triggered once when the timer comes back
-   after downtime.
+   timer is enabled, then repeats on five-minute clock boundaries. The
+   `OnCalendar=` schedule keeps future runs queued even if an early service
+   start is skipped, and `Persistent=yes` triggers one catch-up run after
+   downtime.
 
 6. Run one immediate reconciliation if you want to validate the setup before the
    next scheduled timer event:
