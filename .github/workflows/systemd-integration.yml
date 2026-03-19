@@ -27,26 +27,26 @@ jobs:
         include:
           - name: Debian Stable
             label: debian-stable
-            image: debian:trixie-slim
+            image: debian:stable-slim
             family: debian
-          - name: Debian Sid
-            label: debian-sid
-            image: debian:sid-slim
+          - name: Debian Unstable
+            label: debian-unstable
+            image: debian:unstable-slim
             family: debian
           - name: Ubuntu Stable
             label: ubuntu-stable
-            image: ubuntu:24.04
+            image: ubuntu:rolling
             family: ubuntu
-          - name: Ubuntu Latest
-            label: ubuntu-latest
-            image: ubuntu:25.10
+          - name: Ubuntu Unstable
+            label: ubuntu-unstable
+            image: ubuntu:devel
             family: ubuntu
           - name: Fedora Stable
             label: fedora-stable
             image: quay.io/fedora/fedora:43
             family: fedora
-          - name: Fedora Rawhide
-            label: fedora-rawhide
+          - name: Fedora Unstable
+            label: fedora-unstable
             image: quay.io/fedora/fedora:rawhide
             family: fedora
     steps:

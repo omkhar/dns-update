@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -81,6 +82,12 @@ func TestLoadRejectsGroupReadableTokenFile(t *testing.T) {
 	}
 
 	_, err := Load(configPath)
+	if runtime.GOOS == "windows" {
+		if err != nil {
+			t.Fatalf("Load() error = %v, want Windows permission-bit bypass", err)
+		}
+		return
+	}
 	if err == nil || !strings.Contains(err.Error(), "must not be accessible by group or other users") {
 		t.Fatalf("Load() error = %v, want token file permission rejection", err)
 	}

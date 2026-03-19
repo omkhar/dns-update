@@ -16,7 +16,8 @@ the configured DNS A and AAAA records when the observed addresses differ from
 the current provider state.
 .P
 The program is intended for timer-driven operation, including systemd timer
-deployments. It supports dry-run execution, bounded retries, and provider
+deployments on Linux, launchd jobs on macOS, and Task Scheduler jobs on
+Windows. It supports dry-run execution, bounded retries, and provider
 reconciliation against the live DNS record state before applying changes.
 .P
 In the packaged systemd deployment, the Cloudflare token source file is stored
@@ -26,6 +27,10 @@ and is materialized into the service credential directory by
 .BR LoadCredential= .
 Published packages intentionally avoid self-unpacking binary compression so the
 installed binary remains compatible with the hardened systemd unit.
+.P
+Published releases also include macOS and Windows archives. Those platforms use
+native schedulers instead of systemd: launchd on macOS and Task Scheduler on
+Windows.
 .SH OPTIONS
 .TP
 .B \-\-config

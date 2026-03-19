@@ -54,3 +54,27 @@ jobs:
           PACKAGING_SKIP_SIGN=1 \
           PACKAGING_SKIP_NATIVE_TESTS=1 \
             ./packaging/build-rpm.sh
+
+  release-archives:
+    name: Build release archives
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          cache: false
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Build cross-platform release archives
+        run: |
+          RELEASE_SKIP_PACKAGES=1 \
+          ./packaging/build-release-assets.sh
