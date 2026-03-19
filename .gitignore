@@ -1,11 +1,29 @@
-/.claude/
 /.DS_Store
+
+# Local assistant and editor state
+/.claude/
+/.codex/
+/.cursor/
+/.aider*/
+/.continue/
+/.windsurf/
+/.openai/
+/.llm/
+/AGENTS.md
+/CLAUDE.md
+/COPILOT.md
+/GEMINI.md
+/llms.txt
+
+# Local build and test outputs
 /dns-update
 /*.test
 /coverage.out
 /coverage.*
 /dist/
 /out/
+
+# Debian packaging byproducts
 /debian/.debhelper/
 /debian/.build/
 /debian/debhelper-build-stamp
