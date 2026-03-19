@@ -7,6 +7,12 @@ The current implementation targets Cloudflare through its DNS Records API and is
 structured so additional providers can be added behind the same internal
 provider interface.
 
+The release and deployment story is now cross-platform:
+
+- Linux ships native `.deb` and `.rpm` packages plus systemd units.
+- macOS ships release archives plus a native `launchd` helper.
+- Windows ships release archives plus a native Task Scheduler helper.
+
 ## Behavior
 
 On each run, the service:
@@ -203,7 +209,19 @@ editing `provider.cloudflare.api_token_file`, direct CLI runs outside the
 systemd unit need either that JSON field updated to
 `/etc/dns-update/cloudflare.token` or the environment override shown above.
 
-## systemd
+## Platform Schedulers
+
+The binary itself runs one reconciliation cycle per invocation. Periodic
+execution is handled by the native scheduler for each operating system:
+
+- Linux: systemd service plus timer under `deploy/systemd/`
+- macOS: `launchd` `LaunchDaemon` helper under `deploy/launchd/`
+- Windows: Task Scheduler helper under `deploy/windows/`
+
+Each release archive also includes the `deploy/` tree so the scheduler helpers
+travel with the binary on non-Linux systems.
+
+## Linux: systemd
 
 Example hardened systemd units live in `deploy/systemd/`.
 
@@ -233,16 +251,67 @@ does not require any manual chmod under `/run/credentials/`.
 
 See `deploy/systemd/README.md` for installation steps.
 
+## macOS: launchd
+
+Use `deploy/launchd/install-launchd-job.sh` to install a `LaunchDaemon` for
+system-wide scheduled execution on macOS.
+
+- default binary path: `/usr/local/bin/dns-update`
+- default config path: `/usr/local/etc/dns-update/config.json`
+- default token path: `/usr/local/etc/dns-update/cloudflare.token`
+- default log path: `/var/log/dns-update.log`
+
+Example:
+
+```sh
+sudo ./deploy/launchd/install-launchd-job.sh \
+  --binary /usr/local/bin/dns-update \
+  --config /usr/local/etc/dns-update/config.json \
+  --token /usr/local/etc/dns-update/cloudflare.token \
+  --interval 300 \
+  --log /var/log/dns-update.log
+```
+
+The helper writes `/Library/LaunchDaemons/com.dns-update.plist` by default,
+runs once at load with `RunAtLoad`, and repeats with `StartInterval`. See
+`deploy/launchd/README.md` for the full install and update flow.
+
+## Windows: Task Scheduler
+
+Use `deploy/windows/register-scheduled-task.ps1` to register a recurring task
+that runs `dns-update` as `SYSTEM`.
+
+- suggested binary path: `C:\Program Files\dns-update\dns-update.exe`
+- suggested config path: `C:\ProgramData\dns-update\config.json`
+- suggested token path: `C:\ProgramData\dns-update\cloudflare.token`
+- suggested log path: `C:\ProgramData\dns-update\dns-update.log`
+
+Example:
+
+```powershell
+.\deploy\windows\register-scheduled-task.ps1 `
+  -TaskName "dns-update" `
+  -BinaryPath "C:\Program Files\dns-update\dns-update.exe" `
+  -ConfigPath "C:\ProgramData\dns-update\config.json" `
+  -TokenPath "C:\ProgramData\dns-update\cloudflare.token" `
+  -LogPath "C:\ProgramData\dns-update\dns-update.log" `
+  -IntervalMinutes 5
+```
+
+The helper uses the native `ScheduledTasks` PowerShell API and replaces any
+existing task with the same name. See `deploy/windows/README.md` for install
+and removal details.
+
 ## Packages
 
 Native package metadata lives in:
 
 - `debian/` for Debian-family builds
 - `packaging/rpm/dns-update.spec` for RPM-family builds
-- `deploy/systemd/` for the shared systemd units and env file used by both
-  manual installs and native packages
+- `deploy/systemd/` for the shared Linux systemd units and env file used by
+  both manual installs and native packages
 
-Package builds install:
+Linux package builds install:
 
 - `/usr/bin/dns-update`
 - `/etc/dns-update/dns-update.env`
@@ -279,7 +348,7 @@ next to the artifact as `*.sigstore.json`. Package builds do not embed native
 Debian or RPM repository signatures.
 
 GitHub's `Release` workflow is separate from the native package scripts. It
-publishes a full signed release asset set under `out/release/`:
+publishes a full signed cross-platform release asset set under `out/release/`:
 
 - Linux `.deb` packages for `amd64`, `arm64`, and `armhf`
 - Linux `.rpm` packages for `x86_64`, `aarch64`, and `armv7hl`
@@ -337,7 +406,7 @@ syntax, `go vet`, and `go build ./...`. The separate `Systemd Integration`
 workflow runs the multi-distro timer matrix below.
 
 GitHub Actions additionally runs the dedicated `Systemd Integration` workflow
-to validate the installed timer/service flow on:
+to validate the installed Linux timer/service flow on:
 
 - Debian Stable
 - Debian Unstable
@@ -350,6 +419,16 @@ GitHub Actions also runs native scheduler integration tests on:
 
 - macOS `launchd`
 - Windows Task Scheduler
+
+Those scheduler tests validate real scheduled execution rather than only manual
+service starts:
+
+- Linux waits for a later timer-fired `dns-update.service` success after an
+  initial skipped activation.
+- macOS waits for the installed `LaunchDaemon` to emit a successful
+  `-validate-config` run.
+- Windows waits for the registered scheduled task to emit a successful
+  `-validate-config` run.
 
 ## Package Docs
 

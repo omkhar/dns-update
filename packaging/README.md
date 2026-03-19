@@ -7,6 +7,10 @@ This repository ships native packaging metadata for:
 - macOS release archives
 - Windows release archives
 
+Linux is the only platform with native OS packages in this repository today.
+macOS and Windows ship as signed release archives that bundle the binary,
+examples, changelog, license, and native scheduler helpers under `deploy/`.
+
 Both package layouts install:
 
 - `/usr/bin/dns-update`
@@ -179,6 +183,10 @@ Separate native scheduler integration jobs validate:
 
 - `deploy/launchd/install-launchd-job.sh` on `macos-latest`
 - `deploy/windows/register-scheduled-task.ps1` on `windows-latest`
+
+Those macOS and Windows jobs validate real scheduler-driven runs by waiting for
+the installed native scheduler job to execute `dns-update -validate-config`
+successfully.
 
 For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
 supports amd64 and arm64 hosts.

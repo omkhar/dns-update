@@ -16,7 +16,8 @@ the configured DNS A and AAAA records when the observed addresses differ from
 the current provider state.
 .P
 The program is intended for timer-driven operation, including systemd timer
-deployments. It supports dry-run execution, bounded retries, and provider
+deployments on Linux, launchd jobs on macOS, and Task Scheduler jobs on
+Windows. It supports dry-run execution, bounded retries, and provider
 reconciliation against the live DNS record state before applying changes.
 .P
 In the packaged systemd deployment, the Cloudflare token source file is stored
