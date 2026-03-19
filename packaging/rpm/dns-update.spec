@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.0.3
+%global upstream_version 1.0.4
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -102,6 +102,11 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.4-1
+- Publish signed macOS and Windows release archives alongside the existing signed Linux packages and Linux tarballs
+- Validate native scheduled execution on macOS launchd and Windows Task Scheduler before release publishing
+- Refresh the cross-platform deployment and packaging documentation for the released asset set
+
 * Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.3-1
 - Stop UPX-packing packaged binaries so the hardened systemd service remains compatible with MemoryDenyWriteExecute=yes
 - Extend the multi-distro systemd integration test to install and exercise the actual built .deb and .rpm packages

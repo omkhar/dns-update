@@ -145,7 +145,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.0.3 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.0.4 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -216,14 +216,14 @@ Verify an artifact with:
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.0.3-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.0.4-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.0.3-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.0.4-1.x86_64.rpm
 ```
 
 ## Maintainer metadata

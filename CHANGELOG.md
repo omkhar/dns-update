@@ -2,6 +2,15 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.0.4 - 2026-03-19
+
+- Publishes signed macOS and Windows release archives alongside the existing
+  signed Linux packages and Linux tarballs.
+- Validates native scheduled execution on macOS `launchd` and Windows Task
+  Scheduler in GitHub Actions before release publishing.
+- Clarifies the cross-platform deployment and packaging documentation for the
+  shipped release asset set.
+
 ## 1.0.3 - 2026-03-19
 
 - Stops UPX-packing packaged binaries so the shipped systemd service remains
