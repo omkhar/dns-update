@@ -86,6 +86,58 @@ func TestLoadRejectsGroupReadableTokenFile(t *testing.T) {
 	}
 }
 
+func TestLoadAcceptsSystemdCredentialPermissionMask(t *testing.T) {
+	dir := t.TempDir()
+	rootDir := filepath.Join(dir, "run", "credentials")
+	credDir := filepath.Join(rootDir, "test.service")
+	if err := os.MkdirAll(credDir, 0o700); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+
+	tokenFile := filepath.Join(credDir, "cloudflare.token")
+	if err := os.WriteFile(tokenFile, []byte("secret"), 0o440); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	t.Setenv("CREDENTIALS_DIRECTORY", credDir)
+
+	configPath := filepath.Join(dir, "config.json")
+	configJSON := `{
+  "record": {
+    "name": "host.example.com.",
+    "zone": "example.com.",
+    "ttl_seconds": 300
+  },
+  "probe": {
+    "timeout": "10s"
+  },
+  "provider": {
+    "type": "cloudflare",
+    "timeout": "10s",
+    "cloudflare": {
+      "zone_id": "023e105f4ecef8ad9ca31a8372d0c353"
+    }
+  }
+}`
+	if err := os.WriteFile(configPath, []byte(configJSON), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		Path:       configPath,
+		WorkingDir: dir,
+		Env: map[string]string{
+			envProviderCloudflareAPITokenFile: tokenFile,
+		},
+	})
+	if err != nil {
+		t.Fatalf("LoadWithOptions() error = %v", err)
+	}
+	if got, want := cfg.Provider.Cloudflare.APITokenFile, tokenFile; got != want {
+		t.Fatalf("cfg.Provider.Cloudflare.APITokenFile = %q, want %q", got, want)
+	}
+}
+
 func TestLoadAppliesDefaults(t *testing.T) {
 	dir := t.TempDir()
 	tokenFile := filepath.Join(dir, "cloudflare.token")

@@ -18,6 +18,7 @@ var (
 	readTokenBytes = func(file *os.File) ([]byte, error) {
 		return io.ReadAll(io.LimitReader(file, maxTokenBytes+1))
 	}
+	lookupEnv = os.LookupEnv
 )
 
 // Validate ensures path points to a non-symlink regular file with private permissions.
@@ -36,7 +37,7 @@ func Validate(path string) error {
 	if !info.Mode().IsRegular() {
 		return errors.New("must be a regular file")
 	}
-	if info.Mode().Perm()&0o077 != 0 {
+	if !hasSecurePermissions(path, info.Mode().Perm()) {
 		return errors.New("must not be accessible by group or other users")
 	}
 	return nil
@@ -62,7 +63,7 @@ func ReadSingleToken(path string) (string, error) {
 	if !info.Mode().IsRegular() {
 		return "", errors.New("must be a regular file")
 	}
-	if info.Mode().Perm()&0o077 != 0 {
+	if !hasSecurePermissions(path, info.Mode().Perm()) {
 		return "", errors.New("must not be accessible by group or other users")
 	}
 
@@ -101,4 +102,45 @@ func validateParentDirectory(path string) error {
 		return errors.New("parent directory must not be writable by group or other users")
 	}
 	return nil
+}
+
+func hasSecurePermissions(path string, perm os.FileMode) bool {
+	if perm&0o077 == 0 {
+		return true
+	}
+
+	// systemd credentials may surface with an ACL-derived mask that makes the
+	// file appear group-readable (for example 0440) even though access remains
+	// restricted to the service identity and root.
+	if isSystemdCredentialPath(path) && perm&0o337 == 0 {
+		return true
+	}
+
+	return false
+}
+
+func isSystemdCredentialPath(path string) bool {
+	dir, ok := lookupEnv("CREDENTIALS_DIRECTORY")
+	if !ok || strings.TrimSpace(dir) == "" {
+		return false
+	}
+
+	cleanDir := filepath.Clean(dir)
+	if filepath.Base(filepath.Dir(cleanDir)) != "credentials" {
+		return false
+	}
+
+	cleanPath := filepath.Clean(path)
+	if cleanPath == cleanDir {
+		return false
+	}
+
+	rel, err := filepath.Rel(cleanDir, cleanPath)
+	if err != nil {
+		return false
+	}
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+	return true
 }
