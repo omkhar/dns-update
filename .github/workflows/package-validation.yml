@@ -25,6 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Go
@@ -75,6 +76,7 @@ jobs:
           check-latest: true
 
       - name: Build cross-platform release archives
-        run: |
-          RELEASE_SKIP_PACKAGES=1 \
-          ./packaging/build-release-assets.sh
+        uses: goreleaser/goreleaser-action@9a127d869fb706213d29cdf8eef3a4ea2b869415
+        with:
+          version: v2.14.3
+          args: release --snapshot --clean --skip=publish
