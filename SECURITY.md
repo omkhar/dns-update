@@ -16,8 +16,13 @@ vulnerability.
 
 Use one of these paths:
 
-1. GitHub private vulnerability reporting for this repository, if it is enabled.
+1. GitHub private vulnerability reporting for this repository:
+   `https://github.com/omkhar/dns-update/security/advisories/new`
 2. Any dedicated private security contact path published by the maintainers.
+
+Repository security settings and policy are also published at:
+
+- `https://github.com/omkhar/dns-update/security/policy`
 
 If neither private path is available yet, open a minimal public issue asking for
 a private reporting route and do not include sensitive details, proof-of-concept
@@ -35,14 +40,12 @@ When reporting a vulnerability, include:
 
 ## Response Expectations
 
-This repository does not currently publish formal response SLAs.
+Maintainers aim to acknowledge well-formed vulnerability reports within 7 days
+and to communicate a remediation or mitigation plan within 30 days when a fix
+is warranted.
 
-When maintainers adopt a formal security process, this file should be updated
-with:
-
-- acknowledgment targets
-- remediation timelines
-- release and disclosure expectations
+Public disclosure should wait until a fix or mitigation is available, or until
+maintainers confirm that coordinated disclosure can proceed safely.
 
 ## Coordinated Disclosure
 
