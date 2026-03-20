@@ -353,6 +353,9 @@ func TestRunRejectsRemovedConfigOverrideFlag(t *testing.T) {
 	if !strings.Contains(stderr.String(), "flag provided but not defined") {
 		t.Fatalf("stderr = %q, want unknown flag error", stderr.String())
 	}
+	if strings.Contains(stderr.String(), "failed to parse flags") {
+		t.Fatalf("stderr = %q, want no duplicate parse logger output", stderr.String())
+	}
 }
 
 func TestRunTimeoutFlagSetsDeadline(t *testing.T) {
@@ -495,6 +498,9 @@ func TestRunFlagParseError(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "flag provided but not defined") {
 		t.Fatalf("stderr = %q, want parse error", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "failed to parse flags") {
+		t.Fatalf("stderr = %q, want no duplicate parse logger output", stderr.String())
 	}
 }
 
@@ -648,6 +654,7 @@ func TestRunPrintEffectiveConfig(t *testing.T) {
 		dependencies{
 			loadConfig: func(config.LoadOptions) (config.Config, error) {
 				return config.Config{
+					SourcePath: "/tmp/config.json",
 					Record: config.RecordConfig{
 						Name:       "host.example.com.",
 						Zone:       "example.com.",

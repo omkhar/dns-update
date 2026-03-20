@@ -33,13 +33,11 @@ func main() {
 }
 
 func run(args []string, stdout io.Writer, stderr io.Writer, deps dependencies) int {
-	errorLogger := newLogger(stderr, false)
 	flags, values := newFlagSet(stderr)
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		errorLogger.Error("failed to parse flags", "error", err)
 		return 2
 	}
 

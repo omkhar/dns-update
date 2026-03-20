@@ -29,7 +29,7 @@ func LoadWithOptions(options LoadOptions) (Config, error) {
 		return Config{}, err
 	}
 
-	raw := fileConfig{}
+	var raw fileConfig
 	baseDir := workingDir
 	sourcePath := strings.TrimSpace(options.Path)
 
