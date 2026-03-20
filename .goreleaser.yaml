@@ -46,13 +46,6 @@ archives:
       - cloudflare.token.example
       - deploy/**/*
 
-checksum:
-  name_template: checksums.txt
-  algorithm: sha256
-  extra_files:
-    - glob: ./out/packages/deb/*/*.deb
-    - glob: ./out/packages/rpm/*/*.rpm
-
 changelog:
   disable: true
 
