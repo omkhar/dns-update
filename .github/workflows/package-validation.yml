@@ -75,6 +75,7 @@ jobs:
           check-latest: true
 
       - name: Build cross-platform release archives
-        run: |
-          RELEASE_SKIP_PACKAGES=1 \
-          ./packaging/build-release-assets.sh
+        uses: goreleaser/goreleaser-action@9a127d869fb706213d29cdf8eef3a4ea2b869415
+        with:
+          version: v2.14.3
+          args: release --snapshot --clean --skip=publish
