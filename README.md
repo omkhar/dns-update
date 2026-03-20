@@ -1,5 +1,7 @@
 # dns-update
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/omkhar/dns-update/badge)](https://scorecard.dev/viewer/?uri=github.com/omkhar/dns-update)
+
 `dns-update` is a Go service that keeps one hostname's `A` and `AAAA` records
 aligned with the host's current egress IPv4/IPv6 addresses.
 

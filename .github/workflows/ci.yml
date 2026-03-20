@@ -60,6 +60,12 @@ jobs:
           mapfile -t packages < <(go list ./... | grep -v '^dns-update/internal/quality$')
           go test -count=1 "${packages[@]}"
 
+      - name: Fuzz smoke test
+        run: |
+          go test -run '^$' -fuzz '^FuzzNormalizeFQDN$' -fuzztime=5s ./internal/config
+          go test -run '^$' -fuzz '^FuzzParseProbeURL$' -fuzztime=5s ./internal/config
+          go test -run '^$' -fuzz '^FuzzParseResponse$' -fuzztime=5s ./internal/egress
+
       - name: Coverage gate
         run: go test -count=1 -run '^TestCoverageThreshold$' ./internal/quality
 
