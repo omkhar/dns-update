@@ -2,6 +2,15 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.1.0 - 2026-03-20
+
+- Removes dead runtime plumbing in config loading, flag parsing, and effective
+  config printing.
+- Adds a repository-wide `CODEOWNERS` rule for `@omkhar` so owner review is the
+  default review path for all files.
+- Updates the default-branch protection policy so code-owner review is required
+  while the single repository owner can still merge their own pull requests.
+
 ## 1.0.4 - 2026-03-19
 
 - Publishes signed macOS and Windows release archives alongside the existing

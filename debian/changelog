@@ -1,3 +1,13 @@
+dns-update (1.1.0-1) unstable; urgency=medium
+
+  * Remove dead runtime plumbing in config loading, flag parsing, and
+    effective config printing.
+  * Add a repository-wide CODEOWNERS entry for omkhar.
+  * Require code-owner review on main while allowing the single repository
+    owner to merge self-authored pull requests.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Fri, 20 Mar 2026 20:38:46 -0400
+
 dns-update (1.0.4-1) unstable; urgency=medium
 
   * Publish signed macOS and Windows release archives alongside the existing

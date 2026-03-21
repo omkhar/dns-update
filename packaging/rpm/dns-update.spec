@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.0.4
+%global upstream_version 1.1.0
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -102,10 +102,10 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
-* Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.4-1
-- Publish signed macOS and Windows release archives alongside the existing signed Linux packages and Linux tarballs
-- Validate native scheduled execution on macOS launchd and Windows Task Scheduler before release publishing
-- Refresh the cross-platform deployment and packaging documentation for the released asset set
+* Fri Mar 20 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.1.0-1
+- Remove dead runtime plumbing in config loading, flag parsing, and effective config printing
+- Add repository-wide CODEOWNERS ownership for omkhar
+- Require code-owner review on main while allowing the single repository owner to merge self-authored pull requests
 
 * Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.3-1
 - Stop UPX-packing packaged binaries so the hardened systemd service remains compatible with MemoryDenyWriteExecute=yes
