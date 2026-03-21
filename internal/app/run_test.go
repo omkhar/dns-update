@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -229,7 +230,7 @@ func TestRunDeleteBothSkipsProbesAndApplies(t *testing.T) {
 	if got, want := fake.readCalls, 2; got != want {
 		t.Fatalf("ReadState() calls = %d, want %d", got, want)
 	}
-	if got, want := prober.calls, 0; got != want {
+	if got, want := prober.calls.Load(), int32(0); got != want {
 		t.Fatalf("Lookup() calls = %d, want %d", got, want)
 	}
 	if got, want := len(fake.applyPlans), 1; got != want {
@@ -317,7 +318,7 @@ func TestRunDeleteNoop(t *testing.T) {
 	if got, want := fake.readCalls, 1; got != want {
 		t.Fatalf("ReadState() calls = %d, want %d", got, want)
 	}
-	if got, want := prober.calls, 0; got != want {
+	if got, want := prober.calls.Load(), int32(0); got != want {
 		t.Fatalf("Lookup() calls = %d, want %d", got, want)
 	}
 }
@@ -958,11 +959,11 @@ type fakeProber struct {
 	ipv6    *netip.Addr
 	ipv4Err error
 	ipv6Err error
-	calls   int
+	calls   atomic.Int32
 }
 
 func (f *fakeProber) Lookup(_ context.Context, _ *url.URL, family egress.Family) (*netip.Addr, error) {
-	f.calls++
+	f.calls.Add(1)
 	switch family {
 	case egress.IPv4:
 		return f.ipv4, f.ipv4Err
