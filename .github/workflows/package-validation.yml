@@ -75,7 +75,7 @@ jobs:
           check-latest: true
 
       - name: Build cross-platform release archives
-        uses: goreleaser/goreleaser-action@9a127d869fb706213d29cdf8eef3a4ea2b869415
+        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29  # v7.0.0
         with:
           version: v2.14.3
           args: release --snapshot --clean --skip=publish
