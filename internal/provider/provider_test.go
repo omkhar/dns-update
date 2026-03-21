@@ -195,6 +195,124 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 	})
 }
 
+func TestBuildDeletePlan(t *testing.T) {
+	t.Parallel()
+
+	current := State{
+		Name: "host.example.com.",
+		Records: []Record{
+			{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.10", TTLSeconds: 300},
+			{ID: "a2", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.11", TTLSeconds: 300},
+			{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: "2001:db8::10", TTLSeconds: 300},
+			{ID: "c1", Name: "host.example.com.", Type: RecordTypeCNAME, Content: "other.example.com.", TTLSeconds: 300},
+		},
+	}
+
+	t.Run("delete a only", func(t *testing.T) {
+		t.Parallel()
+
+		plan, err := BuildDeletePlan(current, RecordSelectionA)
+		if err != nil {
+			t.Fatalf("BuildDeletePlan() error = %v", err)
+		}
+		if got, want := len(plan.Operations), 2; got != want {
+			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
+		}
+		for _, operation := range plan.Operations {
+			if got, want := operation.Kind, OperationDelete; got != want {
+				t.Fatalf("operation.Kind = %q, want %q", got, want)
+			}
+			if got, want := operation.Current.Type, RecordTypeA; got != want {
+				t.Fatalf("operation.Current.Type = %q, want %q", got, want)
+			}
+		}
+	})
+
+	t.Run("delete aaaa only", func(t *testing.T) {
+		t.Parallel()
+
+		plan, err := BuildDeletePlan(current, RecordSelectionAAAA)
+		if err != nil {
+			t.Fatalf("BuildDeletePlan() error = %v", err)
+		}
+		if got, want := len(plan.Operations), 1; got != want {
+			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
+		}
+		if got, want := plan.Operations[0].Current.Type, RecordTypeAAAA; got != want {
+			t.Fatalf("operation.Current.Type = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("delete both ignores cname", func(t *testing.T) {
+		t.Parallel()
+
+		plan, err := BuildDeletePlan(current, RecordSelectionBoth)
+		if err != nil {
+			t.Fatalf("BuildDeletePlan() error = %v", err)
+		}
+		if got, want := len(plan.Operations), 3; got != want {
+			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
+		}
+	})
+
+	t.Run("noop when records already absent", func(t *testing.T) {
+		t.Parallel()
+
+		plan, err := BuildDeletePlan(State{Name: "host.example.com."}, RecordSelectionA)
+		if err != nil {
+			t.Fatalf("BuildDeletePlan() error = %v", err)
+		}
+		if !plan.IsNoop() {
+			t.Fatalf("BuildDeletePlan() = %+v, want noop", plan)
+		}
+	})
+
+	t.Run("selection required", func(t *testing.T) {
+		t.Parallel()
+
+		if _, err := BuildDeletePlan(current, RecordSelectionNone); err == nil {
+			t.Fatal("BuildDeletePlan() error = nil, want non-nil")
+		}
+	})
+}
+
+func TestRecordSelectionHelpers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		selection  RecordSelection
+		recordA    bool
+		recordAAAA bool
+		want       string
+	}{
+		{name: "none", selection: RecordSelectionNone, want: ""},
+		{name: "a", selection: RecordSelectionA, recordA: true, want: "a"},
+		{name: "aaaa", selection: RecordSelectionAAAA, recordAAAA: true, want: "aaaa"},
+		{name: "both", selection: RecordSelectionBoth, recordA: true, recordAAAA: true, want: "both"},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got, want := test.selection.String(), test.want; got != want {
+				t.Fatalf("selection.String() = %q, want %q", got, want)
+			}
+			if got, want := test.selection.Includes(RecordTypeA), test.recordA; got != want {
+				t.Fatalf("selection.Includes(A) = %t, want %t", got, want)
+			}
+			if got, want := test.selection.Includes(RecordTypeAAAA), test.recordAAAA; got != want {
+				t.Fatalf("selection.Includes(AAAA) = %t, want %t", got, want)
+			}
+			if test.selection.Includes(RecordTypeCNAME) {
+				t.Fatal("selection.Includes(CNAME) = true, want false")
+			}
+		})
+	}
+}
+
 func TestVerifySingleAddressState(t *testing.T) {
 	t.Parallel()
 
@@ -281,6 +399,65 @@ func TestVerifySingleAddressState(t *testing.T) {
 			t.Parallel()
 			if err := VerifySingleAddressState(test.state, test.desired); err == nil {
 				t.Fatal("VerifySingleAddressState() error = nil, want non-nil")
+			}
+		})
+	}
+}
+
+func TestVerifyDeletedTypes(t *testing.T) {
+	t.Parallel()
+
+	if err := VerifyDeletedTypes(
+		State{
+			Name: "host.example.com.",
+			Records: []Record{
+				{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: "2001:db8::10", TTLSeconds: 300},
+				{ID: "c1", Name: "host.example.com.", Type: RecordTypeCNAME, Content: "other.example.com.", TTLSeconds: 300},
+			},
+		},
+		RecordSelectionA,
+	); err != nil {
+		t.Fatalf("VerifyDeletedTypes() error = %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		state     State
+		selection RecordSelection
+	}{
+		{
+			name:      "selection required",
+			state:     State{Name: "host.example.com."},
+			selection: RecordSelectionNone,
+		},
+		{
+			name: "a still present",
+			state: State{
+				Name: "host.example.com.",
+				Records: []Record{
+					{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.10", TTLSeconds: 300},
+				},
+			},
+			selection: RecordSelectionA,
+		},
+		{
+			name: "aaaa still present when deleting both",
+			state: State{
+				Name: "host.example.com.",
+				Records: []Record{
+					{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: "2001:db8::10", TTLSeconds: 300},
+				},
+			},
+			selection: RecordSelectionBoth,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if err := VerifyDeletedTypes(test.state, test.selection); err == nil {
+				t.Fatal("VerifyDeletedTypes() error = nil, want non-nil")
 			}
 		})
 	}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"dns-update/internal/config"
+	"dns-update/internal/provider"
 )
 
 func TestHandleIntrospection(t *testing.T) {
@@ -56,6 +57,7 @@ func TestHandleIntrospection(t *testing.T) {
 		var stdout bytes.Buffer
 		handled, err := handleIntrospection(&stdout, cfg, runtimeOptions{
 			configPath:        "/tmp/config.json",
+			deleteSelection:   provider.RecordSelectionBoth,
 			dryRun:            true,
 			forcePush:         true,
 			introspectionMode: introspectionModePrintEffectiveConfig,
@@ -73,6 +75,9 @@ func TestHandleIntrospection(t *testing.T) {
 		}
 		if got := stdout.String(); !strings.Contains(got, `"force_push": true`) {
 			t.Fatalf("handleIntrospection() output = %q, want force_push field", got)
+		}
+		if got := stdout.String(); !strings.Contains(got, `"delete": "both"`) {
+			t.Fatalf("handleIntrospection() output = %q, want delete field", got)
 		}
 	})
 

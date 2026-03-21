@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"dns-update/internal/app"
 	"dns-update/internal/config"
+	"dns-update/internal/provider"
 )
 
 func TestRunSuccessDryRun(t *testing.T) {
@@ -37,10 +39,10 @@ func TestRunSuccessDryRun(t *testing.T) {
 				return config.Config{}, nil
 			},
 			newRunner: func(_ config.Config, _ *slog.Logger) (runner, error) {
-				return runnerFunc(func(_ context.Context, dryRun bool, forcePush bool) error {
+				return runnerFunc(func(_ context.Context, options app.RunOptions) error {
 					ran = true
-					gotDryRun = dryRun
-					gotForce = forcePush
+					gotDryRun = options.DryRun
+					gotForce = options.ForcePush
 					return nil
 				}), nil
 			},
@@ -93,11 +95,11 @@ func TestRunSuccessForcePush(t *testing.T) {
 				return config.Config{}, nil
 			},
 			newRunner: func(_ config.Config, _ *slog.Logger) (runner, error) {
-				return runnerFunc(func(_ context.Context, dryRun bool, forcePush bool) error {
-					if dryRun {
+				return runnerFunc(func(_ context.Context, options app.RunOptions) error {
+					if options.DryRun {
 						t.Fatal("dryRun = true, want false")
 					}
-					gotForcePush = forcePush
+					gotForcePush = options.ForcePush
 					return nil
 				}), nil
 			},
@@ -113,6 +115,90 @@ func TestRunSuccessForcePush(t *testing.T) {
 	}
 	if !gotForcePush {
 		t.Fatal("forcePush = false, want true")
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunSuccessDeleteBareFlagDeletesBoth(t *testing.T) {
+	t.Parallel()
+
+	var gotDelete provider.RecordSelection
+
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	exitCode := run(
+		[]string{"-delete"},
+		stdout,
+		stderr,
+		dependencies{
+			loadConfig: func(options config.LoadOptions) (config.Config, error) {
+				return config.Config{}, nil
+			},
+			newRunner: func(_ config.Config, _ *slog.Logger) (runner, error) {
+				return runnerFunc(func(_ context.Context, options app.RunOptions) error {
+					gotDelete = options.Delete
+					return nil
+				}), nil
+			},
+			notifyContext: func(parent context.Context, _ ...os.Signal) (context.Context, context.CancelFunc) {
+				return parent, func() {}
+			},
+			lookupEnv: envLookup(nil),
+		},
+	)
+
+	if got, want := exitCode, 0; got != want {
+		t.Fatalf("run() exitCode = %d, want %d", got, want)
+	}
+	if got, want := gotDelete, provider.RecordSelectionBoth; got != want {
+		t.Fatalf("delete selection = %v, want %v", got, want)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunSuccessDeleteSingleFamily(t *testing.T) {
+	t.Parallel()
+
+	var gotDelete provider.RecordSelection
+
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	exitCode := run(
+		[]string{"-delete=a"},
+		stdout,
+		stderr,
+		dependencies{
+			loadConfig: func(options config.LoadOptions) (config.Config, error) {
+				return config.Config{}, nil
+			},
+			newRunner: func(_ config.Config, _ *slog.Logger) (runner, error) {
+				return runnerFunc(func(_ context.Context, options app.RunOptions) error {
+					gotDelete = options.Delete
+					return nil
+				}), nil
+			},
+			notifyContext: func(parent context.Context, _ ...os.Signal) (context.Context, context.CancelFunc) {
+				return parent, func() {}
+			},
+			lookupEnv: envLookup(nil),
+		},
+	)
+
+	if got, want := exitCode, 0; got != want {
+		t.Fatalf("run() exitCode = %d, want %d", got, want)
+	}
+	if got, want := gotDelete, provider.RecordSelectionA; got != want {
+		t.Fatalf("delete selection = %v, want %v", got, want)
 	}
 	if stdout.Len() != 0 {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
@@ -139,8 +225,8 @@ func TestRunUsesRuntimeEnvWhenFlagsAreUnset(t *testing.T) {
 				return config.Config{}, nil
 			},
 			newRunner: func(_ config.Config, logger *slog.Logger) (runner, error) {
-				return runnerFunc(func(ctx context.Context, dryRun bool, forcePush bool) error {
-					if !dryRun {
+				return runnerFunc(func(ctx context.Context, options app.RunOptions) error {
+					if !options.DryRun {
 						t.Fatal("dryRun = false, want true")
 					}
 					deadline, ok := ctx.Deadline()
@@ -206,8 +292,8 @@ func TestRunFlagsOverrideRuntimeEnv(t *testing.T) {
 				return config.Config{}, nil
 			},
 			newRunner: func(_ config.Config, logger *slog.Logger) (runner, error) {
-				return runnerFunc(func(ctx context.Context, dryRun bool, forcePush bool) error {
-					if dryRun {
+				return runnerFunc(func(ctx context.Context, options app.RunOptions) error {
+					if options.DryRun {
 						t.Fatal("dryRun = true, want false")
 					}
 					deadline, ok := ctx.Deadline()
@@ -423,11 +509,11 @@ func TestRunTimeoutFlagSetsDeadline(t *testing.T) {
 				return config.Config{}, nil
 			},
 			newRunner: func(config.Config, *slog.Logger) (runner, error) {
-				return runnerFunc(func(ctx context.Context, dryRun bool, forcePush bool) error {
-					if dryRun {
+				return runnerFunc(func(ctx context.Context, options app.RunOptions) error {
+					if options.DryRun {
 						t.Fatal("dryRun = true, want false")
 					}
-					if forcePush {
+					if options.ForcePush {
 						t.Fatal("forcePush = true, want false")
 					}
 					deadline, ok := ctx.Deadline()
@@ -474,11 +560,11 @@ func TestRunTimeoutExceeded(t *testing.T) {
 				return config.Config{}, nil
 			},
 			newRunner: func(config.Config, *slog.Logger) (runner, error) {
-				return runnerFunc(func(ctx context.Context, dryRun bool, forcePush bool) error {
-					if dryRun {
+				return runnerFunc(func(ctx context.Context, options app.RunOptions) error {
+					if options.DryRun {
 						t.Fatal("dryRun = true, want false")
 					}
-					if forcePush {
+					if options.ForcePush {
 						t.Fatal("forcePush = true, want false")
 					}
 					<-ctx.Done()
@@ -540,6 +626,66 @@ func TestRunRejectsNegativeTimeout(t *testing.T) {
 	}
 }
 
+func TestRunRejectsDeleteForcePushConflict(t *testing.T) {
+	t.Parallel()
+
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	exitCode := run(
+		[]string{"-delete", "-force-push"},
+		stdout,
+		stderr,
+		dependencies{
+			loadConfig: func(config.LoadOptions) (config.Config, error) {
+				t.Fatal("loadConfig should not be called")
+				return config.Config{}, nil
+			},
+			newRunner: func(config.Config, *slog.Logger) (runner, error) {
+				t.Fatal("newRunner should not be called")
+				return nil, nil
+			},
+			notifyContext: func(parent context.Context, _ ...os.Signal) (context.Context, context.CancelFunc) {
+				t.Fatal("notifyContext should not be called")
+				return parent, func() {}
+			},
+			lookupEnv: envLookup(nil),
+		},
+	)
+
+	if got, want := exitCode, 2; got != want {
+		t.Fatalf("run() exitCode = %d, want %d", got, want)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if got := stderr.String(); !strings.Contains(got, "mutually exclusive") {
+		t.Fatalf("stderr = %q, want mutual exclusion error", got)
+	}
+}
+
+func TestRunRejectsInvalidDeleteValue(t *testing.T) {
+	t.Parallel()
+
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	exitCode := run(
+		[]string{"-delete=ipv4"},
+		stdout,
+		stderr,
+		noOpDependencies(),
+	)
+
+	if got, want := exitCode, 2; got != want {
+		t.Fatalf("run() exitCode = %d, want %d", got, want)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if got := stderr.String(); !strings.Contains(got, "invalid value") && !strings.Contains(got, "invalid delete value") {
+		t.Fatalf("stderr = %q, want delete parse error", got)
+	}
+}
+
 func TestRunFlagParseError(t *testing.T) {
 	t.Parallel()
 
@@ -577,6 +723,9 @@ func TestRunHelp(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "-force-push") {
 		t.Fatalf("stderr = %q, want force-push help output", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "-delete") {
+		t.Fatalf("stderr = %q, want delete help output", stderr.String())
 	}
 }
 
@@ -707,7 +856,7 @@ func TestRunPrintEffectiveConfig(t *testing.T) {
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
 	exitCode := run(
-		[]string{"-config", "/tmp/config.json", "-dry-run", "-force-push", "-verbose", "-timeout", "3s", "-print-effective-config"},
+		[]string{"-config", "/tmp/config.json", "-delete", "-dry-run", "-verbose", "-timeout", "3s", "-print-effective-config"},
 		stdout,
 		stderr,
 		dependencies{
@@ -755,8 +904,9 @@ func TestRunPrintEffectiveConfig(t *testing.T) {
 	output := stdout.String()
 	for _, expected := range []string{
 		`"config_path": "/tmp/config.json"`,
+		`"delete": "both"`,
 		`"dry_run": true`,
-		`"force_push": true`,
+		`"force_push": false`,
 		`"verbose": true`,
 		`"timeout": "3s"`,
 		`"name": "host.example.com."`,
@@ -899,7 +1049,7 @@ func TestRunRunnerError(t *testing.T) {
 				return config.Config{}, nil
 			},
 			newRunner: func(config.Config, *slog.Logger) (runner, error) {
-				return runnerFunc(func(context.Context, bool, bool) error {
+				return runnerFunc(func(context.Context, app.RunOptions) error {
 					return errors.New("boom")
 				}), nil
 			},
@@ -1066,17 +1216,17 @@ func TestMainCallsExitFunc(t *testing.T) {
 	}
 }
 
-type runnerFunc func(ctx context.Context, dryRun bool, forcePush bool) error
+type runnerFunc func(ctx context.Context, options app.RunOptions) error
 
-func (f runnerFunc) Run(ctx context.Context, dryRun bool, forcePush bool) error {
-	return f(ctx, dryRun, forcePush)
+func (f runnerFunc) Run(ctx context.Context, options app.RunOptions) error {
+	return f(ctx, options)
 }
 
 type loggerRunner struct {
 	logger *slog.Logger
 }
 
-func (r loggerRunner) Run(context.Context, bool, bool) error {
+func (r loggerRunner) Run(context.Context, app.RunOptions) error {
 	r.logger.Debug("verbose log")
 	return nil
 }
@@ -1087,7 +1237,7 @@ func noOpDependencies() dependencies {
 			return config.Config{}, nil
 		},
 		newRunner: func(config.Config, *slog.Logger) (runner, error) {
-			return runnerFunc(func(context.Context, bool, bool) error { return nil }), nil
+			return runnerFunc(func(context.Context, app.RunOptions) error { return nil }), nil
 		},
 		notifyContext: func(parent context.Context, _ ...os.Signal) (context.Context, context.CancelFunc) {
 			return parent, func() {}

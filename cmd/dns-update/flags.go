@@ -7,6 +7,8 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"dns-update/internal/provider"
 )
 
 const (
@@ -18,6 +20,7 @@ const (
 
 type cliFlagValues struct {
 	configPath           string
+	deleteSelection      provider.RecordSelection
 	dryRun               bool
 	forcePush            bool
 	validateConfig       bool
@@ -36,6 +39,7 @@ const (
 
 type runtimeOptions struct {
 	configPath         string
+	deleteSelection    provider.RecordSelection
 	explicitConfigPath bool
 	dryRun             bool
 	forcePush          bool
@@ -50,6 +54,7 @@ func newFlagSet(stderr io.Writer) (*flag.FlagSet, *cliFlagValues) {
 	flags := flag.NewFlagSet("dns-update", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&values.configPath, "config", "", "Path to the JSON configuration file.")
+	flags.Var(newDeleteFlagValue(&values.deleteSelection), "delete", "Delete managed DNS records instead of reconciling to observed egress IPs. Use a, aaaa, or both; bare -delete deletes both.")
 	flags.BoolVar(&values.dryRun, "dry-run", false, "Print planned changes without applying them.")
 	flags.BoolVar(&values.forcePush, "force-push", false, "Force a provider update even when the observed DNS state already matches.")
 	flags.BoolVar(&values.validateConfig, "validate-config", false, "Validate the assembled configuration, print a success message, and exit.")
@@ -81,6 +86,9 @@ func resolveRuntimeOptions(flags *flag.FlagSet, values cliFlagValues, lookupEnv 
 	if timeout < 0 {
 		return runtimeOptions{}, errors.New("timeout must be greater than or equal to 0")
 	}
+	if values.deleteSelection != provider.RecordSelectionNone && values.forcePush {
+		return runtimeOptions{}, errors.New("delete and force-push are mutually exclusive")
+	}
 	if values.validateConfig && values.printEffectiveConfig {
 		return runtimeOptions{}, errors.New("validate-config and print-effective-config are mutually exclusive")
 	}
@@ -95,6 +103,7 @@ func resolveRuntimeOptions(flags *flag.FlagSet, values cliFlagValues, lookupEnv 
 
 	return runtimeOptions{
 		configPath:         configPath,
+		deleteSelection:    values.deleteSelection,
 		explicitConfigPath: explicitConfigPath,
 		dryRun:             dryRun,
 		forcePush:          values.forcePush,
@@ -160,5 +169,48 @@ func parseBoolValue(value string) (bool, error) {
 		return false, nil
 	default:
 		return false, fmt.Errorf("invalid syntax")
+	}
+}
+
+type deleteFlagValue struct {
+	selection *provider.RecordSelection
+}
+
+func newDeleteFlagValue(selection *provider.RecordSelection) *deleteFlagValue {
+	return &deleteFlagValue{selection: selection}
+}
+
+func (v *deleteFlagValue) String() string {
+	if v == nil || v.selection == nil {
+		return ""
+	}
+	return v.selection.String()
+}
+
+func (v *deleteFlagValue) Set(value string) error {
+	selection, err := parseDeleteSelection(value)
+	if err != nil {
+		return err
+	}
+	*v.selection = selection
+	return nil
+}
+
+func (*deleteFlagValue) IsBoolFlag() bool {
+	return true
+}
+
+func parseDeleteSelection(value string) (provider.RecordSelection, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "true", "both":
+		return provider.RecordSelectionBoth, nil
+	case "a":
+		return provider.RecordSelectionA, nil
+	case "aaaa":
+		return provider.RecordSelectionAAAA, nil
+	case "false", "none":
+		return provider.RecordSelectionNone, nil
+	default:
+		return provider.RecordSelectionNone, fmt.Errorf("invalid delete value %q (want a, aaaa, or both)", value)
 	}
 }

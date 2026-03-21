@@ -46,6 +46,8 @@ On each run, the service:
      changed.
    - If different, applies only the required record create/update/delete
      operations.
+   - If `-delete` is set, skips egress probing and deletes only the selected
+     managed record families for `record.name`.
 6. Re-reads provider state and verifies the final result.
 7. Retries transient probe and provider failures with bounded exponential
    backoff, jitter, and hard attempt/delay limits.
@@ -102,6 +104,9 @@ Runtime options have a separate small override surface.
 Runtime settings:
 
 - `-config` or `DNS_UPDATE_CONFIG`
+- `-delete` on the command line to delete managed records instead of
+  reconciling to observed egress IPs. Bare `-delete` deletes both `A` and
+  `AAAA`; `-delete=a`, `-delete=aaaa`, and `-delete=both` are also accepted
 - `-dry-run` or `DNS_UPDATE_DRY_RUN`
 - `-force-push` on the command line to refresh matching records even when
   nothing drifted
@@ -129,6 +134,10 @@ Behavior notes:
   working directory, then `/etc/dns-update/config.json`.
 - Built-in defaults still apply for optional unset values such as probe URLs,
   timeouts, and the Cloudflare base URL.
+- `-delete` is intentionally CLI-only. There is no config-file or environment
+  variable equivalent for destructive record deletion.
+- `-delete` is compatible with `-dry-run`.
+- `-delete` and `-force-push` are mutually exclusive.
 
 ## Security Notes
 
@@ -214,6 +223,18 @@ Preview planned changes without applying them:
 ./dns-update -config /etc/dns-update/config.json -dry-run
 ```
 
+Preview deletion of both managed address-record families without mutating DNS:
+
+```sh
+./dns-update -config /etc/dns-update/config.json -dry-run -delete
+```
+
+Delete only the managed IPv4 record family:
+
+```sh
+./dns-update -config /etc/dns-update/config.json -delete=a
+```
+
 Force a refresh even when the current DNS records already match the observed
 egress IPs:
 
@@ -260,6 +281,10 @@ travel with the binary on non-Linux systems.
 `--force-push` is intentionally not part of the default scheduler configuration.
 Use it for explicit refresh runs when you need the provider to see an update
 even though the managed records already match the current egress IPs.
+
+`--delete` is also intentionally not part of the default scheduler
+configuration. It is a one-shot destructive operator action, not a steady-state
+reconciliation mode.
 
 ## Linux: systemd
 

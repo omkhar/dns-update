@@ -98,7 +98,7 @@ func TestRunNoop(t *testing.T) {
 		record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
 	))
 
-	if err := runner.Run(context.Background(), false, false); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if runner.provider.(*fakeProvider).applyCalls != 0 {
@@ -123,7 +123,7 @@ func TestRunForcePushNoopApplies(t *testing.T) {
 	}
 
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false, true); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, true)); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if got, want := fake.applyCalls, 1; got != want {
@@ -148,7 +148,7 @@ func TestRunForcePushDryRunSkipsApply(t *testing.T) {
 	}
 
 	runner := testRunnerWithLogger(t, fake, slog.LevelInfo, buffer)
-	if err := runner.Run(context.Background(), true, true); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(true, true)); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if got, want := fake.applyCalls, 0; got != want {
@@ -183,7 +183,7 @@ func TestRunForcePushNoopWithoutManagedAddresses(t *testing.T) {
 		retries:        testRetryPolicy(),
 	}
 
-	if err := runner.Run(context.Background(), false, true); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, true)); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if got, want := fake.applyCalls, 0; got != want {
@@ -194,6 +194,226 @@ func TestRunForcePushNoopWithoutManagedAddresses(t *testing.T) {
 	}
 	if got := buffer.String(); !strings.Contains(got, "records already match current egress IPs") {
 		t.Fatalf("logger output = %q, want noop debug message", got)
+	}
+}
+
+func TestRunDeleteBothSkipsProbesAndApplies(t *testing.T) {
+	t.Parallel()
+
+	prober := defaultFakeProber(t)
+	fake := &fakeProvider{
+		readStates: []provider.State{
+			providerState(
+				record("a1", provider.RecordTypeA, "198.51.100.10"),
+				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
+			),
+			providerState(),
+		},
+	}
+
+	runner := &Runner{
+		cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
+		prober:         prober,
+		provider:       fake,
+		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		logger:         testLogger(),
+		retries:        testRetryPolicy(),
+	}
+
+	if err := runner.Run(context.Background(), RunOptions{Delete: provider.RecordSelectionBoth}); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got, want := fake.applyCalls, 1; got != want {
+		t.Fatalf("Apply() calls = %d, want %d", got, want)
+	}
+	if got, want := fake.readCalls, 2; got != want {
+		t.Fatalf("ReadState() calls = %d, want %d", got, want)
+	}
+	if got, want := prober.calls, 0; got != want {
+		t.Fatalf("Lookup() calls = %d, want %d", got, want)
+	}
+	if got, want := len(fake.applyPlans), 1; got != want {
+		t.Fatalf("len(applyPlans) = %d, want %d", got, want)
+	}
+	if got, want := len(fake.applyPlans[0].Operations), 2; got != want {
+		t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
+	}
+}
+
+func TestRunDeleteSingleFamilyLeavesOtherRecordsUntouched(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeProvider{
+		readStates: []provider.State{
+			providerState(
+				record("a1", provider.RecordTypeA, "198.51.100.10"),
+				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
+				record("c1", provider.RecordTypeCNAME, "other.example.com."),
+			),
+			providerState(
+				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
+				record("c1", provider.RecordTypeCNAME, "other.example.com."),
+			),
+		},
+	}
+
+	runner := testRunnerWithProvider(t, fake)
+	if err := runner.Run(context.Background(), RunOptions{Delete: provider.RecordSelectionA}); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got, want := fake.applyCalls, 1; got != want {
+		t.Fatalf("Apply() calls = %d, want %d", got, want)
+	}
+}
+
+func TestRunDeleteDryRunSkipsApply(t *testing.T) {
+	t.Parallel()
+
+	buffer := new(bytes.Buffer)
+	fake := &fakeProvider{
+		readStates: []provider.State{
+			providerState(record("a1", provider.RecordTypeA, "198.51.100.10")),
+		},
+	}
+
+	runner := testRunnerWithLogger(t, fake, slog.LevelInfo, buffer)
+	if err := runner.Run(context.Background(), RunOptions{
+		DryRun: true,
+		Delete: provider.RecordSelectionA,
+	}); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got, want := fake.applyCalls, 0; got != want {
+		t.Fatalf("Apply() calls = %d, want %d", got, want)
+	}
+	if got := buffer.String(); !strings.Contains(got, "delete A") {
+		t.Fatalf("logger output = %q, want delete summary", got)
+	}
+}
+
+func TestRunDeleteNoop(t *testing.T) {
+	t.Parallel()
+
+	prober := defaultFakeProber(t)
+	fake := &fakeProvider{
+		readStates: []provider.State{providerState(record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"))},
+	}
+
+	runner := &Runner{
+		cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
+		prober:         prober,
+		provider:       fake,
+		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		logger:         testLogger(),
+		retries:        testRetryPolicy(),
+	}
+
+	if err := runner.Run(context.Background(), RunOptions{Delete: provider.RecordSelectionA}); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got, want := fake.applyCalls, 0; got != want {
+		t.Fatalf("Apply() calls = %d, want %d", got, want)
+	}
+	if got, want := fake.readCalls, 1; got != want {
+		t.Fatalf("ReadState() calls = %d, want %d", got, want)
+	}
+	if got, want := prober.calls, 0; got != want {
+		t.Fatalf("Lookup() calls = %d, want %d", got, want)
+	}
+}
+
+func TestRunDeleteLogsStateAtDebug(t *testing.T) {
+	t.Parallel()
+
+	buffer := new(bytes.Buffer)
+	fake := &fakeProvider{
+		readStates: []provider.State{
+			providerState(record("a1", provider.RecordTypeA, "198.51.100.10")),
+		},
+	}
+
+	runner := testRunnerWithLogger(t, fake, slog.LevelDebug, buffer)
+	if err := runner.Run(context.Background(), RunOptions{
+		DryRun: true,
+		Delete: provider.RecordSelectionA,
+	}); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	got := buffer.String()
+	if !strings.Contains(got, "evaluated DNS delete state") {
+		t.Fatalf("logger output = %q, want delete debug state", got)
+	}
+	if !strings.Contains(got, "dry run: planned provider delete operations") {
+		t.Fatalf("logger output = %q, want delete dry-run message", got)
+	}
+}
+
+func TestRunDeleteSelectionRequired(t *testing.T) {
+	t.Parallel()
+
+	runner := testRunnerWithProvider(t, &fakeProvider{
+		readStates: []provider.State{providerState()},
+	})
+
+	if err := runner.runDeleteOnce(context.Background(), RunOptions{}); err == nil {
+		t.Fatal("runDeleteOnce() error = nil, want non-nil")
+	}
+}
+
+func TestRunDeleteReadStateError(t *testing.T) {
+	t.Parallel()
+
+	runner := testRunnerWithProvider(t, &fakeProvider{
+		readErrors: []error{errors.New("boom")},
+	})
+
+	if err := runner.Run(context.Background(), RunOptions{Delete: provider.RecordSelectionA}); err == nil {
+		t.Fatal("Run() error = nil, want non-nil")
+	}
+}
+
+func TestRunDeleteApplyError(t *testing.T) {
+	t.Parallel()
+
+	runner := testRunnerWithProvider(t, &fakeProvider{
+		readStates: []provider.State{
+			providerState(record("a1", provider.RecordTypeA, "198.51.100.10")),
+		},
+		applyErr: errors.New("boom"),
+	})
+
+	if err := runner.Run(context.Background(), RunOptions{Delete: provider.RecordSelectionA}); err == nil {
+		t.Fatal("Run() error = nil, want non-nil")
+	}
+}
+
+func TestRunDeleteVerifyReadError(t *testing.T) {
+	t.Parallel()
+
+	runner := testRunnerWithProvider(t, &fakeProvider{
+		readStates: []provider.State{
+			providerState(record("a1", provider.RecordTypeA, "198.51.100.10")),
+		},
+		readErrors: []error{nil, errors.New("boom")},
+	})
+
+	if err := runner.Run(context.Background(), RunOptions{Delete: provider.RecordSelectionA}); err == nil {
+		t.Fatal("Run() error = nil, want non-nil")
+	}
+}
+
+func TestRunDeleteVerifyError(t *testing.T) {
+	t.Parallel()
+
+	runner := testRunnerWithProvider(t, &fakeProvider{
+		readStates: []provider.State{
+			providerState(record("a1", provider.RecordTypeA, "198.51.100.10")),
+			providerState(record("a1", provider.RecordTypeA, "198.51.100.10")),
+		},
+	})
+
+	if err := runner.Run(context.Background(), RunOptions{Delete: provider.RecordSelectionA}); err == nil {
+		t.Fatal("Run() error = nil, want non-nil")
 	}
 }
 
@@ -249,7 +469,7 @@ func TestRunNoopLogsOnlyAtDebug(t *testing.T) {
 				logger:         slog.New(slog.NewTextHandler(infoBuffer, &slog.HandlerOptions{Level: slog.LevelInfo})),
 				retries:        testRetryPolicy(),
 			}
-			if err := infoRunner.Run(context.Background(), false, false); err != nil {
+			if err := infoRunner.Run(context.Background(), testRunOptions(false, false)); err != nil {
 				t.Fatalf("Run() error = %v", err)
 			}
 			if infoBuffer.Len() != 0 {
@@ -265,7 +485,7 @@ func TestRunNoopLogsOnlyAtDebug(t *testing.T) {
 				logger:         slog.New(slog.NewTextHandler(debugBuffer, &slog.HandlerOptions{Level: slog.LevelDebug})),
 				retries:        testRetryPolicy(),
 			}
-			if err := debugRunner.Run(context.Background(), false, false); err != nil {
+			if err := debugRunner.Run(context.Background(), testRunOptions(false, false)); err != nil {
 				t.Fatalf("Run() error = %v", err)
 			}
 			if got := debugBuffer.String(); !strings.Contains(got, "records already match current egress IPs") {
@@ -285,7 +505,7 @@ func TestRunDryRunSkipsApply(t *testing.T) {
 	}
 
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), true, false); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(true, false)); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if fake.applyCalls != 0 {
@@ -307,7 +527,7 @@ func TestRunDryRunLogsInfo(t *testing.T) {
 	}
 
 	runner := testRunnerWithLogger(t, fake, slog.LevelInfo, buffer)
-	if err := runner.Run(context.Background(), true, false); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(true, false)); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if got := buffer.String(); !strings.Contains(got, "dry run: planned provider operations") {
@@ -332,7 +552,7 @@ func TestRunApplyAndVerify(t *testing.T) {
 	}
 
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false, false); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if got, want := fake.applyCalls, 1; got != want {
@@ -358,7 +578,7 @@ func TestRunApplyLogsOnlyUpdateAtInfo(t *testing.T) {
 	}
 
 	runner := testRunnerWithLogger(t, fake, slog.LevelInfo, buffer)
-	if err := runner.Run(context.Background(), false, false); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	got := buffer.String()
@@ -386,7 +606,7 @@ func TestRunBothProbesError(t *testing.T) {
 		retries: testRetryPolicy(),
 	}
 
-	err := runner.Run(context.Background(), false, false)
+	err := runner.Run(context.Background(), testRunOptions(false, false))
 	if err == nil {
 		t.Fatal("Run() error = nil, want probe failure")
 	}
@@ -456,7 +676,7 @@ func TestRunReadStateError(t *testing.T) {
 		readErrors: []error{errors.New("boom")},
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false, false); err == nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err == nil {
 		t.Fatal("Run() error = nil, want read-state failure")
 	}
 	if got, want := fake.readCalls, 1; got != want {
@@ -493,7 +713,7 @@ func TestRunRetriesRetryableErrorThenSucceeds(t *testing.T) {
 		},
 	}
 
-	if err := runner.Run(context.Background(), false, false); err != nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
 	}
 	if got, want := fake.readCalls, 2; got != want {
@@ -527,7 +747,7 @@ func TestRunStopsAfterRetryLimit(t *testing.T) {
 		},
 	}
 
-	if err := runner.Run(context.Background(), false, false); err == nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err == nil {
 		t.Fatal("Run() error = nil, want exhausted retry error")
 	}
 	if got, want := fake.readCalls, 2; got != want {
@@ -557,7 +777,7 @@ func TestRunRetryWaitError(t *testing.T) {
 		},
 	}
 
-	if err := runner.Run(context.Background(), false, false); err == nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err == nil {
 		t.Fatal("Run() error = nil, want wait failure")
 	}
 	if got, want := sleepCalls, 1; got != want {
@@ -577,7 +797,7 @@ func TestRunBuildPlanError(t *testing.T) {
 		},
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false, false); err == nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err == nil {
 		t.Fatal("Run() error = nil, want build-plan failure")
 	}
 }
@@ -592,7 +812,7 @@ func TestRunApplyError(t *testing.T) {
 		applyErr: errors.New("boom"),
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false, false); err == nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err == nil {
 		t.Fatal("Run() error = nil, want apply failure")
 	}
 }
@@ -607,7 +827,7 @@ func TestRunVerifyReadError(t *testing.T) {
 		readErrors: []error{nil, errors.New("boom")},
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false, false); err == nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err == nil {
 		t.Fatal("Run() error = nil, want verify read failure")
 	}
 }
@@ -622,7 +842,7 @@ func TestRunVerifyError(t *testing.T) {
 		},
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false, false); err == nil {
+	if err := runner.Run(context.Background(), testRunOptions(false, false)); err == nil {
 		t.Fatal("Run() error = nil, want verify failure")
 	}
 }
@@ -738,9 +958,11 @@ type fakeProber struct {
 	ipv6    *netip.Addr
 	ipv4Err error
 	ipv6Err error
+	calls   int
 }
 
 func (f *fakeProber) Lookup(_ context.Context, _ *url.URL, family egress.Family) (*netip.Addr, error) {
+	f.calls++
 	switch family {
 	case egress.IPv4:
 		return f.ipv4, f.ipv4Err
@@ -754,6 +976,7 @@ func (f *fakeProber) Lookup(_ context.Context, _ *url.URL, family egress.Family)
 type fakeProvider struct {
 	readStates []provider.State
 	readErrors []error
+	applyPlans []provider.Plan
 	applyErr   error
 	readCalls  int
 	applyCalls int
@@ -772,8 +995,9 @@ func (f *fakeProvider) ReadState(context.Context, string) (provider.State, error
 	return provider.State{}, nil
 }
 
-func (f *fakeProvider) Apply(context.Context, provider.Plan) error {
+func (f *fakeProvider) Apply(_ context.Context, plan provider.Plan) error {
 	f.applyCalls++
+	f.applyPlans = append(f.applyPlans, plan)
 	return f.applyErr
 }
 
@@ -801,6 +1025,13 @@ func defaultFakeProber(t *testing.T) *fakeProber {
 	return &fakeProber{
 		ipv4: mustAddr(t, "198.51.100.10"),
 		ipv6: mustAddr(t, "2001:db8::10"),
+	}
+}
+
+func testRunOptions(dryRun bool, forcePush bool) RunOptions {
+	return RunOptions{
+		DryRun:    dryRun,
+		ForcePush: forcePush,
 	}
 }
 
