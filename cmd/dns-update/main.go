@@ -16,7 +16,7 @@ import (
 )
 
 type runner interface {
-	Run(ctx context.Context, dryRun bool, forcePush bool) error
+	Run(ctx context.Context, options app.RunOptions) error
 }
 
 type dependencies struct {
@@ -78,7 +78,11 @@ func run(args []string, stdout io.Writer, stderr io.Writer, deps dependencies) i
 		writeError(stderr, "failed to initialize app", err)
 		return 1
 	}
-	if err := appRunner.Run(ctx, runtimeOptions.dryRun, runtimeOptions.forcePush); err != nil {
+	if err := appRunner.Run(ctx, app.RunOptions{
+		DryRun:    runtimeOptions.dryRun,
+		ForcePush: runtimeOptions.forcePush,
+		Delete:    runtimeOptions.deleteSelection,
+	}); err != nil {
 		writeError(stderr, "dns update run failed", err)
 		return 1
 	}

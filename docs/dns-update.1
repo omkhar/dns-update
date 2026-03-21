@@ -4,6 +4,7 @@ dns-update \- keep DNS A and AAAA records aligned with egress IP addresses
 .SH SYNOPSIS
 .B dns-update
 [\fB\-\-config\fR \fIPATH\fR]
+[\fB\-\-delete\fR[=\fIa|aaaa|both\fR]]
 [\fB\-\-dry-run\fR]
 [\fB\-\-force-push\fR]
 [\fB\-\-validate-config\fR]
@@ -18,6 +19,23 @@ the current provider state. With
 .B \-\-force-push,
 matching records are refreshed anyway so the provider receives an update even
 when the observed IPs have not changed.
+.B \-\-delete
+switches the program into an explicit delete mode that skips egress probing and
+removes managed
+.B A
+and/or
+.B AAAA
+records for the configured name. Bare
+.B \-\-delete
+deletes both families; use
+.BR \-\-delete=a ,
+.BR \-\-delete=aaaa ,
+or
+.BR \-\-delete=both
+for explicit selection. Delete mode is compatible with
+.BR \-\-dry-run
+and mutually exclusive with
+.BR \-\-force-push .
 .P
 The program is intended for timer-driven operation, including systemd timer
 deployments on Linux, launchd jobs on macOS, and Task Scheduler jobs on
@@ -47,6 +65,22 @@ in the current working directory and then
 .TP
 .B \-\-dry-run
 Print the changes that would be made without mutating DNS records.
+.TP
+.B \-\-delete
+Delete managed address records instead of reconciling to observed egress IPs.
+Bare
+.B \-\-delete
+deletes both
+.B A
+and
+.B AAAA
+records. Use
+.BR \-\-delete=a ,
+.BR \-\-delete=aaaa ,
+or
+.BR \-\-delete=both
+to select the affected record families. This option is mutually exclusive with
+.BR \-\-force-push .
 .TP
 .B \-\-force-push
 Refresh matching A and AAAA records even when the observed egress IPs already

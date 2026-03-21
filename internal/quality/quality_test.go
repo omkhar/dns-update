@@ -69,8 +69,14 @@ func TestMutationSuite(t *testing.T) {
 		{
 			name: "run_dry_run_guard",
 			file: "internal/app/run.go",
-			old:  "\tif dryRun {\n",
-			new:  "\tif !dryRun {\n",
+			old: "\tif options.DryRun {\n" +
+				"\t\tr.logger.Info(\"dry run: planned provider operations\", \"operations\", strings.Join(plan.Summaries(), \"; \"))\n" +
+				"\t\treturn nil\n" +
+				"\t}\n",
+			new: "\tif !options.DryRun {\n" +
+				"\t\tr.logger.Info(\"dry run: planned provider operations\", \"operations\", strings.Join(plan.Summaries(), \"; \"))\n" +
+				"\t\treturn nil\n" +
+				"\t}\n",
 		},
 		{
 			name: "config_ttl_zero_check",

@@ -25,6 +25,13 @@ type Runner struct {
 	retries        retry.Policy
 }
 
+// RunOptions controls one reconciliation or delete cycle.
+type RunOptions struct {
+	DryRun    bool
+	ForcePush bool
+	Delete    provider.RecordSelection
+}
+
 type prober interface {
 	Lookup(context.Context, *url.URL, egress.Family) (*netip.Addr, error)
 }
@@ -46,10 +53,10 @@ func New(cfg config.Config, logger *slog.Logger) (*Runner, error) {
 	}, nil
 }
 
-// Run performs one egress-to-DNS reconciliation cycle.
-func (r *Runner) Run(ctx context.Context, dryRun bool, forcePush bool) error {
+// Run performs one egress-to-DNS reconciliation or delete cycle.
+func (r *Runner) Run(ctx context.Context, options RunOptions) error {
 	for attempt := 1; ; attempt++ {
-		err := r.runOnce(ctx, dryRun, forcePush)
+		err := r.runOnce(ctx, options)
 		if err == nil {
 			return nil
 		}
@@ -77,7 +84,14 @@ func (r *Runner) Run(ctx context.Context, dryRun bool, forcePush bool) error {
 	}
 }
 
-func (r *Runner) runOnce(ctx context.Context, dryRun bool, forcePush bool) error {
+func (r *Runner) runOnce(ctx context.Context, options RunOptions) error {
+	if options.Delete != provider.RecordSelectionNone {
+		return r.runDeleteOnce(ctx, options)
+	}
+	return r.runReconcileOnce(ctx, options)
+}
+
+func (r *Runner) runReconcileOnce(ctx context.Context, options RunOptions) error {
 	observed, current, err := r.collect(ctx)
 	if err != nil {
 		return err
@@ -100,7 +114,7 @@ func (r *Runner) runOnce(ctx context.Context, dryRun bool, forcePush bool) error
 	}
 
 	if plan.IsNoop() {
-		if forcePush {
+		if options.ForcePush {
 			plan = forcePushPlan(current, desired)
 			if plan.IsNoop() {
 				r.logger.Debug("records already match current egress IPs")
@@ -113,7 +127,7 @@ func (r *Runner) runOnce(ctx context.Context, dryRun bool, forcePush bool) error
 		}
 	}
 
-	if dryRun {
+	if options.DryRun {
 		r.logger.Info("dry run: planned provider operations", "operations", strings.Join(plan.Summaries(), "; "))
 		return nil
 	}
@@ -128,6 +142,46 @@ func (r *Runner) runOnce(ctx context.Context, dryRun bool, forcePush bool) error
 		return fmt.Errorf("verify updated records: %w", err)
 	}
 	if err := provider.VerifySingleAddressState(verified, desired); err != nil {
+		return err
+	}
+
+	r.logger.Debug("verified DNS state after update")
+	return nil
+}
+
+func (r *Runner) runDeleteOnce(ctx context.Context, options RunOptions) error {
+	current, err := r.provider.ReadState(ctx, r.cfg.Record.Name)
+	if err != nil {
+		return fmt.Errorf("read current provider state: %w", err)
+	}
+
+	plan, err := provider.BuildDeletePlan(current, options.Delete)
+	if err != nil {
+		return err
+	}
+	if r.logger.Enabled(ctx, slog.LevelDebug) {
+		r.logDeleteState(options.Delete, current, plan)
+	}
+	if plan.IsNoop() {
+		r.logger.Debug("selected DNS records already absent", "delete", options.Delete.String())
+		return nil
+	}
+
+	if options.DryRun {
+		r.logger.Info("dry run: planned provider delete operations", "operations", strings.Join(plan.Summaries(), "; "))
+		return nil
+	}
+
+	if err := r.provider.Apply(ctx, plan); err != nil {
+		return fmt.Errorf("apply update: %w", err)
+	}
+	r.logger.Info("applied DNS update", "operations", strings.Join(plan.Summaries(), "; "))
+
+	verified, err := r.provider.ReadState(ctx, r.cfg.Record.Name)
+	if err != nil {
+		return fmt.Errorf("verify updated records: %w", err)
+	}
+	if err := provider.VerifyDeletedTypes(verified, options.Delete); err != nil {
 		return err
 	}
 
@@ -237,6 +291,17 @@ func (r *Runner) logState(observed observedState, current provider.State, plan p
 		"evaluated DNS state",
 		"observed_ipv4", formatDesired(observed.IPv4),
 		"observed_ipv6", formatDesired(observed.IPv6),
+		"current_ipv4", formatRecords(current.ByType(provider.RecordTypeA)),
+		"current_ipv6", formatRecords(current.ByType(provider.RecordTypeAAAA)),
+		"current_cname", formatRecords(current.ByType(provider.RecordTypeCNAME)),
+		"operations", strings.Join(plan.Summaries(), "; "),
+	)
+}
+
+func (r *Runner) logDeleteState(selection provider.RecordSelection, current provider.State, plan provider.Plan) {
+	r.logger.Debug(
+		"evaluated DNS delete state",
+		"delete", selection.String(),
 		"current_ipv4", formatRecords(current.ByType(provider.RecordTypeA)),
 		"current_ipv6", formatRecords(current.ByType(provider.RecordTypeAAAA)),
 		"current_cname", formatRecords(current.ByType(provider.RecordTypeCNAME)),
