@@ -42,6 +42,10 @@ either edit `/etc/dns-update/config.json` so
 for that invocation. The packaged systemd unit overrides only that field at
 runtime.
 
+`--force-push` is CLI-only. The packaged `dns-update.env` file does not expose
+a persistent toggle for it, so use it for explicit one-off refreshes or a
+custom unit override instead of enabling it in the default scheduler path.
+
 At runtime the packaged service uses `LoadCredential=` to materialize
 `/etc/dns-update/cloudflare.token` into a private systemd credential directory.
 That runtime file is systemd-managed and may appear with a read-only mode such
@@ -145,7 +149,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.1.0 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.2.0 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -216,14 +220,14 @@ Verify an artifact with:
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.1.0-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.2.0-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.1.0-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.2.0-1.x86_64.rpm
 ```
 
 ## Maintainer metadata

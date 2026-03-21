@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.1.0
+%global upstream_version 1.2.0
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -102,6 +102,10 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Sat Mar 21 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.2.0-1
+- Add a CLI-only force-push flag that refreshes matching DNS records even when the observed egress IPs have not changed
+- Refresh release, packaging, and deployment documentation for the 1.2.0 release
+
 * Fri Mar 20 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.1.0-1
 - Remove dead runtime plumbing in config loading, flag parsing, and effective config printing
 - Add repository-wide CODEOWNERS ownership for omkhar

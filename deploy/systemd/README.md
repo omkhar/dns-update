@@ -57,6 +57,9 @@ the native helpers under `deploy/launchd` and `deploy/windows`.
    `deploy/systemd/dns-update.env`. Use it for runtime flags such as
    `DNS_UPDATE_TIMEOUT`, `DNS_UPDATE_VERBOSE`, `DNS_UPDATE_DRY_RUN`, or
    `DNS_UPDATE_CONFIG`; keep record and provider settings in the JSON config.
+   `--force-push` stays CLI-only, so use it on an explicit command line or a
+   custom unit override for ad hoc refreshes instead of treating it as a
+   persistent scheduler default.
 
 5. Reload systemd and enable the timer:
 

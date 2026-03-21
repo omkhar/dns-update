@@ -5,6 +5,7 @@ dns-update \- keep DNS A and AAAA records aligned with egress IP addresses
 .B dns-update
 [\fB\-\-config\fR \fIPATH\fR]
 [\fB\-\-dry-run\fR]
+[\fB\-\-force-push\fR]
 [\fB\-\-validate-config\fR]
 [\fB\-\-print-effective-config\fR]
 [\fB\-\-timeout\fR \fIDURATION\fR]
@@ -13,7 +14,10 @@ dns-update \- keep DNS A and AAAA records aligned with egress IP addresses
 .B dns-update
 probes the current IPv4 and IPv6 egress addresses of the local host and updates
 the configured DNS A and AAAA records when the observed addresses differ from
-the current provider state.
+the current provider state. With
+.B \-\-force-push,
+matching records are refreshed anyway so the provider receives an update even
+when the observed IPs have not changed.
 .P
 The program is intended for timer-driven operation, including systemd timer
 deployments on Linux, launchd jobs on macOS, and Task Scheduler jobs on
@@ -43,6 +47,11 @@ in the current working directory and then
 .TP
 .B \-\-dry-run
 Print the changes that would be made without mutating DNS records.
+.TP
+.B \-\-force-push
+Refresh matching A and AAAA records even when the observed egress IPs already
+match the provider state. The desired target remains the observed IPs, so this
+flag forces a provider write without changing what the tool considers current.
 .TP
 .B \-\-validate-config
 Validate the assembled configuration, print

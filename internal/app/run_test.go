@@ -98,11 +98,102 @@ func TestRunNoop(t *testing.T) {
 		record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
 	))
 
-	if err := runner.Run(context.Background(), false); err != nil {
+	if err := runner.Run(context.Background(), false, false); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if runner.provider.(*fakeProvider).applyCalls != 0 {
 		t.Fatal("Apply() was called, want no calls")
+	}
+}
+
+func TestRunForcePushNoopApplies(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeProvider{
+		readStates: []provider.State{
+			providerState(
+				record("a1", provider.RecordTypeA, "198.51.100.10"),
+				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
+			),
+			providerState(
+				record("a1", provider.RecordTypeA, "198.51.100.10"),
+				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
+			),
+		},
+	}
+
+	runner := testRunnerWithProvider(t, fake)
+	if err := runner.Run(context.Background(), false, true); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got, want := fake.applyCalls, 1; got != want {
+		t.Fatalf("Apply() calls = %d, want %d", got, want)
+	}
+	if got, want := fake.readCalls, 2; got != want {
+		t.Fatalf("ReadState() calls = %d, want %d", got, want)
+	}
+}
+
+func TestRunForcePushDryRunSkipsApply(t *testing.T) {
+	t.Parallel()
+
+	buffer := new(bytes.Buffer)
+	fake := &fakeProvider{
+		readStates: []provider.State{
+			providerState(
+				record("a1", provider.RecordTypeA, "198.51.100.10"),
+				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
+			),
+		},
+	}
+
+	runner := testRunnerWithLogger(t, fake, slog.LevelInfo, buffer)
+	if err := runner.Run(context.Background(), true, true); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got, want := fake.applyCalls, 0; got != want {
+		t.Fatalf("Apply() calls = %d, want %d", got, want)
+	}
+	if got, want := fake.readCalls, 1; got != want {
+		t.Fatalf("ReadState() calls = %d, want %d", got, want)
+	}
+	got := buffer.String()
+	if !strings.Contains(got, "dry run: planned provider operations") {
+		t.Fatalf("logger output = %q, want dry-run message", got)
+	}
+	if !strings.Contains(got, "update A") || !strings.Contains(got, "update AAAA") {
+		t.Fatalf("logger output = %q, want forced update summaries", got)
+	}
+}
+
+func TestRunForcePushNoopWithoutManagedAddresses(t *testing.T) {
+	t.Parallel()
+
+	buffer := new(bytes.Buffer)
+	fake := &fakeProvider{
+		readStates: []provider.State{providerState()},
+	}
+
+	runner := &Runner{
+		cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
+		prober:         &fakeProber{},
+		provider:       fake,
+		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		logger:         slog.New(slog.NewTextHandler(buffer, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		retries:        testRetryPolicy(),
+	}
+
+	if err := runner.Run(context.Background(), false, true); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if got, want := fake.applyCalls, 0; got != want {
+		t.Fatalf("Apply() calls = %d, want %d", got, want)
+	}
+	if got, want := fake.readCalls, 1; got != want {
+		t.Fatalf("ReadState() calls = %d, want %d", got, want)
+	}
+	if got := buffer.String(); !strings.Contains(got, "records already match current egress IPs") {
+		t.Fatalf("logger output = %q, want noop debug message", got)
 	}
 }
 
@@ -158,7 +249,7 @@ func TestRunNoopLogsOnlyAtDebug(t *testing.T) {
 				logger:         slog.New(slog.NewTextHandler(infoBuffer, &slog.HandlerOptions{Level: slog.LevelInfo})),
 				retries:        testRetryPolicy(),
 			}
-			if err := infoRunner.Run(context.Background(), false); err != nil {
+			if err := infoRunner.Run(context.Background(), false, false); err != nil {
 				t.Fatalf("Run() error = %v", err)
 			}
 			if infoBuffer.Len() != 0 {
@@ -174,7 +265,7 @@ func TestRunNoopLogsOnlyAtDebug(t *testing.T) {
 				logger:         slog.New(slog.NewTextHandler(debugBuffer, &slog.HandlerOptions{Level: slog.LevelDebug})),
 				retries:        testRetryPolicy(),
 			}
-			if err := debugRunner.Run(context.Background(), false); err != nil {
+			if err := debugRunner.Run(context.Background(), false, false); err != nil {
 				t.Fatalf("Run() error = %v", err)
 			}
 			if got := debugBuffer.String(); !strings.Contains(got, "records already match current egress IPs") {
@@ -194,7 +285,7 @@ func TestRunDryRunSkipsApply(t *testing.T) {
 	}
 
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), true); err != nil {
+	if err := runner.Run(context.Background(), true, false); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if fake.applyCalls != 0 {
@@ -216,7 +307,7 @@ func TestRunDryRunLogsInfo(t *testing.T) {
 	}
 
 	runner := testRunnerWithLogger(t, fake, slog.LevelInfo, buffer)
-	if err := runner.Run(context.Background(), true); err != nil {
+	if err := runner.Run(context.Background(), true, false); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if got := buffer.String(); !strings.Contains(got, "dry run: planned provider operations") {
@@ -241,7 +332,7 @@ func TestRunApplyAndVerify(t *testing.T) {
 	}
 
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false); err != nil {
+	if err := runner.Run(context.Background(), false, false); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	if got, want := fake.applyCalls, 1; got != want {
@@ -267,7 +358,7 @@ func TestRunApplyLogsOnlyUpdateAtInfo(t *testing.T) {
 	}
 
 	runner := testRunnerWithLogger(t, fake, slog.LevelInfo, buffer)
-	if err := runner.Run(context.Background(), false); err != nil {
+	if err := runner.Run(context.Background(), false, false); err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
 	got := buffer.String()
@@ -295,7 +386,7 @@ func TestRunBothProbesError(t *testing.T) {
 		retries: testRetryPolicy(),
 	}
 
-	err := runner.Run(context.Background(), false)
+	err := runner.Run(context.Background(), false, false)
 	if err == nil {
 		t.Fatal("Run() error = nil, want probe failure")
 	}
@@ -365,7 +456,7 @@ func TestRunReadStateError(t *testing.T) {
 		readErrors: []error{errors.New("boom")},
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false); err == nil {
+	if err := runner.Run(context.Background(), false, false); err == nil {
 		t.Fatal("Run() error = nil, want read-state failure")
 	}
 	if got, want := fake.readCalls, 1; got != want {
@@ -402,7 +493,7 @@ func TestRunRetriesRetryableErrorThenSucceeds(t *testing.T) {
 		},
 	}
 
-	if err := runner.Run(context.Background(), false); err != nil {
+	if err := runner.Run(context.Background(), false, false); err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
 	}
 	if got, want := fake.readCalls, 2; got != want {
@@ -436,7 +527,7 @@ func TestRunStopsAfterRetryLimit(t *testing.T) {
 		},
 	}
 
-	if err := runner.Run(context.Background(), false); err == nil {
+	if err := runner.Run(context.Background(), false, false); err == nil {
 		t.Fatal("Run() error = nil, want exhausted retry error")
 	}
 	if got, want := fake.readCalls, 2; got != want {
@@ -466,7 +557,7 @@ func TestRunRetryWaitError(t *testing.T) {
 		},
 	}
 
-	if err := runner.Run(context.Background(), false); err == nil {
+	if err := runner.Run(context.Background(), false, false); err == nil {
 		t.Fatal("Run() error = nil, want wait failure")
 	}
 	if got, want := sleepCalls, 1; got != want {
@@ -486,7 +577,7 @@ func TestRunBuildPlanError(t *testing.T) {
 		},
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false); err == nil {
+	if err := runner.Run(context.Background(), false, false); err == nil {
 		t.Fatal("Run() error = nil, want build-plan failure")
 	}
 }
@@ -501,7 +592,7 @@ func TestRunApplyError(t *testing.T) {
 		applyErr: errors.New("boom"),
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false); err == nil {
+	if err := runner.Run(context.Background(), false, false); err == nil {
 		t.Fatal("Run() error = nil, want apply failure")
 	}
 }
@@ -516,7 +607,7 @@ func TestRunVerifyReadError(t *testing.T) {
 		readErrors: []error{nil, errors.New("boom")},
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false); err == nil {
+	if err := runner.Run(context.Background(), false, false); err == nil {
 		t.Fatal("Run() error = nil, want verify read failure")
 	}
 }
@@ -531,7 +622,7 @@ func TestRunVerifyError(t *testing.T) {
 		},
 	}
 	runner := testRunnerWithProvider(t, fake)
-	if err := runner.Run(context.Background(), false); err == nil {
+	if err := runner.Run(context.Background(), false, false); err == nil {
 		t.Fatal("Run() error = nil, want verify failure")
 	}
 }

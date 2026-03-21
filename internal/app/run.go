@@ -47,9 +47,9 @@ func New(cfg config.Config, logger *slog.Logger) (*Runner, error) {
 }
 
 // Run performs one egress-to-DNS reconciliation cycle.
-func (r *Runner) Run(ctx context.Context, dryRun bool) error {
+func (r *Runner) Run(ctx context.Context, dryRun bool, forcePush bool) error {
 	for attempt := 1; ; attempt++ {
-		err := r.runOnce(ctx, dryRun)
+		err := r.runOnce(ctx, dryRun, forcePush)
 		if err == nil {
 			return nil
 		}
@@ -77,7 +77,7 @@ func (r *Runner) Run(ctx context.Context, dryRun bool) error {
 	}
 }
 
-func (r *Runner) runOnce(ctx context.Context, dryRun bool) error {
+func (r *Runner) runOnce(ctx context.Context, dryRun bool, forcePush bool) error {
 	observed, current, err := r.collect(ctx)
 	if err != nil {
 		return err
@@ -100,8 +100,17 @@ func (r *Runner) runOnce(ctx context.Context, dryRun bool) error {
 	}
 
 	if plan.IsNoop() {
-		r.logger.Debug("records already match current egress IPs")
-		return nil
+		if forcePush {
+			plan = forcePushPlan(current, desired)
+			if plan.IsNoop() {
+				r.logger.Debug("records already match current egress IPs")
+				return nil
+			}
+			r.logger.Debug("forcing provider update despite unchanged DNS state")
+		} else {
+			r.logger.Debug("records already match current egress IPs")
+			return nil
+		}
 	}
 
 	if dryRun {
@@ -124,6 +133,31 @@ func (r *Runner) runOnce(ctx context.Context, dryRun bool) error {
 
 	r.logger.Debug("verified DNS state after update")
 	return nil
+}
+
+func forcePushPlan(current provider.State, desired provider.DesiredState) provider.Plan {
+	operations := make([]provider.Operation, 0, 2)
+	operations = append(operations, forcePushOperation(current.ByType(provider.RecordTypeA), desired.Name, provider.RecordTypeA, desired.IPv4, desired.TTLSeconds, desired.Options)...)
+	operations = append(operations, forcePushOperation(current.ByType(provider.RecordTypeAAAA), desired.Name, provider.RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options)...)
+	return provider.Plan{Operations: operations}
+}
+
+func forcePushOperation(current []provider.Record, name string, recordType provider.RecordType, desired *netip.Addr, ttlSeconds uint32, options provider.RecordOptions) []provider.Operation {
+	if desired == nil || len(current) == 0 {
+		return nil
+	}
+
+	return []provider.Operation{{
+		Kind:    provider.OperationUpdate,
+		Current: current[0],
+		Desired: provider.Record{
+			Name:       name,
+			Type:       recordType,
+			Content:    desired.String(),
+			TTLSeconds: ttlSeconds,
+			Options:    options,
+		},
+	}}
 }
 
 type observedState struct {

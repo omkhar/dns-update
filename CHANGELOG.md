@@ -2,6 +2,14 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.2.0 - 2026-03-21
+
+- Adds a CLI-only `--force-push` flag that refreshes matching DNS records even
+  when the observed egress IPs have not changed.
+- Updates the runtime user-agent and package metadata to `1.2.0`.
+- Refreshes the release, packaging, and deployment documentation for the new
+  flag and version bump.
+
 ## 1.1.0 - 2026-03-20
 
 - Removes dead runtime plumbing in config loading, flag parsing, and effective

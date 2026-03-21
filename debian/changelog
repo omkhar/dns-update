@@ -1,3 +1,12 @@
+dns-update (1.2.0-1) unstable; urgency=medium
+
+  * Add a CLI-only force-push mode that refreshes matching DNS records even
+    when the observed egress IPs have not changed.
+  * Document the new force-push flag, release behavior, and packaging notes.
+  * Bump the runtime user-agent and package metadata to 1.2.0.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Sat, 21 Mar 2026 12:00:00 -0400
+
 dns-update (1.1.0-1) unstable; urgency=medium
 
   * Remove dead runtime plumbing in config loading, flag parsing, and

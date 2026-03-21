@@ -19,6 +19,7 @@ const (
 type cliFlagValues struct {
 	configPath           string
 	dryRun               bool
+	forcePush            bool
 	validateConfig       bool
 	printEffectiveConfig bool
 	verbose              bool
@@ -37,6 +38,7 @@ type runtimeOptions struct {
 	configPath         string
 	explicitConfigPath bool
 	dryRun             bool
+	forcePush          bool
 	introspectionMode  introspectionMode
 	verbose            bool
 	timeout            time.Duration
@@ -49,6 +51,7 @@ func newFlagSet(stderr io.Writer) (*flag.FlagSet, *cliFlagValues) {
 	flags.SetOutput(stderr)
 	flags.StringVar(&values.configPath, "config", "", "Path to the JSON configuration file.")
 	flags.BoolVar(&values.dryRun, "dry-run", false, "Print planned changes without applying them.")
+	flags.BoolVar(&values.forcePush, "force-push", false, "Force a provider update even when the observed DNS state already matches.")
 	flags.BoolVar(&values.validateConfig, "validate-config", false, "Validate the assembled configuration, print a success message, and exit.")
 	flags.BoolVar(&values.printEffectiveConfig, "print-effective-config", false, "Print the fully assembled effective configuration as JSON and exit.")
 	flags.BoolVar(&values.verbose, "verbose", false, "Enable debug logging.")
@@ -94,6 +97,7 @@ func resolveRuntimeOptions(flags *flag.FlagSet, values cliFlagValues, lookupEnv 
 		configPath:         configPath,
 		explicitConfigPath: explicitConfigPath,
 		dryRun:             dryRun,
+		forcePush:          values.forcePush,
 		introspectionMode:  mode,
 		verbose:            verbose,
 		timeout:            timeout,

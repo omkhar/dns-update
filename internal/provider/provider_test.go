@@ -56,7 +56,7 @@ func TestPlanHelpers(t *testing.T) {
 	wantSummaries := []string{
 		"create A host.example.com. -> 198.51.100.20 ttl=300",
 		"delete A host.example.com. id=delete content=198.51.100.10",
-		"update AAAA host.example.com. id=update 2001:db8::1 -> 2001:db8::2 ttl=300 proxy=true",
+		"update AAAA host.example.com. id=update 2001:db8::1 -> 2001:db8::2 ttl=0 -> 300 proxy=unset -> true",
 	}
 	if diff := cmp.Diff(wantSummaries, summaries); diff != "" {
 		t.Fatalf("Summaries() mismatch (-want +got):\n%s", diff)
@@ -320,6 +320,12 @@ func TestHelperFunctions(t *testing.T) {
 	}
 	if got := formatOptions(RecordOptions{Proxy: boolPtr(true)}); got != " proxy=true" {
 		t.Fatalf("formatOptions(true) = %q, want proxy string", got)
+	}
+	if got := formatProxyValue(nil); got != "unset" {
+		t.Fatalf("formatProxyValue(nil) = %q, want unset", got)
+	}
+	if got := formatProxyValue(boolPtr(false)); got != "false" {
+		t.Fatalf("formatProxyValue(false) = %q, want false", got)
 	}
 
 	records := State{

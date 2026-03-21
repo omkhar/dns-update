@@ -40,7 +40,10 @@ On each run, the service:
    - IPv6 probe must yield a valid IPv6 or `ip=none`
 4. Reads the current provider-side records for `record.name`.
 5. Compares desired vs current DNS state:
-   - If already matching, exits without update.
+   - If already matching, exits without update unless `-force-push` is set.
+   - If `-force-push` is set, reapplies the matching DNS state so the provider
+     receives a refresh update even when the observed egress IPs have not
+     changed.
    - If different, applies only the required record create/update/delete
      operations.
 6. Re-reads provider state and verifies the final result.
@@ -100,6 +103,8 @@ Runtime settings:
 
 - `-config` or `DNS_UPDATE_CONFIG`
 - `-dry-run` or `DNS_UPDATE_DRY_RUN`
+- `-force-push` on the command line to refresh matching records even when
+  nothing drifted
 - `-verbose` or `DNS_UPDATE_VERBOSE`
 - `-timeout` or `DNS_UPDATE_TIMEOUT`
 - `DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE` to override only
@@ -209,6 +214,19 @@ Preview planned changes without applying them:
 ./dns-update -config /etc/dns-update/config.json -dry-run
 ```
 
+Force a refresh even when the current DNS records already match the observed
+egress IPs:
+
+```sh
+./dns-update -config /etc/dns-update/config.json -force-push
+```
+
+Combine the two flags to preview the forced update without mutating DNS:
+
+```sh
+./dns-update -config /etc/dns-update/config.json -dry-run -force-push
+```
+
 Validate that the assembled configuration is accepted:
 
 ```sh
@@ -238,6 +256,10 @@ execution is handled by the native scheduler for each operating system:
 
 Each release archive also includes the `deploy/` tree so the scheduler helpers
 travel with the binary on non-Linux systems.
+
+`--force-push` is intentionally not part of the default scheduler configuration.
+Use it for explicit refresh runs when you need the provider to see an update
+even though the managed records already match the current egress IPs.
 
 ## Linux: systemd
 

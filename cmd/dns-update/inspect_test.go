@@ -57,6 +57,7 @@ func TestHandleIntrospection(t *testing.T) {
 		handled, err := handleIntrospection(&stdout, cfg, runtimeOptions{
 			configPath:        "/tmp/config.json",
 			dryRun:            true,
+			forcePush:         true,
 			introspectionMode: introspectionModePrintEffectiveConfig,
 			verbose:           true,
 			timeout:           3 * time.Second,
@@ -69,6 +70,9 @@ func TestHandleIntrospection(t *testing.T) {
 		}
 		if got := stdout.String(); got == "" {
 			t.Fatal("handleIntrospection() output = empty, want JSON")
+		}
+		if got := stdout.String(); !strings.Contains(got, `"force_push": true`) {
+			t.Fatalf("handleIntrospection() output = %q, want force_push field", got)
 		}
 	})
 

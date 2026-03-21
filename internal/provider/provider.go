@@ -102,14 +102,16 @@ func (p Plan) Summaries() []string {
 			))
 		case OperationUpdate:
 			summaries = append(summaries, fmt.Sprintf(
-				"update %s %s id=%s %s -> %s ttl=%d%s",
+				"update %s %s id=%s %s -> %s ttl=%d -> %d proxy=%s -> %s",
 				operation.Current.Type,
 				operation.Current.Name,
 				operation.Current.ID,
 				operation.Current.Content,
 				operation.Desired.Content,
+				operation.Current.TTLSeconds,
 				operation.Desired.TTLSeconds,
-				formatOptions(operation.Desired.Options),
+				formatProxyValue(operation.Current.Options.Proxy),
+				formatProxyValue(operation.Desired.Options.Proxy),
 			))
 		case OperationDelete:
 			summaries = append(summaries, fmt.Sprintf(
@@ -330,6 +332,13 @@ func formatOptions(options RecordOptions) string {
 		return ""
 	}
 	return fmt.Sprintf(" proxy=%t", *options.Proxy)
+}
+
+func formatProxyValue(proxy *bool) string {
+	if proxy == nil {
+		return "unset"
+	}
+	return fmt.Sprintf("%t", *proxy)
 }
 
 func sortOperations(operations []Operation) {

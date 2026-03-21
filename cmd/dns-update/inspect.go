@@ -42,6 +42,7 @@ func printEffectiveConfig(stdout io.Writer, cfg config.Config, options runtimeOp
 		Runtime: effectiveRuntimeConfig{
 			ConfigPath: cfg.SourcePath,
 			DryRun:     options.dryRun,
+			ForcePush:  options.forcePush,
 			Verbose:    options.verbose,
 			Timeout:    options.timeout.String(),
 		},
@@ -81,6 +82,7 @@ type effectiveConfig struct {
 type effectiveRuntimeConfig struct {
 	ConfigPath string `json:"config_path"`
 	DryRun     bool   `json:"dry_run"`
+	ForcePush  bool   `json:"force_push"`
 	Verbose    bool   `json:"verbose"`
 	Timeout    string `json:"timeout"`
 }
