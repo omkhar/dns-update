@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.3.0
+%global upstream_version 1.3.1
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -102,6 +102,11 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Sat Mar 21 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.1-1
+- Fix the OSV scanner workflow YAML so the release pipeline passes its lint gate again
+- Reissue the 1.3 release line as 1.3.1 after the failed 1.3.0 asset publish
+- Refresh release metadata for the 1.3.1 release
+
 * Sat Mar 21 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.0-1
 - Add a CLI-only delete mode for removing managed A, AAAA, or both record families
 - Keep single-family deletion targeted with dedicated provider delete planning and verification

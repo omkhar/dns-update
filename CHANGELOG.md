@@ -2,6 +2,14 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.1 - 2026-03-21
+
+- Fixes the OSV scanner workflow YAML so the tag-driven release pipeline passes
+  its lint gate again.
+- Reissues the `1.3` release line as `1.3.1` after the failed `1.3.0` asset
+  publish.
+- Updates the runtime user-agent and package metadata to `1.3.1`.
+
 ## 1.3.0 - 2026-03-21
 
 - Adds a CLI-only `--delete` mode that removes the managed `A`, `AAAA`, or
