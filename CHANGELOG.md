@@ -2,6 +2,16 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.0 - 2026-03-21
+
+- Adds a CLI-only `--delete` mode that removes the managed `A`, `AAAA`, or
+  both address-record families for the configured hostname. Bare `--delete`
+  deletes both families and skips egress probing.
+- Uses a dedicated provider delete planner and verifier so single-family
+  deletion does not reconcile or rewrite untouched records.
+- Updates the runtime user-agent, package metadata, and operator documentation
+  for the `1.3.0` release.
+
 ## 1.2.0 - 2026-03-21
 
 - Adds a CLI-only `--force-push` flag that refreshes matching DNS records even
