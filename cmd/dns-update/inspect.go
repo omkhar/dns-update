@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"strings"
 
 	"dns-update/internal/config"
 )
@@ -23,11 +22,6 @@ func handleIntrospection(stdout io.Writer, cfg config.Config, options runtimeOpt
 }
 
 func printEffectiveConfig(stdout io.Writer, cfg config.Config, options runtimeOptions) error {
-	configPath := options.configPath
-	if strings.TrimSpace(cfg.SourcePath) != "" {
-		configPath = cfg.SourcePath
-	}
-
 	cloudflare := effectiveCloudflareConfig{}
 	if cfg.Provider.Cloudflare != nil {
 		baseURL := ""
@@ -46,7 +40,7 @@ func printEffectiveConfig(stdout io.Writer, cfg config.Config, options runtimeOp
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(effectiveConfig{
 		Runtime: effectiveRuntimeConfig{
-			ConfigPath: configPath,
+			ConfigPath: cfg.SourcePath,
 			DryRun:     options.dryRun,
 			Verbose:    options.verbose,
 			Timeout:    options.timeout.String(),
