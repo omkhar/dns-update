@@ -1,5 +1,14 @@
 # dns-update
 
+[![CI](https://github.com/omkhar/dns-update/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/ci.yml)
+[![Package Validation](https://github.com/omkhar/dns-update/actions/workflows/package-validation.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/package-validation.yml)
+[![Systemd Integration](https://github.com/omkhar/dns-update/actions/workflows/systemd-integration.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/systemd-integration.yml)
+[![Scheduler Integration](https://github.com/omkhar/dns-update/actions/workflows/scheduler-integration.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/scheduler-integration.yml)
+[![CodeQL](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml)
+[![Dependency Review](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml/badge.svg?event=pull_request)](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml)
+[![zizmor](https://github.com/omkhar/dns-update/actions/workflows/zizmor.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/zizmor.yml)
+[![Scorecard](https://github.com/omkhar/dns-update/actions/workflows/scorecard.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/scorecard.yml)
+[![Release](https://github.com/omkhar/dns-update/actions/workflows/release.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/release.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/omkhar/dns-update/badge)](https://scorecard.dev/viewer/?uri=github.com/omkhar/dns-update)
 
 `dns-update` is a Go service that keeps one hostname's `A` and `AAAA` records
@@ -14,6 +23,20 @@ The release and deployment story is now cross-platform:
 - Linux ships native `.deb` and `.rpm` packages plus systemd units.
 - macOS ships release archives plus a native `launchd` helper.
 - Windows ships release archives plus a native Task Scheduler helper.
+
+## Actions
+
+Current GitHub Actions workflow status:
+
+- [CI](https://github.com/omkhar/dns-update/actions/workflows/ci.yml): [![CI](https://github.com/omkhar/dns-update/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/ci.yml)
+- [Package Validation](https://github.com/omkhar/dns-update/actions/workflows/package-validation.yml): [![Package Validation](https://github.com/omkhar/dns-update/actions/workflows/package-validation.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/package-validation.yml)
+- [Systemd Integration](https://github.com/omkhar/dns-update/actions/workflows/systemd-integration.yml): [![Systemd Integration](https://github.com/omkhar/dns-update/actions/workflows/systemd-integration.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/systemd-integration.yml)
+- [Scheduler Integration](https://github.com/omkhar/dns-update/actions/workflows/scheduler-integration.yml): [![Scheduler Integration](https://github.com/omkhar/dns-update/actions/workflows/scheduler-integration.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/scheduler-integration.yml)
+- [CodeQL](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml): [![CodeQL](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml)
+- [Dependency Review](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml): [![Dependency Review](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml/badge.svg?event=pull_request)](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml)
+- [zizmor](https://github.com/omkhar/dns-update/actions/workflows/zizmor.yml): [![zizmor](https://github.com/omkhar/dns-update/actions/workflows/zizmor.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/zizmor.yml)
+- [Scorecard](https://github.com/omkhar/dns-update/actions/workflows/scorecard.yml): [![Scorecard](https://github.com/omkhar/dns-update/actions/workflows/scorecard.yml/badge.svg?branch=main)](https://github.com/omkhar/dns-update/actions/workflows/scorecard.yml)
+- [Release](https://github.com/omkhar/dns-update/actions/workflows/release.yml): [![Release](https://github.com/omkhar/dns-update/actions/workflows/release.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/release.yml)
 
 ## Behavior
 
