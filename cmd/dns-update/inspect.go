@@ -41,6 +41,7 @@ func printEffectiveConfig(stdout io.Writer, cfg config.Config, options runtimeOp
 	return encoder.Encode(effectiveConfig{
 		Runtime: effectiveRuntimeConfig{
 			ConfigPath: cfg.SourcePath,
+			Delete:     options.deleteSelection.String(),
 			DryRun:     options.dryRun,
 			ForcePush:  options.forcePush,
 			Verbose:    options.verbose,
@@ -81,6 +82,7 @@ type effectiveConfig struct {
 
 type effectiveRuntimeConfig struct {
 	ConfigPath string `json:"config_path"`
+	Delete     string `json:"delete"`
 	DryRun     bool   `json:"dry_run"`
 	ForcePush  bool   `json:"force_push"`
 	Verbose    bool   `json:"verbose"`

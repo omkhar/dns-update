@@ -51,6 +51,48 @@ type DesiredState struct {
 	Options    RecordOptions
 }
 
+// RecordSelection identifies which managed address-record families to target.
+type RecordSelection uint8
+
+const (
+	// RecordSelectionNone selects no address-record families.
+	RecordSelectionNone RecordSelection = iota
+	// RecordSelectionA selects only A records.
+	RecordSelectionA
+	// RecordSelectionAAAA selects only AAAA records.
+	RecordSelectionAAAA
+	// RecordSelectionBoth selects both A and AAAA records.
+	RecordSelectionBoth
+)
+
+// String returns the stable CLI-facing name for the selection.
+func (s RecordSelection) String() string {
+	switch s {
+	case RecordSelectionA:
+		return "a"
+	case RecordSelectionAAAA:
+		return "aaaa"
+	case RecordSelectionBoth:
+		return "both"
+	default:
+		return ""
+	}
+}
+
+// Includes reports whether the selection targets the given record type.
+func (s RecordSelection) Includes(recordType RecordType) bool {
+	switch s {
+	case RecordSelectionA:
+		return recordType == RecordTypeA
+	case RecordSelectionAAAA:
+		return recordType == RecordTypeAAAA
+	case RecordSelectionBoth:
+		return recordType == RecordTypeA || recordType == RecordTypeAAAA
+	default:
+		return false
+	}
+}
+
 // OperationKind identifies a single planned DNS mutation.
 type OperationKind string
 
@@ -144,6 +186,30 @@ func BuildSingleAddressPlan(current State, desired DesiredState) (Plan, error) {
 	return Plan{Operations: operations}, nil
 }
 
+// BuildDeletePlan removes only the selected A/AAAA record families and leaves
+// all other provider records untouched.
+func BuildDeletePlan(current State, selection RecordSelection) (Plan, error) {
+	if selection == RecordSelectionNone {
+		return Plan{}, fmt.Errorf("delete selection must target at least one record family")
+	}
+
+	var operations []Operation
+	for _, recordType := range []RecordType{RecordTypeA, RecordTypeAAAA} {
+		if !selection.Includes(recordType) {
+			continue
+		}
+		for _, record := range current.ByType(recordType) {
+			operations = append(operations, Operation{
+				Kind:    OperationDelete,
+				Current: record,
+			})
+		}
+	}
+
+	sortOperations(operations)
+	return Plan{Operations: operations}, nil
+}
+
 // VerifySingleAddressState checks that the provider-side state exactly matches
 // the desired A/AAAA state and that no conflicting CNAME exists.
 func VerifySingleAddressState(state State, desired DesiredState) error {
@@ -156,6 +222,23 @@ func VerifySingleAddressState(state State, desired DesiredState) error {
 	}
 	if err := verifyTypeState(state.ByType(RecordTypeAAAA), RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options); err != nil {
 		return err
+	}
+	return nil
+}
+
+// VerifyDeletedTypes checks that the selected A/AAAA record families are absent.
+func VerifyDeletedTypes(state State, selection RecordSelection) error {
+	if selection == RecordSelectionNone {
+		return fmt.Errorf("delete selection must target at least one record family")
+	}
+
+	for _, recordType := range []RecordType{RecordTypeA, RecordTypeAAAA} {
+		if !selection.Includes(recordType) {
+			continue
+		}
+		if err := verifyTypeState(state.ByType(recordType), recordType, nil, 0, RecordOptions{}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
