@@ -2,6 +2,13 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.4 - 2026-03-22
+
+- Revalidates the repository against the current stable Go release, which is
+  still `1.26.1` as of 2026-03-22.
+- Rolls the release line forward to `1.3.4`.
+- Updates the runtime user-agent and package metadata to `1.3.4`.
+
 ## 1.3.3 - 2026-03-22
 
 - Fixes GitHub CLI authentication in the release attestation verification
