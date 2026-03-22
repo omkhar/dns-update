@@ -19,7 +19,7 @@ fi
 require_cmd rpmbuild
 # Prefer GNU tar (gtar on macOS) to ensure --exclude patterns anchor correctly.
 TAR=$(command -v gtar 2>/dev/null || command -v tar)
-require_cmd tar
+require_cmd "$TAR"
 
 run_native_tests "$repo_root"
 
