@@ -5,6 +5,18 @@ name: Release
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing SemVer tag to rebuild and publish
+        required: true
+        type: string
+      rebuild_existing_release:
+        description: >-
+          Delete and recreate the mutable release for the tag before publishing
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -22,10 +34,36 @@ jobs:
       contents: write
       id-token: write
     steps:
+      - name: Resolve release metadata
+        id: release
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          REBUILD_EXISTING_RELEASE: ${{ inputs.rebuild_existing_release }}
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            release_tag="$INPUT_RELEASE_TAG"
+          else
+            release_tag="$GITHUB_REF_NAME"
+          fi
+
+          if [[ ! "$release_tag" =~ ^v[0-9]+(\.[0-9]+){1,2}([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "release tag must look like v1.2.3, got: $release_tag" >&2
+            exit 1
+          fi
+
+          {
+            echo "release_tag=$release_tag"
+            echo "release_ref=refs/tags/$release_tag"
+            echo "release_version=${release_tag#v}"
+            echo "rebuild_existing_release=${REBUILD_EXISTING_RELEASE:-false}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           persist-credentials: false
+          ref: ${{ steps.release.outputs.release_ref }}
 
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
@@ -51,12 +89,13 @@ jobs:
 
       - name: Verify tag matches packaged version
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.release_version }}
         run: |
           . ./packaging/lib.sh
           version="$(package_version "$PWD")"
-          tag_version="${GITHUB_REF_NAME#v}"
-          if [[ "$tag_version" != "$version" ]]; then
-            echo "tag version $tag_version does not match packaged version $version" >&2
+          if [[ "$RELEASE_VERSION" != "$version" ]]; then
+            echo "tag version $RELEASE_VERSION does not match packaged version $version" >&2
             exit 1
           fi
 
@@ -81,7 +120,8 @@ jobs:
         with:
           path: out/release
           format: spdx-json
-          output-file: out/release/dns-update_${{ github.ref_name }}_sbom.spdx.json
+          output-file: >-
+            out/release/dns-update_${{ steps.release.outputs.release_tag }}_sbom.spdx.json
           artifact-name: release-sbom
           upload-artifact: false
           upload-release-assets: false
@@ -152,7 +192,7 @@ jobs:
         with:
           subject-checksums: ${{ steps.subjects.outputs.subjects }}
           sbom-path: >-
-            out/release/dns-update_${{ github.ref_name }}_sbom.spdx.json
+            out/release/dns-update_${{ steps.release.outputs.release_tag }}_sbom.spdx.json
 
       - name: Verify build provenance attestations
         env:
@@ -192,11 +232,33 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          REBUILD_EXISTING_RELEASE: ${{ steps.release.outputs.rebuild_existing_release }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
         shell: bash
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
-            gh release create "$GITHUB_REF_NAME" \
-              --title "dns-update ${GITHUB_REF_NAME}" \
-              --generate-notes \
-              --latest
-          gh release upload "$GITHUB_REF_NAME" out/release/* --clobber
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')"
+            is_immutable="$(gh release view "$RELEASE_TAG" --json isImmutable --jq '.isImmutable')"
+            if [[ "$is_immutable" == "true" ]]; then
+              echo "release $RELEASE_TAG is immutable and cannot be rebuilt in place" >&2
+              exit 1
+            fi
+
+            if [[ "$is_draft" == "true" ]]; then
+              gh release delete "$RELEASE_TAG" --yes
+            elif [[ "$REBUILD_EXISTING_RELEASE" != "true" ]]; then
+              echo "release $RELEASE_TAG already exists; rerun this workflow" \
+                "with rebuild_existing_release=true to replace it from the" \
+                "GitHub-hosted builder" >&2
+              exit 1
+            else
+              gh release delete "$RELEASE_TAG" --yes
+            fi
+          fi
+
+          gh release create "$RELEASE_TAG" out/release/* \
+            --draft \
+            --generate-notes \
+            --title "dns-update $RELEASE_TAG" \
+            --verify-tag
+          gh release edit "$RELEASE_TAG" --draft=false --latest
