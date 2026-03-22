@@ -2,6 +2,16 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.6 - 2026-03-22
+
+- Refreshes the README, packaged docs, and `dns-update(1)` man page so they
+  match the current CLI behavior and scheduler guidance.
+- Clarifies that `-validate-config` and `-print-effective-config` still load
+  and validate the assembled configuration, including the provider token-file
+  path, while avoiding provider initialization and Cloudflare calls.
+- Restores the missing `1.3.4` release notes in the public/package changelogs
+  and updates the runtime user-agent and package metadata to `1.3.6`.
+
 ## 1.3.5 - 2026-03-22
 
 - Hardens GitHub release publishing to stage assets on a draft release before
@@ -9,6 +19,13 @@ All notable public releases of `dns-update` are documented in this file.
   tag.
 - Rolls the release line forward to `1.3.5`.
 - Updates the runtime user-agent and package metadata to `1.3.5`.
+
+## 1.3.4 - 2026-03-22
+
+- Revalidates the repository against the current stable Go release, which is
+  still `1.26.1` as of 2026-03-22.
+- Rolls the release line forward to `1.3.4`.
+- Updates the runtime user-agent and package metadata to `1.3.4`.
 
 ## 1.3.3 - 2026-03-22
 

@@ -13,6 +13,9 @@ The release and deployment story is now cross-platform:
 - macOS ships release archives plus a native `launchd` helper.
 - Windows ships release archives plus a native Task Scheduler helper.
 
+Linux packages also install the `dns-update(1)` man page; its source lives at
+`docs/dns-update.1`.
+
 ## Actions
 
 Current GitHub Actions workflow status:
@@ -121,11 +124,14 @@ Runtime settings:
 
 CLI-only introspection settings:
 
-- `-validate-config` validates the assembled configuration, prints
+- `-validate-config` loads and validates the assembled configuration, prints
   `config is valid`, and exits without contacting Cloudflare
-- `-print-effective-config` prints the fully assembled effective configuration
-  as JSON and exits without contacting Cloudflare
+- `-print-effective-config` loads and validates the assembled configuration,
+  prints the fully assembled effective configuration as JSON, and exits without
+  contacting Cloudflare
 - `-validate-config` and `-print-effective-config` are mutually exclusive
+- Both introspection modes still validate local provider prerequisites such as
+  the Cloudflare token-file path
 
 Record and provider settings otherwise come from JSON config file fields.
 
@@ -281,11 +287,11 @@ execution is handled by the native scheduler for each operating system:
 Each release archive also includes the `deploy/` tree so the scheduler helpers
 travel with the binary on non-Linux systems.
 
-`--force-push` is intentionally not part of the default scheduler configuration.
+`-force-push` is intentionally not part of the default scheduler configuration.
 Use it for explicit refresh runs when you need the provider to see an update
 even though the managed records already match the current egress IPs.
 
-`--delete` is also intentionally not part of the default scheduler
+`-delete` is also intentionally not part of the default scheduler
 configuration. It is a one-shot destructive operator action, not a steady-state
 reconciliation mode.
 
@@ -382,6 +388,7 @@ Native package metadata lives in:
 Linux package builds install:
 
 - `/usr/bin/dns-update`
+- the `dns-update(1)` man page under the distro-standard `man1` path
 - `/etc/dns-update/dns-update.env`
 - `/etc/dns-update/config.example.json` as a shipped sample that is not loaded
   by default

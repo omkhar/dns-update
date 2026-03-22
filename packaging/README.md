@@ -14,6 +14,7 @@ examples, changelog, license, and native scheduler helpers under `deploy/`.
 Both package layouts install:
 
 - `/usr/bin/dns-update`
+- the `dns-update(1)` man page under the distro-standard `man1` path
 - `/etc/dns-update/dns-update.env`
 - `/etc/dns-update/config.example.json` as a shipped sample that is not loaded
   by the default systemd service
@@ -42,7 +43,7 @@ either edit `/etc/dns-update/config.json` so
 for that invocation. The packaged systemd unit overrides only that field at
 runtime.
 
-`--force-push` is CLI-only. The packaged `dns-update.env` file does not expose
+`-force-push` is CLI-only. The packaged `dns-update.env` file does not expose
 a persistent toggle for it, so use it for explicit one-off refreshes or a
 custom unit override instead of enabling it in the default scheduler path.
 
@@ -86,7 +87,7 @@ To rebuild an already tagged release from the GitHub-hosted builder, run the
 
 ```sh
 gh workflow run release.yml --ref main \
-  -f release_tag=v1.3.5 \
+  -f release_tag=v1.3.6 \
   -f rebuild_existing_release=true
 ```
 
@@ -170,7 +171,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.3.5 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.3.6 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -241,14 +242,14 @@ Verify an artifact with:
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.5-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.6-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.5-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.6-1.x86_64.rpm
 ```
 
 Validate the expected payload layout of built archives and packages with:

@@ -57,8 +57,8 @@ func newFlagSet(stderr io.Writer) (*flag.FlagSet, *cliFlagValues) {
 	flags.Var(newDeleteFlagValue(&values.deleteSelection), "delete", "Delete managed DNS records instead of reconciling to observed egress IPs. Use a, aaaa, or both; bare -delete deletes both.")
 	flags.BoolVar(&values.dryRun, "dry-run", false, "Print planned changes without applying them.")
 	flags.BoolVar(&values.forcePush, "force-push", false, "Force a provider update even when the observed DNS state already matches.")
-	flags.BoolVar(&values.validateConfig, "validate-config", false, "Validate the assembled configuration, print a success message, and exit.")
-	flags.BoolVar(&values.printEffectiveConfig, "print-effective-config", false, "Print the fully assembled effective configuration as JSON and exit.")
+	flags.BoolVar(&values.validateConfig, "validate-config", false, "Load and validate the assembled configuration, print a success message, and exit.")
+	flags.BoolVar(&values.printEffectiveConfig, "print-effective-config", false, "Load and validate the assembled configuration, print it as JSON, and exit.")
 	flags.BoolVar(&values.verbose, "verbose", false, "Enable debug logging.")
 	flags.DurationVar(&values.timeout, "timeout", 0, "Maximum total runtime for one reconciliation cycle. 0 disables the global timeout.")
 

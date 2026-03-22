@@ -1,46 +1,54 @@
-.TH DNS-UPDATE 1 "March 2026" "dns-update" "User Commands"
+.TH DNS-UPDATE 1 "March 22, 2026" "dns-update" "User Commands"
 .SH NAME
 dns-update \- keep DNS A and AAAA records aligned with egress IP addresses
 .SH SYNOPSIS
 .B dns-update
-[\fB\-\-config\fR \fIPATH\fR]
-[\fB\-\-delete\fR[=\fIa|aaaa|both\fR]]
-[\fB\-\-dry-run\fR]
-[\fB\-\-force-push\fR]
-[\fB\-\-validate-config\fR]
-[\fB\-\-print-effective-config\fR]
-[\fB\-\-timeout\fR \fIDURATION\fR]
-[\fB\-\-verbose\fR]
+[\fB\-config\fR \fIPATH\fR]
+[\fB\-delete\fR[=\fIa|aaaa|both\fR]]
+[\fB\-dry-run\fR]
+[\fB\-force-push\fR]
+[\fB\-validate-config\fR]
+[\fB\-print-effective-config\fR]
+[\fB\-timeout\fR \fIDURATION\fR]
+[\fB\-verbose\fR]
 .SH DESCRIPTION
 .B dns-update
 probes the current IPv4 and IPv6 egress addresses of the local host and updates
 the configured DNS A and AAAA records when the observed addresses differ from
 the current provider state. With
-.B \-\-force-push,
+.B \-force-push,
 matching records are refreshed anyway so the provider receives an update even
 when the observed IPs have not changed.
-.B \-\-delete
+.B \-delete
 switches the program into an explicit delete mode that skips egress probing and
 removes managed
 .B A
 and/or
 .B AAAA
 records for the configured name. Bare
-.B \-\-delete
+.B \-delete
 deletes both families; use
-.BR \-\-delete=a ,
-.BR \-\-delete=aaaa ,
+.BR \-delete=a ,
+.BR \-delete=aaaa ,
 or
-.BR \-\-delete=both
+.BR \-delete=both
 for explicit selection. Delete mode is compatible with
-.BR \-\-dry-run
+.BR \-dry-run
 and mutually exclusive with
-.BR \-\-force-push .
+.BR \-force-push .
 .P
 The program is intended for timer-driven operation, including systemd timer
 deployments on Linux, launchd jobs on macOS, and Task Scheduler jobs on
 Windows. It supports dry-run execution, bounded retries, and provider
 reconciliation against the live DNS record state before applying changes.
+.P
+The provider-offline introspection modes,
+.BR \-validate-config
+and
+.BR \-print-effective-config ,
+still load and validate the assembled configuration, including the configured
+Cloudflare token-file path, before exiting. They stop before provider
+initialization and do not contact Cloudflare.
 .P
 In the packaged systemd deployment, the Cloudflare token source file is stored
 at
@@ -55,7 +63,7 @@ native schedulers instead of systemd: launchd on macOS and Task Scheduler on
 Windows.
 .SH OPTIONS
 .TP
-.B \-\-config
+.B \-config
 Load configuration from the specified JSON file. If omitted and
 .B DNS_UPDATE_CONFIG
 is unset, the program first looks for
@@ -63,63 +71,70 @@ is unset, the program first looks for
 in the current working directory and then
 .I /etc/dns-update/config.json .
 .TP
-.B \-\-dry-run
+.B \-dry-run
 Print the changes that would be made without mutating DNS records.
 .TP
-.B \-\-delete
+.B \-delete
 Delete managed address records instead of reconciling to observed egress IPs.
 Bare
-.B \-\-delete
+.B \-delete
 deletes both
 .B A
 and
 .B AAAA
 records. Use
-.BR \-\-delete=a ,
-.BR \-\-delete=aaaa ,
+.BR \-delete=a ,
+.BR \-delete=aaaa ,
 or
-.BR \-\-delete=both
+.BR \-delete=both
 to select the affected record families. This option is mutually exclusive with
-.BR \-\-force-push .
+.BR \-force-push .
 .TP
-.B \-\-force-push
+.B \-force-push
 Refresh matching A and AAAA records even when the observed egress IPs already
 match the provider state. The desired target remains the observed IPs, so this
 flag forces a provider write without changing what the tool considers current.
 .TP
-.B \-\-validate-config
-Validate the assembled configuration, print
+.B \-validate-config
+Load and validate the assembled configuration, including the configured
+Cloudflare token-file path; print
 .B config is valid
-to standard output, and exit without contacting the DNS provider.
+to standard output, and exit before provider initialization or Cloudflare
+network calls. This option is mutually exclusive with
+.BR \-print-effective-config .
 .TP
-.B \-\-print-effective-config
-Print the fully assembled effective configuration as JSON and exit without
-contacting the DNS provider.
+.B \-print-effective-config
+Load and validate the assembled configuration, including the configured
+Cloudflare token-file path; print the fully assembled effective configuration
+as JSON and exit before provider initialization or Cloudflare network calls.
+This option is mutually exclusive with
+.BR \-validate-config .
 .TP
-.B \-\-timeout
-Apply a global execution timeout to the entire reconciliation run. A value of
+.B \-timeout
+Apply a global timeout to one reconciliation cycle, including retries and
+backoff. A value of
 .B 0
 disables the global timeout.
 .TP
-.B \-\-verbose
-Enable verbose logging, including no-op status output.
+.B \-verbose
+Enable debug logging.
 .SH ENVIRONMENT
 .TP
 .B DNS_UPDATE_CONFIG
 Path to the JSON configuration file. This has the same effect as
-.BR \-\-config .
+.BR \-config .
 .TP
 .B DNS_UPDATE_DRY_RUN
 Boolean override for
-.BR \-\-dry-run .
+.BR \-dry-run .
 .TP
 .B DNS_UPDATE_VERBOSE
 Boolean override for
-.BR \-\-verbose .
+.BR \-verbose .
 .TP
 .B DNS_UPDATE_TIMEOUT
 Duration override for
-.BR \-\-timeout .
+.BR \-timeout .
 .TP
 .B DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE
 Override only the configured Cloudflare token-file path. This is primarily used
@@ -127,8 +142,18 @@ by the packaged systemd service to point the binary at a systemd-managed
 credential file.
 .SH FILES
 .TP
+.I ./config.json
+Implicit first config lookup path when neither
+.BR \-config
+nor
+.B DNS_UPDATE_CONFIG
+is set.
+.TP
 .I /etc/dns-update/config.json
-Primary JSON configuration file for packaged and systemd deployments.
+Fallback JSON configuration file for packaged and systemd deployments.
+.TP
+.I /etc/dns-update/config.example.json
+Shipped sample configuration for packaged deployments.
 .TP
 .I /etc/dns-update/cloudflare.token
 Source file for the Cloudflare API token used by packaged systemd deployments.
@@ -140,8 +165,12 @@ Optional environment overrides for packaged systemd deployments.
 .B 0
 Success.
 .TP
-.B non-zero
-The run failed and no successful reconciliation was completed.
+.B 1
+Configuration load or validation failed, provider initialization failed, or the
+reconciliation run failed.
+.TP
+.B 2
+Command-line usage or flag parsing failed.
 .SH SEE ALSO
 .BR systemd (1),
 .BR systemd.timer (5)
