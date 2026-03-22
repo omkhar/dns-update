@@ -12,7 +12,8 @@ name: Release
         required: true
         type: string
       rebuild_existing_release:
-        description: Delete and recreate the mutable release for the tag before publishing
+        description: >-
+          Delete and recreate the mutable release for the tag before publishing
         required: false
         default: false
         type: boolean
@@ -119,7 +120,8 @@ jobs:
         with:
           path: out/release
           format: spdx-json
-          output-file: out/release/dns-update_${{ steps.release.outputs.release_tag }}_sbom.spdx.json
+          output-file: >-
+            out/release/dns-update_${{ steps.release.outputs.release_tag }}_sbom.spdx.json
           artifact-name: release-sbom
           upload-artifact: false
           upload-release-assets: false
@@ -245,7 +247,9 @@ jobs:
             if [[ "$is_draft" == "true" ]]; then
               gh release delete "$RELEASE_TAG" --yes
             elif [[ "$REBUILD_EXISTING_RELEASE" != "true" ]]; then
-              echo "release $RELEASE_TAG already exists; rerun this workflow with rebuild_existing_release=true to replace it from the GitHub-hosted builder" >&2
+              echo "release $RELEASE_TAG already exists; rerun this workflow" \
+                "with rebuild_existing_release=true to replace it from the" \
+                "GitHub-hosted builder" >&2
               exit 1
             else
               gh release delete "$RELEASE_TAG" --yes
