@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -82,6 +83,22 @@ func TestValidate(t *testing.T) {
 	}
 	if err := Validate(filepath.Join(symlinkDir, "secret")); err == nil {
 		t.Fatal("Validate() error = nil, want symlink-component error")
+	}
+
+	ancestorTarget := filepath.Join(dir, "ancestor-target")
+	if err := os.MkdirAll(filepath.Join(ancestorTarget, "nested"), 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	ancestorPath := filepath.Join(ancestorTarget, "nested", "secret")
+	if err := os.WriteFile(ancestorPath, []byte("secret"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	ancestorLink := filepath.Join(dir, "ancestor.link")
+	if err := os.Symlink(ancestorTarget, ancestorLink); err != nil {
+		t.Fatalf("Symlink() error = %v", err)
+	}
+	if err := Validate(filepath.Join(ancestorLink, "nested", "secret")); err == nil {
+		t.Fatal("Validate() error = nil, want ancestor-symlink error")
 	}
 }
 
@@ -272,15 +289,33 @@ func TestReadSingleTokenErrors(t *testing.T) {
 	if _, err := ReadSingleToken(filepath.Join(symlinkDir, "cloudflare.token")); err == nil {
 		t.Fatal("ReadSingleToken() error = nil, want symlink-component error")
 	}
+
+	ancestorTarget := filepath.Join(dir, "ancestor-target")
+	if err := os.MkdirAll(filepath.Join(ancestorTarget, "nested"), 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	ancestorToken := filepath.Join(ancestorTarget, "nested", "cloudflare.token")
+	if err := os.WriteFile(ancestorToken, []byte("secret"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	ancestorLink := filepath.Join(dir, "ancestor.link")
+	if err := os.Symlink(ancestorTarget, ancestorLink); err != nil {
+		t.Fatalf("Symlink() error = %v", err)
+	}
+	if _, err := ReadSingleToken(filepath.Join(ancestorLink, "nested", "cloudflare.token")); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want ancestor-symlink error")
+	}
 }
 
 func TestReadSingleTokenInternalErrors(t *testing.T) {
 	originalStatFile := statFile
 	originalReadTokenBytes := readTokenBytes
+	originalGetWorkingDir := getWorkingDir
 	originalLookupEnv := lookupEnv
 	t.Cleanup(func() {
 		statFile = originalStatFile
 		readTokenBytes = originalReadTokenBytes
+		getWorkingDir = originalGetWorkingDir
 		lookupEnv = originalLookupEnv
 	})
 
@@ -303,6 +338,13 @@ func TestReadSingleTokenInternalErrors(t *testing.T) {
 	}
 	if _, err := ReadSingleToken(secretPath); err == nil {
 		t.Fatal("ReadSingleToken() error = nil, want read error")
+	}
+
+	getWorkingDir = func() (string, error) {
+		return "", errors.New("boom")
+	}
+	if _, err := ReadSingleToken("cloudflare.token"); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want getwd error")
 	}
 }
 
@@ -329,6 +371,109 @@ func TestValidateParentDirectory(t *testing.T) {
 	}
 	if err := validateParentDirectory(filepath.Join(parentFile, "secret")); err == nil {
 		t.Fatal("validateParentDirectory() error = nil, want non-directory parent error")
+	}
+
+	ancestorFile := filepath.Join(dir, "ancestor.file")
+	if err := os.WriteFile(ancestorFile, []byte("secret"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := validateParentDirectory(filepath.Join(ancestorFile, "nested", "secret")); err == nil {
+		t.Fatal("validateParentDirectory() error = nil, want non-directory ancestor error")
+	}
+
+	targetDir := filepath.Join(dir, "target")
+	if err := os.MkdirAll(filepath.Join(targetDir, "nested"), 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	ancestorLink := filepath.Join(dir, "ancestor.link")
+	if err := os.Symlink(targetDir, ancestorLink); err != nil {
+		t.Fatalf("Symlink() error = %v", err)
+	}
+	if err := validateParentDirectory(filepath.Join(ancestorLink, "nested", "secret")); err == nil {
+		t.Fatal("validateParentDirectory() error = nil, want ancestor-symlink error")
+	}
+}
+
+func TestAllowRootAliasSymlink(t *testing.T) {
+	t.Parallel()
+
+	root := string(filepath.Separator)
+	if volume := filepath.VolumeName(filepath.Clean(root)); volume != "" {
+		root = volume + string(filepath.Separator)
+	}
+
+	if !allowRootAliasSymlink(1, []string{root, filepath.Join(root, "var"), filepath.Join(root, "var", "tmp")}) {
+		t.Fatal("allowRootAliasSymlink() = false, want true for root-level alias ancestor")
+	}
+	if allowRootAliasSymlink(1, []string{root, filepath.Join(root, "var")}) {
+		t.Fatal("allowRootAliasSymlink() = true, want false when alias is the direct parent")
+	}
+	if allowRootAliasSymlink(2, []string{root, filepath.Join(root, "var"), filepath.Join(root, "var", "tmp")}) {
+		t.Fatal("allowRootAliasSymlink() = true, want false for deeper components")
+	}
+}
+
+func TestTokenPathDirectories(t *testing.T) {
+	originalGetWorkingDir := getWorkingDir
+	t.Cleanup(func() {
+		getWorkingDir = originalGetWorkingDir
+	})
+
+	workingDir := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(workingDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	getWorkingDir = func() (string, error) {
+		return workingDir, nil
+	}
+
+	directories, err := tokenPathDirectories("cloudflare.token")
+	if err != nil {
+		t.Fatalf("tokenPathDirectories(relative leaf) error = %v", err)
+	}
+	if want := []string{workingDir}; !reflect.DeepEqual(directories, want) {
+		t.Fatalf("tokenPathDirectories(relative leaf) = %v, want %v", directories, want)
+	}
+
+	rawRelativePath := "child" + string(filepath.Separator) + ".." + string(filepath.Separator) + "nested" + string(filepath.Separator) + "cloudflare.token"
+	directories, err = tokenPathDirectories(rawRelativePath)
+	if err != nil {
+		t.Fatalf("tokenPathDirectories(relative path) error = %v", err)
+	}
+	wantRelative := []string{
+		workingDir,
+		filepath.Join(workingDir, "child"),
+		workingDir,
+		filepath.Join(workingDir, "nested"),
+	}
+	if !reflect.DeepEqual(directories, wantRelative) {
+		t.Fatalf("tokenPathDirectories(relative path) = %v, want %v", directories, wantRelative)
+	}
+
+	absoluteDir := filepath.Join(t.TempDir(), "absolute", "nested")
+	if err := os.MkdirAll(absoluteDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	absolutePath := filepath.Join(absoluteDir, "cloudflare.token")
+	directories, err = tokenPathDirectories(absolutePath)
+	if err != nil {
+		t.Fatalf("tokenPathDirectories(absolute path) error = %v", err)
+	}
+	if got, want := directories[0], filepath.VolumeName(absolutePath)+string(filepath.Separator); got != want {
+		t.Fatalf("tokenPathDirectories(absolute path) root = %q, want %q", got, want)
+	}
+	if got, want := directories[len(directories)-1], absoluteDir; got != want {
+		t.Fatalf("tokenPathDirectories(absolute path) last = %q, want %q", got, want)
+	}
+
+	root := filepath.VolumeName(absolutePath) + string(filepath.Separator)
+	rawPath := root + ".." + string(filepath.Separator) + "tmp" + string(filepath.Separator) + "cloudflare.token"
+	directories, err = tokenPathDirectories(rawPath)
+	if err != nil {
+		t.Fatalf("tokenPathDirectories(root traversal) error = %v", err)
+	}
+	if got, want := directories, []string{root, filepath.Join(root, "tmp")}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("tokenPathDirectories(root traversal) = %v, want %v", got, want)
 	}
 }
 

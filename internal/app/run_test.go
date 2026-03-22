@@ -631,15 +631,10 @@ func TestCollectIPv4ProbeError(t *testing.T) {
 		logger: testLogger(),
 	}
 
-	observed, _, err := runner.collect(context.Background())
-	if err != nil {
-		t.Fatalf("collect() error = %v, want nil (IPv6 probe succeeded)", err)
-	}
-	if observed.IPv4 != nil {
-		t.Fatalf("collect() observed.IPv4 = %v, want nil", observed.IPv4)
-	}
-	if observed.IPv6 == nil {
-		t.Fatal("collect() observed.IPv6 = nil, want non-nil")
+	if _, _, err := runner.collect(context.Background()); err == nil {
+		t.Fatal("collect() error = nil, want IPv4 probe failure")
+	} else if !strings.Contains(err.Error(), "IPv4 egress probe failed") {
+		t.Fatalf("collect() error = %q, want IPv4 probe failure message", err)
 	}
 }
 
@@ -658,15 +653,43 @@ func TestCollectIPv6ProbeError(t *testing.T) {
 		logger: testLogger(),
 	}
 
-	observed, _, err := runner.collect(context.Background())
-	if err != nil {
-		t.Fatalf("collect() error = %v, want nil (IPv4 probe succeeded)", err)
+	if _, _, err := runner.collect(context.Background()); err == nil {
+		t.Fatal("collect() error = nil, want IPv6 probe failure")
+	} else if !strings.Contains(err.Error(), "IPv6 egress probe failed") {
+		t.Fatalf("collect() error = %q, want IPv6 probe failure message", err)
 	}
-	if observed.IPv4 == nil {
-		t.Fatal("collect() observed.IPv4 = nil, want non-nil")
+}
+
+func TestRunPartialProbeFailureDoesNotApply(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeProvider{
+		readStates: []provider.State{providerState()},
 	}
-	if observed.IPv6 != nil {
-		t.Fatalf("collect() observed.IPv6 = %v, want nil", observed.IPv6)
+	runner := &Runner{
+		cfg: testConfig(t, "http://example.com/4", "http://example.com/6"),
+		prober: &fakeProber{
+			ipv4Err: errors.New("bad-response"),
+			ipv6:    mustAddr(t, "2001:db8::10"),
+		},
+		provider:       fake,
+		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		logger:         testLogger(),
+		retries:        testRetryPolicy(),
+	}
+
+	err := runner.Run(context.Background(), testRunOptions(false, false))
+	if err == nil {
+		t.Fatal("Run() error = nil, want probe failure")
+	}
+	if !strings.Contains(err.Error(), "IPv4 egress probe failed") {
+		t.Fatalf("Run() error = %q, want IPv4 probe failure message", err)
+	}
+	if got, want := fake.applyCalls, 0; got != want {
+		t.Fatalf("Apply() calls = %d, want %d", got, want)
+	}
+	if got, want := fake.readCalls, 1; got != want {
+		t.Fatalf("ReadState() calls = %d, want %d", got, want)
 	}
 }
 
@@ -865,6 +888,33 @@ func TestCollectMultipleErrors(t *testing.T) {
 
 	if _, _, err := runner.collect(context.Background()); err == nil {
 		t.Fatal("collect() error = nil, want non-nil")
+	}
+}
+
+func TestCollectProbeError(t *testing.T) {
+	t.Parallel()
+
+	if err := collectProbeError(nil, nil); err != nil {
+		t.Fatalf("collectProbeError(nil, nil) = %v, want nil", err)
+	}
+
+	ipv4Err := retry.Mark(errors.New("ipv4-timeout"), time.Second)
+	ipv6Err := retry.Mark(errors.New("ipv6-timeout"), 2*time.Second)
+
+	err := collectProbeError(ipv4Err, ipv6Err)
+	if err == nil {
+		t.Fatal("collectProbeError(retryable, retryable) = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "all egress probes failed") {
+		t.Fatalf("collectProbeError() error = %q, want combined message", err)
+	}
+
+	retryAfter, ok := retry.After(err)
+	if !ok {
+		t.Fatal("collectProbeError() error is not retryable, want retryable")
+	}
+	if got, want := retryAfter, 2*time.Second; got != want {
+		t.Fatalf("retry.After(collectProbeError()) = %v, want %v", got, want)
 	}
 }
 

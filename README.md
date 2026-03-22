@@ -44,6 +44,8 @@ On each run, the service:
 3. Validates returned addresses by family:
    - IPv4 probe must yield a valid IPv4 or `ip=none`
    - IPv6 probe must yield a valid IPv6 or `ip=none`
+   - A probe failure aborts the run; only explicit `ip=none` means that record
+     family should be absent
 4. Reads the current provider-side records for `record.name`.
 5. Compares desired vs current DNS state:
    - If already matching, exits without update unless `-force-push` is set.
@@ -161,9 +163,10 @@ Behavior notes:
   users.
 - Windows deployments rely on NTFS ACLs instead of Unix owner/group/other mode
   bits for token-file directory privacy.
-- The token file itself must not be a symlink, its direct parent directory must
-  not be a symlink, and on Unix-like systems the token file is opened without
-  following symlinks, then revalidated at read time.
+- The token file itself must not be a symlink. Deeper configured path
+  components are rejected if they are symlinks, and on Unix-like systems the
+  token file is opened without following symlinks, then revalidated at read
+  time.
 - Use HTTPS probe URLs unless `probe.allow_insecure_http` is explicitly needed.
 - Probe URL overrides are restricted to the shipped `4.ip.omsab.net` and
   `6.ip.omsab.net` hosts or loopback or `localhost` test endpoints.

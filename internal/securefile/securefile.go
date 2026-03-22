@@ -19,6 +19,7 @@ var (
 	readTokenBytes = func(file *os.File) ([]byte, error) {
 		return io.ReadAll(io.LimitReader(file, maxTokenBytes+1))
 	}
+	getWorkingDir          = os.Getwd
 	lookupEnv              = os.LookupEnv
 	usesUnixPermissionBits = func() bool {
 		return runtime.GOOS != "windows"
@@ -93,21 +94,90 @@ func ReadSingleToken(path string) (string, error) {
 }
 
 func validateParentDirectory(path string) error {
-	parent := filepath.Dir(path)
-	info, err := os.Lstat(parent)
+	directories, err := tokenPathDirectories(path)
 	if err != nil {
 		return err
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return errors.New("parent directory must not be a symlink")
+
+	var parentInfo os.FileInfo
+	for index, directory := range directories {
+		info, err := os.Lstat(directory)
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			if allowRootAliasSymlink(index, directories) {
+				continue
+			}
+			if index == len(directories)-1 {
+				return errors.New("parent directory must not be a symlink")
+			}
+			return fmt.Errorf("path ancestor %q must not be a symlink", directory)
+		}
+		if !info.IsDir() {
+			if index == len(directories)-1 {
+				return errors.New("parent path must be a directory")
+			}
+			return fmt.Errorf("path ancestor %q must be a directory", directory)
+		}
+		parentInfo = info
 	}
-	if !info.IsDir() {
-		return errors.New("parent path must be a directory")
-	}
-	if usesUnixPermissionBits() && info.Mode().Perm()&0o022 != 0 {
+
+	if usesUnixPermissionBits() && parentInfo.Mode().Perm()&0o022 != 0 {
 		return errors.New("parent directory must not be writable by group or other users")
 	}
 	return nil
+}
+
+func allowRootAliasSymlink(index int, directories []string) bool {
+	if index != 1 || index == len(directories)-1 || len(directories) < 2 {
+		return false
+	}
+
+	root := directories[0]
+	// macOS commonly exposes stable root aliases such as /var -> /private/var.
+	// Keep rejecting user-controlled deeper path components while tolerating
+	// those top-level system aliases.
+	return root == filepath.Dir(root)
+}
+
+func tokenPathDirectories(path string) ([]string, error) {
+	parentPath, _ := filepath.Split(path)
+	if parentPath == "" {
+		parentPath = "."
+	}
+
+	volume := filepath.VolumeName(parentPath)
+	remainder := strings.TrimPrefix(parentPath, volume)
+
+	current := ""
+	if filepath.IsAbs(parentPath) {
+		current = volume + string(filepath.Separator)
+	} else {
+		workingDir, err := getWorkingDir()
+		if err != nil {
+			return nil, err
+		}
+		current = workingDir
+	}
+
+	directories := []string{current}
+	for _, component := range strings.Split(remainder, string(filepath.Separator)) {
+		switch component {
+		case "", ".":
+			continue
+		case "..":
+			current = filepath.Dir(current)
+		default:
+			current = filepath.Join(current, component)
+		}
+		if directories[len(directories)-1] == current {
+			continue
+		}
+		directories = append(directories, current)
+	}
+
+	return directories, nil
 }
 
 func hasSecurePermissions(path string, perm os.FileMode) bool {

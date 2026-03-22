@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.3.6
+%global upstream_version 1.3.7
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -102,6 +102,12 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.7-1
+- Treat any single-family probe failure as a hard reconciliation error so only explicit ip=none removes a managed address family
+- Reject token-file paths that traverse symlinked ancestor directories
+- Prevent manual rebuilds of older tags from relabeling GitHub's latest release
+- Refresh release metadata for the 1.3.7 release
+
 * Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.6-1
 - Refresh the README, packaged docs, and dns-update(1) man page for current CLI behavior
 - Clarify that introspection modes still load and validate the assembled configuration
