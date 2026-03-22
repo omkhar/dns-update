@@ -62,7 +62,10 @@ jobs:
       - name: Verify package payloads
         shell: bash
         run: |
-          mapfile -t artifacts < <(find out/packages -type f \( -name '*.deb' -o -name '*.rpm' \) | LC_ALL=C sort)
+          mapfile -t artifacts < <(
+            find out/packages -type f \( -name '*.deb' -o -name '*.rpm' \) |
+              LC_ALL=C sort
+          )
           ./packaging/verify-release-assets.sh "${artifacts[@]}"
 
   release-archives:

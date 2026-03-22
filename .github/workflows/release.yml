@@ -72,7 +72,8 @@ jobs:
         shell: bash
         run: |
           mapfile -t artifacts < <(find out/release -maxdepth 1 -type f \
-            \( -name '*.deb' -o -name '*.rpm' -o -name '*.tar.gz' -o -name '*.zip' \) | LC_ALL=C sort)
+            \( -name '*.deb' -o -name '*.rpm' -o -name '*.tar.gz' -o -name '*.zip' \) |
+              LC_ALL=C sort)
           ./packaging/verify-release-assets.sh "${artifacts[@]}"
 
       - name: Generate release SBOM
@@ -92,7 +93,8 @@ jobs:
           . ./packaging/lib.sh
           subjects_file="$RUNNER_TEMP/release-subjects.txt"
           mapfile -t subjects < <(find out/release -maxdepth 1 -type f \
-            \( -name '*.deb' -o -name '*.rpm' -o -name '*.tar.gz' -o -name '*.zip' \) | LC_ALL=C sort)
+            \( -name '*.deb' -o -name '*.rpm' -o -name '*.tar.gz' -o -name '*.zip' \) |
+              LC_ALL=C sort)
           (
             cd out/release
             mapfile -t checksummed < <(find . -maxdepth 1 -type f \
@@ -103,7 +105,9 @@ jobs:
           : > "$subjects_file"
           (
             cd out/release
-            mapfile -t subject_names < <(printf '%s\n' "${subjects[@]}" | sed 's#^out/release/##')
+            mapfile -t subject_names < <(
+              printf '%s\n' "${subjects[@]}" | sed 's#^out/release/##'
+            )
             write_checksums "$subjects_file" "${subject_names[@]}"
           )
           echo "subjects=$subjects_file" >> "$GITHUB_OUTPUT"
@@ -112,7 +116,10 @@ jobs:
         shell: bash
         run: |
           . ./packaging/lib.sh
-          mapfile -t artifacts < <(find out/release -maxdepth 1 -type f ! -name '*.sigstore.json' | LC_ALL=C sort)
+          mapfile -t artifacts < <(
+            find out/release -maxdepth 1 -type f ! -name '*.sigstore.json' |
+              LC_ALL=C sort
+          )
           sign_artifacts "${artifacts[@]}"
 
       - name: Verify checksums
@@ -123,11 +130,16 @@ jobs:
 
       - name: Verify Sigstore signatures
         env:
-          SIGSTORE_CERTIFICATE_IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}
+          SIGSTORE_CERTIFICATE_IDENTITY: >-
+            ${{ github.server_url }}/${{ github.repository
+            }}/.github/workflows/release.yml@${{ github.ref }}
           SIGSTORE_OIDC_ISSUER: https://token.actions.githubusercontent.com
         shell: bash
         run: |
-          mapfile -t artifacts < <(find out/release -maxdepth 1 -type f ! -name '*.sigstore.json' | LC_ALL=C sort)
+          mapfile -t artifacts < <(
+            find out/release -maxdepth 1 -type f ! -name '*.sigstore.json' |
+              LC_ALL=C sort
+          )
           ./packaging/verify-artifacts.sh "${artifacts[@]}"
 
       - name: Attest build provenance
@@ -139,13 +151,18 @@ jobs:
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26  # v4.1.0
         with:
           subject-checksums: ${{ steps.subjects.outputs.subjects }}
-          sbom-path: out/release/dns-update_${{ github.ref_name }}_sbom.spdx.json
+          sbom-path: >-
+            out/release/dns-update_${{ github.ref_name }}_sbom.spdx.json
 
       - name: Verify build provenance attestations
         shell: bash
         run: |
           signer="${GITHUB_REPOSITORY}/.github/workflows/release.yml"
-          for artifact in out/release/*.deb out/release/*.rpm out/release/*.tar.gz out/release/*.zip; do
+          for artifact in \
+            out/release/*.deb \
+            out/release/*.rpm \
+            out/release/*.tar.gz \
+            out/release/*.zip; do
             gh attestation verify "$artifact" \
               --repo "$GITHUB_REPOSITORY" \
               --signer-workflow "$signer" \
@@ -156,7 +173,11 @@ jobs:
         shell: bash
         run: |
           signer="${GITHUB_REPOSITORY}/.github/workflows/release.yml"
-          for artifact in out/release/*.deb out/release/*.rpm out/release/*.tar.gz out/release/*.zip; do
+          for artifact in \
+            out/release/*.deb \
+            out/release/*.rpm \
+            out/release/*.tar.gz \
+            out/release/*.zip; do
             gh attestation verify "$artifact" \
               --repo "$GITHUB_REPOSITORY" \
               --signer-workflow "$signer" \

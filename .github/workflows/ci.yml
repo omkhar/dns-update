@@ -42,7 +42,9 @@ jobs:
         run: |
           GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.11
           GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$RUNNER_TEMP/bin" v2.11.3
+          curl -sSfL \
+            https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | \
+            sh -s -- -b "$RUNNER_TEMP/bin" v2.11.3
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends shellcheck
@@ -80,7 +82,9 @@ jobs:
         run: shellcheck packaging/*.sh deploy/launchd/*.sh
 
       - name: Lint Go
-        run: golangci-lint run --timeout=5m --default=none --enable=errcheck --enable=ineffassign --enable=staticcheck --enable=unused ./...
+        run: >-
+          golangci-lint run --timeout=5m --default=none --enable=errcheck
+          --enable=ineffassign --enable=staticcheck --enable=unused ./...
 
       - name: Vet Go
         run: go vet ./...
