@@ -480,7 +480,8 @@ GitHub Actions is split into four lanes:
   and release-archive reproducibility checks.
 - `Release` rebuilds tagged artifacts, generates an SBOM, signs the artifacts,
   emits provenance and SBOM attestations, verifies the signatures and
-  attestations, and only then publishes.
+  attestations, attaches the full asset set to a draft GitHub release, and
+  only then publishes.
 
 GitHub Actions additionally runs the dedicated `Systemd Integration` workflow
 to validate the installed Linux timer/service flow on:
