@@ -12,6 +12,9 @@ skip_packages=${RELEASE_SKIP_PACKAGES:-0}
 write_checksums=${RELEASE_WRITE_CHECKSUMS:-1}
 release_goflags=${DNS_UPDATE_RELEASE_GOFLAGS:-$(release_goflags)}
 release_ldflags=${DNS_UPDATE_RELEASE_LDFLAGS:-$(release_ldflags)}
+source_epoch=$(source_date_epoch "$repo_root")
+release_tar_cmd=$(release_tar)
+require_cmd "$release_tar_cmd"
 
 prepare_clean_dir "$out_dir"
 prepare_clean_dir "$tmp_dir"
@@ -71,16 +74,32 @@ build_archive() {
 	cp "$repo_root/config.example.json" "$stage_dir/"
 	cp "$repo_root/cloudflare.token.example" "$stage_dir/"
 	cp -R "$repo_root/deploy" "$stage_dir/deploy"
+	normalize_tree_timestamps "$stage_dir" "$source_epoch"
 
 	case "$archive_format" in
 	tar.gz)
-		tar -C "$tmp_dir" -czf "$out_dir/$stage_name.tar.gz" "$stage_name"
+		if is_gnu_tar "$release_tar_cmd"; then
+			GZIP=-n TZ=UTC LC_ALL=C "$release_tar_cmd" \
+				--sort=name \
+				--owner=0 \
+				--group=0 \
+				--numeric-owner \
+				--mtime="@$source_epoch" \
+				-C "$tmp_dir" \
+				-czf "$out_dir/$stage_name.tar.gz" \
+				"$stage_name"
+			return 0
+		fi
+		COPYFILE_DISABLE=1 GZIP=-n TZ=UTC LC_ALL=C "$release_tar_cmd" \
+			-C "$tmp_dir" \
+			-czf "$out_dir/$stage_name.tar.gz" \
+			"$stage_name"
 		;;
 	zip)
 		require_cmd zip
 		(
 			cd "$tmp_dir"
-			zip -qr "$out_dir/$stage_name.zip" "$stage_name"
+			find "$stage_name" -print | LC_ALL=C sort | zip -X -q "$out_dir/$stage_name.zip" -@
 		)
 		;;
 	*)
@@ -113,11 +132,12 @@ fi
 if [ "$write_checksums" = 1 ]; then
 	(
 		cd "$out_dir"
-		set -- *
-		if [ ! -e "$1" ]; then
+		artifacts=$(find . -maxdepth 1 -type f ! -name '*.sigstore.json' | sed 's#^\./##' | LC_ALL=C sort)
+		if [ -z "$artifacts" ]; then
 			echo "no release artifacts produced" >&2
 			exit 1
 		fi
-		sha256sum * > checksums.txt
+		set -- $artifacts
+		write_checksums checksums.txt "$@"
 	)
 fi

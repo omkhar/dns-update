@@ -70,13 +70,14 @@ do not rerun the same native tests.
 
 GitHub Actions runs package creation in two places:
 
-- `Package Validation` builds `.deb` and `.rpm` artifacts plus the cross-
-  platform release archives on pull requests and `main` pushes without
+- `Package Validation` builds the cross-platform release archives on pull
+  requests and validates package/archive payloads on `main` pushes without
   publishing or signing them.
 - The tag-driven `Release` workflow rebuilds the same package and archive
-  formats on the GitHub-hosted runner, signs those files with Sigstore, and
-  publishes the artifacts plus their `*.sigstore.json` bundles as release
-  assets.
+  formats on the GitHub-hosted runner, generates an SPDX SBOM, emits GitHub
+  artifact attestations for build provenance and the SBOM, signs those files
+  with Sigstore, verifies the signatures and attestations, and publishes the
+  artifacts plus their `*.sigstore.json` bundles as release assets.
 
 Build the full unsigned local release asset set with:
 
@@ -91,6 +92,12 @@ That produces:
 - Linux archives for `amd64`, `arm64`, and `armv7`
 - macOS archives for `amd64` and `arm64`
 - Windows archives for `amd64` and `arm64`
+
+Check that two consecutive archive builds are reproducible with:
+
+```sh
+./packaging/check-release-reproducibility.sh
+```
 
 ## Debian build
 
@@ -149,7 +156,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.3.1 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.3.2 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -220,14 +227,22 @@ Verify an artifact with:
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.1-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.2-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.1-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.2-1.x86_64.rpm
+```
+
+Validate the expected payload layout of built archives and packages with:
+
+```sh
+./packaging/verify-release-assets.sh out/release/*.tar.gz out/release/*.zip
+./packaging/verify-release-assets.sh out/packages/deb/amd64/*.deb
+./packaging/verify-release-assets.sh out/packages/rpm/amd64/*.rpm
 ```
 
 ## Maintainer metadata

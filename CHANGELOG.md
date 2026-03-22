@@ -2,6 +2,14 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.2 - 2026-03-22
+
+- Reworks GitHub Actions into fast PR, nightly, and release lanes instead of
+  running the full quality stack on every pull request.
+- Adds release SBOM generation, GitHub artifact attestations, signature
+  verification, and release-archive reproducibility checks.
+- Updates the runtime user-agent and package metadata to `1.3.2`.
+
 ## 1.3.1 - 2026-03-21
 
 - Fixes the OSV scanner workflow YAML so the tag-driven release pipeline passes

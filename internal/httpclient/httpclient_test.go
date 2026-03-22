@@ -55,7 +55,9 @@ func TestNewUsesRequestedNetwork(t *testing.T) {
 	t.Parallel()
 
 	listener := newTCPListener(t, "tcp4", "127.0.0.1:0")
-	defer listener.Close()
+	defer func() {
+		_ = listener.Close()
+	}()
 	acceptOnceAndClose(t, listener)
 
 	client := New(5 * time.Second)
@@ -72,7 +74,9 @@ func TestNewWithNetworkForcesNetwork(t *testing.T) {
 	t.Parallel()
 
 	listener := newTCPListener(t, "tcp4", "127.0.0.1:0")
-	defer listener.Close()
+	defer func() {
+		_ = listener.Close()
+	}()
 	acceptOnceAndClose(t, listener)
 
 	client := NewWithNetwork(5*time.Second, "tcp4")

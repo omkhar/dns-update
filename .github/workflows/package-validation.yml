@@ -17,6 +17,7 @@ concurrency:
 jobs:
   packages:
     name: Build packages
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -58,6 +59,12 @@ jobs:
           PACKAGING_SKIP_NATIVE_TESTS=1 \
             ./packaging/build-rpm.sh
 
+      - name: Verify package payloads
+        shell: bash
+        run: |
+          mapfile -t artifacts < <(find out/packages -type f \( -name '*.deb' -o -name '*.rpm' \) | LC_ALL=C sort)
+          ./packaging/verify-release-assets.sh "${artifacts[@]}"
+
   release-archives:
     name: Build release archives
     runs-on: ubuntu-latest
@@ -81,7 +88,11 @@ jobs:
           check-latest: true
 
       - name: Build cross-platform release archives
-        uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29  # v7.0.0
-        with:
-          version: v2.14.3
-          args: release --snapshot --clean --skip=publish
+        run: |
+          PACKAGING_SKIP_SIGN=1 \
+          RELEASE_SKIP_PACKAGES=1 \
+            ./packaging/build-release-assets.sh
+
+      - name: Verify release archive contents
+        shell: bash
+        run: ./packaging/verify-release-assets.sh out/release/*.tar.gz out/release/*.zip

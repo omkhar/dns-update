@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  go:
-    name: Go
+  lint-and-static:
+    name: Lint and Static Analysis
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -30,8 +30,22 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
         with:
+          cache: true
           go-version-file: go.mod
+          cache-dependency-path: |
+            go.mod
+            go.sum
           check-latest: true
+
+      - name: Install lint tooling
+        shell: bash
+        run: |
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.11
+          GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$RUNNER_TEMP/bin" v2.11.3
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends shellcheck
 
       - name: Install YAML lint
         shell: bash
@@ -43,6 +57,9 @@ jobs:
       - name: Lint YAML
         run: yamllint .github .yamllint.yml
 
+      - name: Lint GitHub Actions
+        run: actionlint
+
       - name: Check formatting
         run: |
           unformatted="$(gofmt -l .)"
@@ -51,8 +68,47 @@ jobs:
             exit 1
           fi
 
+      - name: Check Go modules
+        run: |
+          go mod tidy -diff
+          go mod verify
+
       - name: Check shell syntax
         run: sh -n packaging/*.sh deploy/launchd/*.sh
+
+      - name: Lint shell scripts
+        run: shellcheck packaging/*.sh deploy/launchd/*.sh
+
+      - name: Lint Go
+        run: golangci-lint run --timeout=5m --default=none --enable=errcheck --enable=ineffassign --enable=staticcheck --enable=unused ./...
+
+      - name: Vet Go
+        run: go vet ./...
+
+      - name: Check reachable vulnerabilities
+        run: govulncheck ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          cache: true
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.mod
+            go.sum
+          check-latest: true
 
       - name: Unit and integration tests
         shell: bash
@@ -60,26 +116,19 @@ jobs:
           mapfile -t packages < <(go list ./... | grep -v '^dns-update/internal/quality$')
           go test -count=1 "${packages[@]}"
 
+      - name: Build
+        run: go build ./...
+
       - name: Fuzz smoke test
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           go test -run '^$' -fuzz '^FuzzNormalizeFQDN$' -fuzztime=5s ./internal/config
           go test -run '^$' -fuzz '^FuzzParseProbeURL$' -fuzztime=5s ./internal/config
           go test -run '^$' -fuzz '^FuzzParseResponse$' -fuzztime=5s ./internal/egress
 
-      - name: Coverage gate
-        run: go test -count=1 -run '^TestCoverageThreshold$' ./internal/quality
-
-      - name: Mutation gate
-        run: go test -count=1 -run '^TestMutationSuite$' ./internal/quality
-
       - name: Race test
+        if: ${{ github.event_name != 'pull_request' }}
         env:
           DNS_UPDATE_SKIP_COVERAGE_TEST: "1"
           DNS_UPDATE_SKIP_MUTATION_TEST: "1"
         run: go test -race ./...
-
-      - name: Lint Go
-        run: go vet ./...
-
-      - name: Build
-        run: go build ./...

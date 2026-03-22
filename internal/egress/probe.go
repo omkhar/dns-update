@@ -66,7 +66,9 @@ func (p *Prober) Lookup(ctx context.Context, endpoint *url.URL, family Family) (
 		}
 		return nil, retry.Mark(fmt.Errorf("perform request: %w", err), 0)
 	}
-	defer response.Body.Close()
+	defer func() {
+		_ = response.Body.Close()
+	}()
 
 	if response.StatusCode != http.StatusOK {
 		err := fmt.Errorf("unexpected HTTP status %d", response.StatusCode)

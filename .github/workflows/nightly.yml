@@ -1,0 +1,79 @@
+---
+name: Nightly
+
+'on':
+  workflow_dispatch:
+  schedule:
+    - cron: '17 2 * * *'
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          cache: true
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.mod
+            go.sum
+          check-latest: true
+
+      - name: Coverage gate
+        run: go test -count=1 -run '^TestCoverageThreshold$' ./internal/quality
+
+      - name: Mutation gate
+        run: go test -count=1 -run '^TestMutationSuite$' ./internal/quality
+
+      - name: Extended fuzzing
+        run: |
+          go test -run '^$' -fuzz '^FuzzNormalizeFQDN$' -fuzztime=30s ./internal/config
+          go test -run '^$' -fuzz '^FuzzParseProbeURL$' -fuzztime=30s ./internal/config
+          go test -run '^$' -fuzz '^FuzzParseResponse$' -fuzztime=30s ./internal/egress
+
+  reproducibility:
+    name: Release Archive Reproducibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        with:
+          cache: true
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.mod
+            go.sum
+          check-latest: true
+
+      - name: Install archive tooling
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends zip unzip
+
+      - name: Check release archive reproducibility
+        run: ./packaging/check-release-reproducibility.sh

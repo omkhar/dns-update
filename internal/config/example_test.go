@@ -12,7 +12,9 @@ func ExampleLoadWithOptions() {
 		fmt.Println(err)
 		return
 	}
-	defer os.RemoveAll(dir)
+	defer func() {
+		_ = os.RemoveAll(dir)
+	}()
 
 	tokenFile := filepath.Join(dir, "cloudflare.token")
 	if err := os.WriteFile(tokenFile, []byte("secret"), 0o600); err != nil {

@@ -23,6 +23,7 @@ Current GitHub Actions workflow status:
 - [Dependency Graph](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/update-graph): [![Dependency Graph](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/update-graph/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/update-graph)
 - [Dependency Review](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml): [![Dependency Review](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml)
 - [OSV Scanner](https://github.com/omkhar/dns-update/actions/workflows/osv-scanner.yml): [![OSV Scanner](https://github.com/omkhar/dns-update/actions/workflows/osv-scanner.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/osv-scanner.yml)
+- [Nightly](https://github.com/omkhar/dns-update/actions/workflows/nightly.yml): [![Nightly](https://github.com/omkhar/dns-update/actions/workflows/nightly.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/nightly.yml)
 - [Package Validation](https://github.com/omkhar/dns-update/actions/workflows/package-validation.yml): [![Package Validation](https://github.com/omkhar/dns-update/actions/workflows/package-validation.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/package-validation.yml)
 - [Release](https://github.com/omkhar/dns-update/actions/workflows/release.yml): [![Release](https://github.com/omkhar/dns-update/actions/workflows/release.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/release.yml)
 - [Scheduler Integration](https://github.com/omkhar/dns-update/actions/workflows/scheduler-integration.yml): [![Scheduler Integration](https://github.com/omkhar/dns-update/actions/workflows/scheduler-integration.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/scheduler-integration.yml)
@@ -468,9 +469,18 @@ The mutation and coverage skip environment variables are only for the nested
 subprocesses launched by those tests and normally should remain unset during
 regular use.
 
-The `CI` workflow also checks YAML style, Go formatting, packaging shell
-syntax, `go vet`, and `go build ./...`. The separate `Systemd Integration`
-workflow runs the multi-distro timer matrix below.
+GitHub Actions is split into four lanes:
+
+- `CI` is the fast PR gate. It checks YAML style, GitHub Actions syntax, Go
+  formatting, module hygiene, shell syntax, shell lint, Go lint, reachable
+  vulnerabilities, `go vet`, `go test`, and `go build ./...`.
+- `Package Validation` builds the cross-platform release archives on pull
+  requests and validates package/archive payloads on `main`.
+- `Nightly` runs the expensive repository-level quality gates, longer fuzzing,
+  and release-archive reproducibility checks.
+- `Release` rebuilds tagged artifacts, generates an SBOM, signs the artifacts,
+  emits provenance and SBOM attestations, verifies the signatures and
+  attestations, and only then publishes.
 
 GitHub Actions additionally runs the dedicated `Systemd Integration` workflow
 to validate the installed Linux timer/service flow on:
@@ -482,7 +492,8 @@ to validate the installed Linux timer/service flow on:
 - Fedora Stable
 - Fedora Unstable
 
-GitHub Actions also runs native scheduler integration tests on:
+GitHub Actions also runs native scheduler integration tests on `main` and the
+daily schedule for:
 
 - macOS `launchd`
 - Windows Task Scheduler

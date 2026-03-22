@@ -5,8 +5,9 @@ name: Systemd Integration
   push:
     branches:
       - main
-  pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '47 3 * * *'
 
 permissions: {}
 

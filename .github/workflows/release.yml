@@ -16,8 +16,9 @@ jobs:
   release:
     name: Build and publish release assets
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
+      attestations: write
       contents: write
       id-token: write
     steps:
@@ -42,21 +43,11 @@ jobs:
           GOBIN="$RUNNER_TEMP/bin" go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.2
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      - name: Install YAML lint
-        shell: bash
-        run: |
-          python3 -m venv "$RUNNER_TEMP/yamllint-venv"
-          "$RUNNER_TEMP/yamllint-venv/bin/pip" install --disable-pip-version-check yamllint==1.37.1
-          echo "$RUNNER_TEMP/yamllint-venv/bin" >> "$GITHUB_PATH"
-
       - name: Install packaging tools
         shell: bash
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends rpm
-
-      - name: Lint YAML
-        run: yamllint .github .yamllint.yml
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends rpm unzip
 
       - name: Verify tag matches packaged version
         shell: bash
@@ -69,44 +60,6 @@ jobs:
             exit 1
           fi
 
-      - name: Check formatting
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            printf '%s\n' "$unformatted"
-            exit 1
-          fi
-
-      - name: Check shell syntax
-        run: sh -n packaging/*.sh deploy/launchd/*.sh
-
-      - name: Unit and integration tests
-        shell: bash
-        run: |
-          mapfile -t packages < <(go list ./... | grep -v '^dns-update/internal/quality$')
-          go test -count=1 "${packages[@]}"
-
-      - name: Fuzz smoke test
-        run: |
-          go test -run '^$' -fuzz '^FuzzNormalizeFQDN$' -fuzztime=5s ./internal/config
-          go test -run '^$' -fuzz '^FuzzParseProbeURL$' -fuzztime=5s ./internal/config
-          go test -run '^$' -fuzz '^FuzzParseResponse$' -fuzztime=5s ./internal/egress
-
-      - name: Coverage gate
-        run: go test -count=1 -run '^TestCoverageThreshold$' ./internal/quality
-
-      - name: Mutation gate
-        run: go test -count=1 -run '^TestMutationSuite$' ./internal/quality
-
-      - name: Race test
-        env:
-          DNS_UPDATE_SKIP_COVERAGE_TEST: "1"
-          DNS_UPDATE_SKIP_MUTATION_TEST: "1"
-        run: go test -race ./...
-
-      - name: Lint Go
-        run: go vet ./...
-
       - name: Build release assets
         shell: bash
         run: |
@@ -115,12 +68,101 @@ jobs:
           PACKAGING_SKIP_BUILDDEPS=1 \
             ./packaging/build-release-assets.sh
 
+      - name: Verify release asset contents
+        shell: bash
+        run: |
+          mapfile -t artifacts < <(find out/release -maxdepth 1 -type f \
+            \( -name '*.deb' -o -name '*.rpm' -o -name '*.tar.gz' -o -name '*.zip' \) | LC_ALL=C sort)
+          ./packaging/verify-release-assets.sh "${artifacts[@]}"
+
+      - name: Generate release SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
+        with:
+          path: out/release
+          format: spdx-json
+          output-file: out/release/dns-update_${{ github.ref_name }}_sbom.spdx.json
+          artifact-name: release-sbom
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Refresh checksums and attestation subjects
+        id: subjects
+        shell: bash
+        run: |
+          . ./packaging/lib.sh
+          subjects_file="$RUNNER_TEMP/release-subjects.txt"
+          mapfile -t subjects < <(find out/release -maxdepth 1 -type f \
+            \( -name '*.deb' -o -name '*.rpm' -o -name '*.tar.gz' -o -name '*.zip' \) | LC_ALL=C sort)
+          (
+            cd out/release
+            mapfile -t checksummed < <(find . -maxdepth 1 -type f \
+              ! -name '*.sigstore.json' \
+              ! -name 'checksums.txt' | sed 's#^\./##' | LC_ALL=C sort)
+            write_checksums checksums.txt "${checksummed[@]}"
+          )
+          : > "$subjects_file"
+          (
+            cd out/release
+            mapfile -t subject_names < <(printf '%s\n' "${subjects[@]}" | sed 's#^out/release/##')
+            write_checksums "$subjects_file" "${subject_names[@]}"
+          )
+          echo "subjects=$subjects_file" >> "$GITHUB_OUTPUT"
+
       - name: Sign release artifacts
         shell: bash
         run: |
           . ./packaging/lib.sh
-          set -- out/release/*
-          sign_artifacts "$@"
+          mapfile -t artifacts < <(find out/release -maxdepth 1 -type f ! -name '*.sigstore.json' | LC_ALL=C sort)
+          sign_artifacts "${artifacts[@]}"
+
+      - name: Verify checksums
+        shell: bash
+        run: |
+          cd out/release
+          sha256sum -c checksums.txt
+
+      - name: Verify Sigstore signatures
+        env:
+          SIGSTORE_CERTIFICATE_IDENTITY: ${{ github.server_url }}/${{ github.repository }}/.github/workflows/release.yml@${{ github.ref }}
+          SIGSTORE_OIDC_ISSUER: https://token.actions.githubusercontent.com
+        shell: bash
+        run: |
+          mapfile -t artifacts < <(find out/release -maxdepth 1 -type f ! -name '*.sigstore.json' | LC_ALL=C sort)
+          ./packaging/verify-artifacts.sh "${artifacts[@]}"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32  # v4.1.0
+        with:
+          subject-checksums: ${{ steps.subjects.outputs.subjects }}
+
+      - name: Attest release SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26  # v4.1.0
+        with:
+          subject-checksums: ${{ steps.subjects.outputs.subjects }}
+          sbom-path: out/release/dns-update_${{ github.ref_name }}_sbom.spdx.json
+
+      - name: Verify build provenance attestations
+        shell: bash
+        run: |
+          signer="${GITHUB_REPOSITORY}/.github/workflows/release.yml"
+          for artifact in out/release/*.deb out/release/*.rpm out/release/*.tar.gz out/release/*.zip; do
+            gh attestation verify "$artifact" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$signer" \
+              --source-ref "$GITHUB_REF"
+          done
+
+      - name: Verify SBOM attestations
+        shell: bash
+        run: |
+          signer="${GITHUB_REPOSITORY}/.github/workflows/release.yml"
+          for artifact in out/release/*.deb out/release/*.rpm out/release/*.tar.gz out/release/*.zip; do
+            gh attestation verify "$artifact" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$signer" \
+              --source-ref "$GITHUB_REF" \
+              --predicate-type https://spdx.dev/Document/v2.3
+          done
 
       - name: Publish GitHub release
         env:

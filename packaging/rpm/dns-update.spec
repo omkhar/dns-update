@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.3.1
+%global upstream_version 1.3.2
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -102,6 +102,11 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.2-1
+- Rework GitHub Actions into fast PR, nightly, and release lanes
+- Add release SBOM generation, artifact attestations, and reproducibility checks
+- Refresh release metadata for the 1.3.2 release
+
 * Sat Mar 21 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.1-1
 - Fix the OSV scanner workflow YAML so the release pipeline passes its lint gate again
 - Reissue the 1.3 release line as 1.3.1 after the failed 1.3.0 asset publish
