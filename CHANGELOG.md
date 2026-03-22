@@ -2,6 +2,13 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.3 - 2026-03-22
+
+- Fixes GitHub CLI authentication in the release attestation verification
+  steps.
+- Reissues the `1.3.2` release line as `1.3.3` after the failed tag publish.
+- Updates the runtime user-agent and package metadata to `1.3.3`.
+
 ## 1.3.2 - 2026-03-22
 
 - Reworks GitHub Actions into fast PR, nightly, and release lanes instead of

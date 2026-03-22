@@ -155,6 +155,8 @@ jobs:
             out/release/dns-update_${{ github.ref_name }}_sbom.spdx.json
 
       - name: Verify build provenance attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           signer="${GITHUB_REPOSITORY}/.github/workflows/release.yml"
@@ -170,6 +172,8 @@ jobs:
           done
 
       - name: Verify SBOM attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           signer="${GITHUB_REPOSITORY}/.github/workflows/release.yml"
