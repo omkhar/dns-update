@@ -118,19 +118,29 @@ write_checksums() {
 
 	: > "$output"
 	for artifact in "$@"; do
-		case "$tool_name" in
-		sha256sum)
-			"$tool" "$artifact" >> "$output"
-			;;
-		shasum)
-			"$tool" -a 256 "$artifact" >> "$output"
-			;;
-		*)
-			echo "unsupported checksum tool: $tool_name" >&2
-			exit 1
-			;;
-		esac
+		append_checksum "$output" "$artifact"
 	done
+}
+
+append_checksum() {
+	output=$1
+	artifact=$2
+	tool=$(sha256_tool)
+	tool_name=$(basename "$tool")
+	require_cmd "$tool_name"
+
+	case "$tool_name" in
+	sha256sum)
+		"$tool" "$artifact" >> "$output"
+		;;
+	shasum)
+		"$tool" -a 256 "$artifact" >> "$output"
+		;;
+	*)
+		echo "unsupported checksum tool: $tool_name" >&2
+		exit 1
+		;;
+	esac
 }
 
 resolve_package_targets() {

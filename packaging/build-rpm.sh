@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+# shellcheck source=packaging/lib.sh
 . "$(dirname "$0")/lib.sh"
 
 repo_root=$(repo_root "$0")

@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+# shellcheck source=packaging/lib.sh
 . "$(dirname "$0")/lib.sh"
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)

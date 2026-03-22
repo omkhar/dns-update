@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+# shellcheck source=packaging/lib.sh
 . "$(dirname "$0")/lib.sh"
 
 repo_root=$(repo_root "$0")
@@ -137,7 +138,10 @@ if [ "$write_checksums" = 1 ]; then
 			echo "no release artifacts produced" >&2
 			exit 1
 		fi
-		set -- $artifacts
-		write_checksums checksums.txt "$@"
+		: > checksums.txt
+		printf '%s\n' "$artifacts" | while IFS= read -r artifact; do
+			[ -n "$artifact" ] || continue
+			append_checksum checksums.txt "$artifact"
+		done
 	)
 fi

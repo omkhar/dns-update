@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+# shellcheck source=packaging/lib.sh
 . "$(dirname "$0")/lib.sh"
 
 repo_root=$(repo_root "$0")
@@ -84,13 +85,19 @@ build_without_debhelper() {
 
 	case "$target" in
 	amd64)
-		go_env="GOOS=linux GOARCH=amd64"
+		goos=linux
+		goarch=amd64
+		goarm=
 		;;
 	rpi32)
-		go_env="GOOS=linux GOARCH=arm GOARM=7"
+		goos=linux
+		goarch=arm
+		goarm=7
 		;;
 	rpi64)
-		go_env="GOOS=linux GOARCH=arm64"
+		goos=linux
+		goarch=arm64
+		goarm=
 		;;
 	*)
 		echo "unsupported Debian target: $target" >&2
@@ -100,10 +107,14 @@ build_without_debhelper() {
 
 	(
 		cd "$repo_root"
-		env CGO_ENABLED=0 GOFLAGS="$release_goflags" $go_env \
+		env CGO_ENABLED=0 \
+			GOFLAGS="$release_goflags" \
+			GOOS="$goos" \
+			GOARCH="$goarch" \
+			${goarm:+GOARM="$goarm"} \
 			go build -ldflags "$release_ldflags" \
-			-o "$build_dir/dns-update" \
-			./cmd/dns-update
+				-o "$build_dir/dns-update" \
+				./cmd/dns-update
 	)
 
 	install_file 0755 "$build_dir/dns-update" \

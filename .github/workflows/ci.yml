@@ -79,7 +79,7 @@ jobs:
         run: sh -n packaging/*.sh deploy/launchd/*.sh
 
       - name: Lint shell scripts
-        run: shellcheck packaging/*.sh deploy/launchd/*.sh
+        run: shellcheck -x packaging/*.sh deploy/launchd/*.sh
 
       - name: Lint Go
         run: >-
