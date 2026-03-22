@@ -2,6 +2,13 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.8 - 2026-03-22
+
+- Fixes the RPM packaging script so environments that expose GNU tar only as
+  `gtar` still pass the tar-command prerequisite check before building.
+- Updates the runtime user-agent, package metadata, and packaging examples to
+  `1.3.8`.
+
 ## 1.3.7 - 2026-03-22
 
 - Treats any single-family probe failure as a hard reconciliation error so only

@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.3.7
+%global upstream_version 1.3.8
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -102,6 +102,10 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.8-1
+- Fix the RPM packaging script so builders that expose GNU tar only as gtar still pass the tar prerequisite check
+- Refresh release metadata for the 1.3.8 release
+
 * Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.7-1
 - Treat any single-family probe failure as a hard reconciliation error so only explicit ip=none removes a managed address family
 - Reject token-file paths that traverse symlinked ancestor directories

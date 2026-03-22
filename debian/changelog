@@ -1,3 +1,12 @@
+dns-update (1.3.8-1) unstable; urgency=medium
+
+  * Fix the RPM packaging script so builders that expose GNU tar only as
+    gtar still satisfy the tar-command prerequisite check.
+  * Bump the runtime user-agent, package metadata, and packaging examples to
+    1.3.8.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Sun, 22 Mar 2026 19:10:48 -0400
+
 dns-update (1.3.7-1) unstable; urgency=medium
 
   * Treat any single-family probe failure as a hard reconciliation error so
