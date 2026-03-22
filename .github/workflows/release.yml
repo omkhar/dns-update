@@ -62,8 +62,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          fetch-depth: 0
           persist-credentials: false
           ref: ${{ steps.release.outputs.release_ref }}
+
+      - name: Resolve latest-release publishing mode
+        id: latest
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        shell: bash
+        run: |
+          latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -n1)"
+          if [[ -z "$latest_tag" ]]; then
+            echo "failed to determine latest release tag" >&2
+            exit 1
+          fi
+
+          mark_latest=false
+          if [[ "$RELEASE_TAG" == "$latest_tag" ]]; then
+            mark_latest=true
+          fi
+
+          {
+            echo "latest_tag=$latest_tag"
+            echo "mark_latest=$mark_latest"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Go
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
@@ -232,6 +255,7 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          MARK_LATEST: ${{ steps.latest.outputs.mark_latest }}
           REBUILD_EXISTING_RELEASE: ${{ steps.release.outputs.rebuild_existing_release }}
           RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
         shell: bash
@@ -261,4 +285,9 @@ jobs:
             --generate-notes \
             --title "dns-update $RELEASE_TAG" \
             --verify-tag
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+
+          if [[ "$MARK_LATEST" == "true" ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          else
+            gh release edit "$RELEASE_TAG" --draft=false
+          fi

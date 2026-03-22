@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -260,11 +261,41 @@ func (r *Runner) collect(ctx context.Context) (observedState, provider.State, er
 		return observedState{}, provider.State{}, err
 	}
 
-	if ipv4Err != nil && ipv6Err != nil {
-		return observedState{}, provider.State{}, fmt.Errorf("all egress probes failed: IPv4: %v, IPv6: %v", ipv4Err, ipv6Err)
+	if err := collectProbeError(ipv4Err, ipv6Err); err != nil {
+		return observedState{}, provider.State{}, err
 	}
 
 	return observed, current, nil
+}
+
+func collectProbeError(ipv4Err error, ipv6Err error) error {
+	if ipv4Err == nil && ipv6Err == nil {
+		return nil
+	}
+	if ipv4Err != nil && ipv6Err != nil {
+		combined := fmt.Errorf(
+			"all egress probes failed: %w",
+			errors.Join(
+				fmt.Errorf("IPv4 probe: %w", ipv4Err),
+				fmt.Errorf("IPv6 probe: %w", ipv6Err),
+			),
+		)
+
+		ipv4RetryAfter, ipv4Retryable := retry.After(ipv4Err)
+		ipv6RetryAfter, ipv6Retryable := retry.After(ipv6Err)
+		if ipv4Retryable && ipv6Retryable {
+			retryAfter := ipv4RetryAfter
+			if ipv6RetryAfter > retryAfter {
+				retryAfter = ipv6RetryAfter
+			}
+			return retry.Mark(combined, retryAfter)
+		}
+		return combined
+	}
+	if ipv4Err != nil {
+		return fmt.Errorf("IPv4 egress probe failed: %w", ipv4Err)
+	}
+	return fmt.Errorf("IPv6 egress probe failed: %w", ipv6Err)
 }
 
 func formatDesired(address *netip.Addr) string {

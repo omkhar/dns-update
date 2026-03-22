@@ -2,6 +2,17 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.7 - 2026-03-22
+
+- Treats any single-family probe failure as a hard reconciliation error so only
+  explicit `ip=none` can remove a managed address family.
+- Rejects token-file paths that traverse symlinked ancestor directories instead
+  of only checking the direct parent directory.
+- Prevents manual rebuilds of older tags from relabeling GitHub's latest
+  release while still publishing from the trusted GitHub-hosted builder.
+- Updates the runtime user-agent, release docs, and package metadata to
+  `1.3.7`.
+
 ## 1.3.6 - 2026-03-22
 
 - Refreshes the README, packaged docs, and `dns-update(1)` man page so they

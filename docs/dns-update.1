@@ -42,6 +42,14 @@ deployments on Linux, launchd jobs on macOS, and Task Scheduler jobs on
 Windows. It supports dry-run execution, bounded retries, and provider
 reconciliation against the live DNS record state before applying changes.
 .P
+Each probe response must parse as
+.B ip=<address>
+or
+.BR ip=none .
+Probe failures abort reconciliation; only explicit
+.B ip=none
+suppresses a managed address family.
+.P
 The provider-offline introspection modes,
 .BR \-validate-config
 and
@@ -55,6 +63,8 @@ at
 .I /etc/dns-update/cloudflare.token
 and is materialized into the service credential directory by
 .BR LoadCredential= .
+The configured token path must resolve to a regular file without symlinked
+deeper path components.
 Published packages intentionally avoid self-unpacking binary compression so the
 installed binary remains compatible with the hardened systemd unit.
 .P
