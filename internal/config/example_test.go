@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,6 +22,11 @@ func ExampleLoadWithOptions() {
 		fmt.Println(err)
 		return
 	}
+	tokenFileJSON, err := json.Marshal(tokenFile)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	configPath := filepath.Join(dir, "config.json")
 	configJSON := `{
@@ -33,7 +39,7 @@ func ExampleLoadWithOptions() {
     "type": "cloudflare",
     "cloudflare": {
       "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
-      "api_token_file": "` + tokenFile + `"
+      "api_token_file": ` + string(tokenFileJSON) + `
     }
   }
 }`

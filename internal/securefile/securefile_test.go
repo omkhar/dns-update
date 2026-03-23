@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidate(t *testing.T) {
@@ -194,6 +195,141 @@ func TestValidateAndReadSingleTokenAllowWindowsPermissionBits(t *testing.T) {
 	}
 }
 
+func TestValidateAndReadSingleTokenEnforceUnixPermissionBits(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+	})
+	usesUnixPermissionBits = func() bool { return true }
+
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "cloudflare.token")
+	if err := os.WriteFile(tokenPath, []byte("secret\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := Validate(tokenPath); err == nil {
+		t.Fatal("Validate() error = nil, want permission error")
+	}
+	if _, err := ReadSingleToken(tokenPath); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want permission error")
+	}
+}
+
+func TestValidateEnforcesFilePermissionBitsWithSecureParent(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	originalGetWorkingDir := getWorkingDir
+	originalLstatPath := lstatPath
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+		getWorkingDir = originalGetWorkingDir
+		lstatPath = originalLstatPath
+	})
+
+	usesUnixPermissionBits = func() bool { return true }
+
+	workingDir := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(workingDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	getWorkingDir = func() (string, error) {
+		return workingDir, nil
+	}
+
+	lstatPath = func(path string) (os.FileInfo, error) {
+		switch path {
+		case workingDir:
+			return testFileInfo{name: filepath.Base(workingDir), mode: os.ModeDir | 0o700}, nil
+		case "cloudflare.token":
+			return testFileInfo{name: "cloudflare.token", mode: 0o644}, nil
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+
+	err := Validate("cloudflare.token")
+	if err == nil || !strings.Contains(err.Error(), "group or other users") {
+		t.Fatalf("Validate() error = %v, want file permission error", err)
+	}
+}
+
+func TestReadSingleTokenEnforcesFilePermissionBitsWithSecureParent(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	originalGetWorkingDir := getWorkingDir
+	originalLstatPath := lstatPath
+	originalOpenTokenFile := openTokenFile
+	originalStatFile := statFile
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+		getWorkingDir = originalGetWorkingDir
+		lstatPath = originalLstatPath
+		openTokenFile = originalOpenTokenFile
+		statFile = originalStatFile
+	})
+
+	usesUnixPermissionBits = func() bool { return true }
+
+	workingDir := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(workingDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	realPath := filepath.Join(workingDir, "real.token")
+	if err := os.WriteFile(realPath, []byte("secret\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	getWorkingDir = func() (string, error) {
+		return workingDir, nil
+	}
+
+	lstatPath = func(path string) (os.FileInfo, error) {
+		switch path {
+		case workingDir:
+			return testFileInfo{name: filepath.Base(workingDir), mode: os.ModeDir | 0o700}, nil
+		case "cloudflare.token":
+			return testFileInfo{name: "cloudflare.token", mode: 0o600}, nil
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+	openTokenFile = func(path string) (*os.File, error) {
+		if path != "cloudflare.token" {
+			return nil, os.ErrNotExist
+		}
+		return os.Open(realPath)
+	}
+	statFile = func(*os.File) (os.FileInfo, error) {
+		return testFileInfo{name: "cloudflare.token", mode: 0o644}, nil
+	}
+
+	_, err := ReadSingleToken("cloudflare.token")
+	if err == nil || !strings.Contains(err.Error(), "group or other users") {
+		t.Fatalf("ReadSingleToken() error = %v, want file permission error", err)
+	}
+}
+
+func TestValidateAndReadSingleTokenLeafLstatError(t *testing.T) {
+	originalLstatPath := lstatPath
+	t.Cleanup(func() {
+		lstatPath = originalLstatPath
+	})
+
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "cloudflare.token")
+	lstatPath = func(path string) (os.FileInfo, error) {
+		if path == tokenPath {
+			return nil, errors.New("boom")
+		}
+		return originalLstatPath(path)
+	}
+
+	if err := Validate(tokenPath); err == nil {
+		t.Fatal("Validate() error = nil, want leaf lstat error")
+	}
+	if _, err := ReadSingleToken(tokenPath); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want leaf lstat error")
+	}
+}
+
 func TestReadSingleTokenErrors(t *testing.T) {
 	t.Parallel()
 
@@ -310,11 +446,15 @@ func TestReadSingleTokenErrors(t *testing.T) {
 func TestReadSingleTokenInternalErrors(t *testing.T) {
 	originalStatFile := statFile
 	originalReadTokenBytes := readTokenBytes
+	originalLstatPath := lstatPath
+	originalOpenTokenFile := openTokenFile
 	originalGetWorkingDir := getWorkingDir
 	originalLookupEnv := lookupEnv
 	t.Cleanup(func() {
 		statFile = originalStatFile
 		readTokenBytes = originalReadTokenBytes
+		lstatPath = originalLstatPath
+		openTokenFile = originalOpenTokenFile
 		getWorkingDir = originalGetWorkingDir
 		lookupEnv = originalLookupEnv
 	})
@@ -325,6 +465,22 @@ func TestReadSingleTokenInternalErrors(t *testing.T) {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
+	lstatPath = func(string) (os.FileInfo, error) {
+		return nil, errors.New("boom")
+	}
+	if _, err := ReadSingleToken(secretPath); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want lstat error")
+	}
+
+	lstatPath = originalLstatPath
+	openTokenFile = func(string) (*os.File, error) {
+		return nil, errors.New("boom")
+	}
+	if _, err := ReadSingleToken(secretPath); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want open error")
+	}
+
+	openTokenFile = originalOpenTokenFile
 	statFile = func(*os.File) (os.FileInfo, error) {
 		return nil, errors.New("boom")
 	}
@@ -394,13 +550,60 @@ func TestValidateParentDirectory(t *testing.T) {
 	}
 }
 
+func TestValidateParentDirectoryAllowsRootAliasSymlink(t *testing.T) {
+	originalLstatPath := lstatPath
+	t.Cleanup(func() {
+		lstatPath = originalLstatPath
+	})
+
+	root := testRootPath(t)
+	aliasDir := filepath.Join(root, "var")
+	parentDir := filepath.Join(aliasDir, "tmp")
+	targetPath := filepath.Join(parentDir, "secret")
+
+	lstatPath = func(path string) (os.FileInfo, error) {
+		switch path {
+		case root:
+			return testFileInfo{name: root, mode: os.ModeDir | 0o755}, nil
+		case aliasDir:
+			return testFileInfo{name: filepath.Base(aliasDir), mode: os.ModeSymlink}, nil
+		case parentDir:
+			return testFileInfo{name: filepath.Base(parentDir), mode: os.ModeDir | 0o700}, nil
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+
+	if err := validateParentDirectory(targetPath); err != nil {
+		t.Fatalf("validateParentDirectory() error = %v", err)
+	}
+}
+
+func TestValidateParentDirectoryEnforcesUnixPermissionBits(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+	})
+	usesUnixPermissionBits = func() bool { return true }
+
+	dir := t.TempDir()
+	writableDir := filepath.Join(dir, "writable")
+	if err := os.Mkdir(writableDir, 0o733); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+	if err := os.Chmod(writableDir, 0o733); err != nil {
+		t.Fatalf("Chmod() error = %v", err)
+	}
+
+	if err := validateParentDirectory(filepath.Join(writableDir, "secret")); err == nil {
+		t.Fatal("validateParentDirectory() error = nil, want permission error")
+	}
+}
+
 func TestAllowRootAliasSymlink(t *testing.T) {
 	t.Parallel()
 
-	root := string(filepath.Separator)
-	if volume := filepath.VolumeName(filepath.Clean(root)); volume != "" {
-		root = volume + string(filepath.Separator)
-	}
+	root := testRootPath(t)
 
 	if !allowRootAliasSymlink(1, []string{root, filepath.Join(root, "var"), filepath.Join(root, "var", "tmp")}) {
 		t.Fatal("allowRootAliasSymlink() = false, want true for root-level alias ancestor")
@@ -539,4 +742,64 @@ func TestIsSystemdCredentialPath(t *testing.T) {
 	if isSystemdCredentialPath("/run/credentials/test.service/cloudflare.token") {
 		t.Fatal("isSystemdCredentialPath() = true, want false for relative/absolute mismatch")
 	}
+}
+
+type testFileInfo struct {
+	name string
+	mode os.FileMode
+}
+
+func (i testFileInfo) Name() string       { return i.name }
+func (i testFileInfo) Size() int64        { return 0 }
+func (i testFileInfo) Mode() os.FileMode  { return i.mode }
+func (i testFileInfo) ModTime() time.Time { return time.Time{} }
+func (i testFileInfo) IsDir() bool        { return i.mode.IsDir() }
+func (i testFileInfo) Sys() any           { return nil }
+
+func TestHasSecurePermissions(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	originalLookupEnv := lookupEnv
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+		lookupEnv = originalLookupEnv
+	})
+
+	usesUnixPermissionBits = func() bool { return false }
+	if !hasSecurePermissions("cloudflare.token", 0o644) {
+		t.Fatal("hasSecurePermissions() = false, want Windows permission-bit bypass")
+	}
+
+	usesUnixPermissionBits = func() bool { return true }
+
+	if !hasSecurePermissions("cloudflare.token", 0o600) {
+		t.Fatal("hasSecurePermissions() = false, want private permissions to pass")
+	}
+
+	credDir := filepath.Join(testRootPath(t), "run", "credentials", "test.service")
+	lookupEnv = func(key string) (string, bool) {
+		if key == "CREDENTIALS_DIRECTORY" {
+			return credDir, true
+		}
+		return "", false
+	}
+	if !hasSecurePermissions(filepath.Join(credDir, "cloudflare.token"), 0o440) {
+		t.Fatal("hasSecurePermissions() = false, want systemd credential mask to pass")
+	}
+	if hasSecurePermissions("cloudflare.token", 0o644) {
+		t.Fatal("hasSecurePermissions() = true, want group-readable permissions to fail")
+	}
+}
+
+func testRootPath(t *testing.T) string {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		volume := filepath.VolumeName(t.TempDir())
+		if volume == "" {
+			t.Fatal("filepath.VolumeName() = empty, want drive root")
+		}
+		return volume + string(filepath.Separator)
+	}
+
+	return string(filepath.Separator)
 }

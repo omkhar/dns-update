@@ -2,6 +2,7 @@
 name: Scheduler Integration
 
 'on':
+  pull_request:
   push:
     branches:
       - main

@@ -293,9 +293,17 @@ func collectProbeError(ipv4Err error, ipv6Err error) error {
 		return combined
 	}
 	if ipv4Err != nil {
-		return fmt.Errorf("IPv4 egress probe failed: %w", ipv4Err)
+		wrapped := fmt.Errorf("IPv4 egress probe failed: %w", ipv4Err)
+		if retryAfter, ok := retry.After(ipv4Err); ok {
+			return retry.Mark(wrapped, retryAfter)
+		}
+		return wrapped
 	}
-	return fmt.Errorf("IPv6 egress probe failed: %w", ipv6Err)
+	wrapped := fmt.Errorf("IPv6 egress probe failed: %w", ipv6Err)
+	if retryAfter, ok := retry.After(ipv6Err); ok {
+		return retry.Mark(wrapped, retryAfter)
+	}
+	return wrapped
 }
 
 func formatDesired(address *netip.Addr) string {
