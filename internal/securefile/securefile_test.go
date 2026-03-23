@@ -216,6 +216,29 @@ func TestValidateAndReadSingleTokenEnforceUnixPermissionBits(t *testing.T) {
 	}
 }
 
+func TestValidateAndReadSingleTokenLeafLstatError(t *testing.T) {
+	originalLstatPath := lstatPath
+	t.Cleanup(func() {
+		lstatPath = originalLstatPath
+	})
+
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "cloudflare.token")
+	lstatPath = func(path string) (os.FileInfo, error) {
+		if path == tokenPath {
+			return nil, errors.New("boom")
+		}
+		return originalLstatPath(path)
+	}
+
+	if err := Validate(tokenPath); err == nil {
+		t.Fatal("Validate() error = nil, want leaf lstat error")
+	}
+	if _, err := ReadSingleToken(tokenPath); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want leaf lstat error")
+	}
+}
+
 func TestReadSingleTokenErrors(t *testing.T) {
 	t.Parallel()
 
