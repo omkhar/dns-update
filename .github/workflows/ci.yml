@@ -92,10 +92,17 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -112,23 +119,20 @@ jobs:
             go.sum
 
       - name: Unit and integration tests
-        shell: bash
-        run: |
-          mapfile -t packages < <(go list ./... | grep -v '^dns-update/internal/quality$')
-          go test -count=1 "${packages[@]}"
+        run: go test -count=1 ./...
 
       - name: Build
         run: go build ./...
 
       - name: Fuzz smoke test
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ runner.os == 'Linux' }}
         run: |
           go test -run '^$' -fuzz '^FuzzNormalizeFQDN$' -fuzztime=5s ./internal/config
           go test -run '^$' -fuzz '^FuzzParseProbeURL$' -fuzztime=5s ./internal/config
           go test -run '^$' -fuzz '^FuzzParseResponse$' -fuzztime=5s ./internal/egress
 
       - name: Race test
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ runner.os == 'Linux' }}
         env:
           DNS_UPDATE_SKIP_COVERAGE_TEST: "1"
           DNS_UPDATE_SKIP_MUTATION_TEST: "1"
