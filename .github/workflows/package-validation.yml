@@ -36,7 +36,6 @@ jobs:
           cache-dependency-path: |
             go.mod
             go.sum
-          check-latest: true
 
       - name: Install packaging tools
         shell: bash
@@ -88,7 +87,6 @@ jobs:
           cache-dependency-path: |
             go.mod
             go.sum
-          check-latest: true
 
       - name: Build cross-platform release archives
         run: |

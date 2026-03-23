@@ -11,6 +11,7 @@ targets=$(resolve_targets "$@")
 output_root=${DEB_OUTPUT_DIR:-"$repo_root/out/packages/deb"}
 release_goflags=${DNS_UPDATE_RELEASE_GOFLAGS:-$(release_goflags)}
 release_ldflags=${DNS_UPDATE_RELEASE_LDFLAGS:-$(release_ldflags)}
+source_epoch=$(source_date_epoch "$repo_root")
 
 build_with_debhelper() {
 	target=$1
@@ -28,6 +29,7 @@ build_with_debhelper() {
 		cd "$repo_root"
 		env DNS_UPDATE_RELEASE_GOFLAGS="$release_goflags" \
 			DNS_UPDATE_RELEASE_LDFLAGS="$release_ldflags" \
+			SOURCE_DATE_EPOCH="$source_epoch" \
 			DEB_BUILD_OPTIONS="nocheck ${DEB_BUILD_OPTIONS:-}" \
 			dpkg-buildpackage -us -uc -b -a"$deb_arch" \
 			${PACKAGING_SKIP_BUILDDEPS:+-d}
@@ -175,8 +177,11 @@ Description: Keep DNS A and AAAA records aligned with egress IP addresses
  /etc/dns-update.
 EOF
 
+	normalize_tree_timestamps "$package_dir" "$source_epoch"
+
 	deb_file=$target_dir/dns-update_${version}-${release}_${deb_arch}.deb
-	dpkg-deb --root-owner-group --build "$package_dir" "$deb_file"
+	SOURCE_DATE_EPOCH="$source_epoch" \
+		dpkg-deb --root-owner-group --build "$package_dir" "$deb_file"
 	sign_artifacts "$deb_file"
 
 	trap - EXIT INT TERM

@@ -1,3 +1,16 @@
+dns-update (1.3.9-1) unstable; urgency=medium
+
+  * Make the published .deb and .rpm assets reproducible by normalizing
+    package timestamps and RPM metadata to a stable source date.
+  * Align the reproducibility checker and nightly workflow with the real
+    trusted release path so package assets are covered alongside archives.
+  * Change the macOS and Windows scheduler helpers so validate-config is an
+    install-time preflight instead of a persistent scheduled mode.
+  * Pin GitHub Actions to the exact Go toolchain declared in go.mod and bump
+    the runtime user-agent and package metadata to 1.3.9.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Sun, 22 Mar 2026 20:30:00 -0400
+
 dns-update (1.3.8-1) unstable; urgency=medium
 
   * Fix the RPM packaging script so builders that expose GNU tar only as

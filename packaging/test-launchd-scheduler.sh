@@ -47,22 +47,33 @@ sudo "$repo_root/deploy/launchd/install-launchd-job.sh" \
 	--binary "$binary" \
 	--config "$config" \
 	--token "$token" \
-	--interval 15 \
+	--interval 5 \
 	--plist "$installed_plist" \
 	--log "$log" \
 	--timeout 30s \
 	--validate-config
 
+if grep -q -- '-validate-config' "$installed_plist"; then
+	cat "$installed_plist"
+	exit 1
+fi
+
+cat >"$config" <<EOF
+{
+  "record": {
+    "name": "host.example.com.",
+EOF
+
 i=0
 while [ "$i" -lt 90 ]; do
-	if [ -f "$log" ] && grep -q 'config is valid' "$log"; then
+	if [ -f "$log" ] && grep -q 'failed to load config: decode config: unexpected EOF' "$log"; then
 		break
 	fi
 	i=$((i + 1))
 	sleep 1
 done
 
-if [ ! -f "$log" ] || ! grep -q 'config is valid' "$log"; then
+if [ ! -f "$log" ] || ! grep -q 'failed to load config: decode config: unexpected EOF' "$log"; then
 	sudo launchctl print "system/$label" || true
 	if [ -f "$log" ]; then
 		cat "$log" || true

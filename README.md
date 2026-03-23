@@ -487,7 +487,7 @@ GitHub Actions is split into four lanes:
 - `Package Validation` builds the cross-platform release archives on pull
   requests and validates package/archive payloads on `main`.
 - `Nightly` runs the expensive repository-level quality gates, longer fuzzing,
-  and release-archive reproducibility checks.
+  and full release-artifact reproducibility checks.
 - `Release` rebuilds tagged artifacts, generates an SBOM, signs the artifacts,
   emits provenance and SBOM attestations, verifies the signatures and
   attestations, attaches the full asset set to a draft GitHub release, and
@@ -514,10 +514,11 @@ service starts:
 
 - Linux waits for a later timer-fired `dns-update.service` success after an
   initial skipped activation.
-- macOS waits for the installed `LaunchDaemon` to emit a successful
-  `-validate-config` run.
-- Windows waits for the registered scheduled task to emit a successful
-  `-validate-config` run.
+- macOS runs an install-time `-validate-config` preflight and then proves a
+  later `launchd`-fired invocation runs without validation-only mode.
+- Windows runs an install-time `-ValidateConfig` preflight as `SYSTEM` and
+  then proves a later Task Scheduler invocation runs without validation-only
+  mode.
 
 ## Package Docs
 

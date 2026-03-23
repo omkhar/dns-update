@@ -97,6 +97,16 @@ fi
 
 mkdir -p "$(dirname "$plist")" "$(dirname "$log")"
 
+if [ "$validate_config" = 1 ]; then
+	{
+		printf '[%s] validating config before installing launchd job\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+		DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE="$token" \
+		DNS_UPDATE_TIMEOUT="$timeout" \
+			"$binary" -config "$config" -validate-config
+	} >>"$log" 2>&1
+	rm -f "$log"
+fi
+
 cat >"$plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -108,12 +118,6 @@ cat >"$plist" <<EOF
   <array>
     <string>$binary</string>
 EOF
-
-if [ "$validate_config" = 1 ]; then
-	cat >>"$plist" <<'EOF'
-    <string>-validate-config</string>
-EOF
-fi
 
 cat >>"$plist" <<EOF
     <string>-config</string>
