@@ -19,8 +19,6 @@ var (
 	readTokenBytes = func(file *os.File) ([]byte, error) {
 		return io.ReadAll(io.LimitReader(file, maxTokenBytes+1))
 	}
-	lstatPath              = os.Lstat
-	openTokenFile          = openNoFollow
 	getWorkingDir          = os.Getwd
 	lookupEnv              = os.LookupEnv
 	usesUnixPermissionBits = func() bool {
@@ -34,7 +32,7 @@ func Validate(path string) error {
 		return err
 	}
 
-	info, err := lstatPath(path)
+	info, err := os.Lstat(path)
 	if err != nil {
 		return err
 	}
@@ -56,11 +54,8 @@ func ReadSingleToken(path string) (string, error) {
 	if err := validateParentDirectory(path); err != nil {
 		return "", err
 	}
-	if err := validatePathLeaf(path); err != nil {
-		return "", err
-	}
 
-	file, err := openTokenFile(path)
+	file, err := openNoFollow(path)
 	if err != nil {
 		return "", err
 	}
@@ -96,17 +91,6 @@ func ReadSingleToken(path string) (string, error) {
 	default:
 		return token, nil
 	}
-}
-
-func validatePathLeaf(path string) error {
-	info, err := lstatPath(path)
-	if err != nil {
-		return err
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return errors.New("must not be a symlink")
-	}
-	return nil
 }
 
 func validateParentDirectory(path string) error {

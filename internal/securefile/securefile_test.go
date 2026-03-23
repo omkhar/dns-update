@@ -310,15 +310,11 @@ func TestReadSingleTokenErrors(t *testing.T) {
 func TestReadSingleTokenInternalErrors(t *testing.T) {
 	originalStatFile := statFile
 	originalReadTokenBytes := readTokenBytes
-	originalLstatPath := lstatPath
-	originalOpenTokenFile := openTokenFile
 	originalGetWorkingDir := getWorkingDir
 	originalLookupEnv := lookupEnv
 	t.Cleanup(func() {
 		statFile = originalStatFile
 		readTokenBytes = originalReadTokenBytes
-		lstatPath = originalLstatPath
-		openTokenFile = originalOpenTokenFile
 		getWorkingDir = originalGetWorkingDir
 		lookupEnv = originalLookupEnv
 	})
@@ -329,22 +325,6 @@ func TestReadSingleTokenInternalErrors(t *testing.T) {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 
-	lstatPath = func(string) (os.FileInfo, error) {
-		return nil, errors.New("boom")
-	}
-	if _, err := ReadSingleToken(secretPath); err == nil {
-		t.Fatal("ReadSingleToken() error = nil, want lstat error")
-	}
-
-	lstatPath = originalLstatPath
-	openTokenFile = func(string) (*os.File, error) {
-		return nil, errors.New("boom")
-	}
-	if _, err := ReadSingleToken(secretPath); err == nil {
-		t.Fatal("ReadSingleToken() error = nil, want open error")
-	}
-
-	openTokenFile = originalOpenTokenFile
 	statFile = func(*os.File) (os.FileInfo, error) {
 		return nil, errors.New("boom")
 	}
