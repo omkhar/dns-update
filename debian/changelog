@@ -1,3 +1,14 @@
+dns-update (1.3.10-1) unstable; urgency=medium
+
+  * Fix the Windows Task Scheduler validation-preflight race by waiting on
+    the task's previous LastRunTime instead of a wall-clock timestamp,
+    avoiding same-second false timeouts on hosted Windows runners.
+  * Improve the Windows scheduler integration test trap output so CI logs
+    keep the real failing PowerShell exception.
+  * Refresh the runtime user-agent and package metadata to 1.3.10.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Sun, 22 Mar 2026 21:30:00 -0400
+
 dns-update (1.3.9-1) unstable; urgency=medium
 
   * Make the published .deb and .rpm assets reproducible by normalizing

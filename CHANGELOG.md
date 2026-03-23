@@ -2,6 +2,15 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.10 - 2026-03-22
+
+- Fixes the Windows Task Scheduler validation-preflight race by waiting on the
+  task's previous `LastRunTime` instead of a wall-clock timestamp, avoiding
+  same-second false timeouts on hosted Windows runners.
+- Improves the Windows scheduler integration test trap output so CI logs keep
+  the real failing PowerShell exception.
+- Refreshes the runtime user-agent and package metadata to `1.3.10`.
+
 ## 1.3.9 - 2026-03-22
 
 - Makes the published `.deb` and `.rpm` assets reproducible by normalizing

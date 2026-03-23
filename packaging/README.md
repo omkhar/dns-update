@@ -87,7 +87,7 @@ To rebuild an already tagged release from the GitHub-hosted builder, run the
 
 ```sh
 gh workflow run release.yml --ref main \
-  -f release_tag=v1.3.9 \
+  -f release_tag=v1.3.10 \
   -f rebuild_existing_release=true
 ```
 
@@ -178,7 +178,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.3.9 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.3.10 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -249,14 +249,14 @@ Verify an artifact with:
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.9-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.10-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.9-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.10-1.x86_64.rpm
 ```
 
 Validate the expected payload layout of built archives and packages with:
