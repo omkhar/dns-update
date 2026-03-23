@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -173,8 +174,8 @@ func TestLoadWithOptionsImplicitMissingConfigFailsClearly(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"config file not found",
-		missingLocal,
-		missingFallback,
+		strconv.Quote(missingLocal),
+		strconv.Quote(missingFallback),
 	} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("LoadWithOptions() error = %v, want substring %q", err, expected)

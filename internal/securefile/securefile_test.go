@@ -421,10 +421,7 @@ func TestValidateParentDirectoryAllowsRootAliasSymlink(t *testing.T) {
 		lstatPath = originalLstatPath
 	})
 
-	root := string(filepath.Separator)
-	if volume := filepath.VolumeName(filepath.Clean(root)); volume != "" {
-		root = volume + string(filepath.Separator)
-	}
+	root := testRootPath(t)
 	aliasDir := filepath.Join(root, "var")
 	parentDir := filepath.Join(aliasDir, "tmp")
 	targetPath := filepath.Join(parentDir, "secret")
@@ -450,10 +447,7 @@ func TestValidateParentDirectoryAllowsRootAliasSymlink(t *testing.T) {
 func TestAllowRootAliasSymlink(t *testing.T) {
 	t.Parallel()
 
-	root := string(filepath.Separator)
-	if volume := filepath.VolumeName(filepath.Clean(root)); volume != "" {
-		root = volume + string(filepath.Separator)
-	}
+	root := testRootPath(t)
 
 	if !allowRootAliasSymlink(1, []string{root, filepath.Join(root, "var"), filepath.Join(root, "var", "tmp")}) {
 		t.Fatal("allowRootAliasSymlink() = false, want true for root-level alias ancestor")
@@ -605,3 +599,17 @@ func (i testFileInfo) Mode() os.FileMode  { return i.mode }
 func (i testFileInfo) ModTime() time.Time { return time.Time{} }
 func (i testFileInfo) IsDir() bool        { return i.mode.IsDir() }
 func (i testFileInfo) Sys() any           { return nil }
+
+func testRootPath(t *testing.T) string {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		volume := filepath.VolumeName(t.TempDir())
+		if volume == "" {
+			t.Fatal("filepath.VolumeName() = empty, want drive root")
+		}
+		return volume + string(filepath.Separator)
+	}
+
+	return string(filepath.Separator)
+}
