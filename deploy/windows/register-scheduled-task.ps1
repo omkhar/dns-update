@@ -59,7 +59,7 @@ function Wait-TaskCompletion {
         [Parameter(Mandatory = $true)]
         [string]$TaskName,
         [Parameter(Mandatory = $true)]
-        [datetime]$StartedAfter,
+        [datetime]$PreviousLastRunTime,
         [timespan]$Timeout = (New-TimeSpan -Minutes 2)
     )
 
@@ -67,7 +67,7 @@ function Wait-TaskCompletion {
     while ((Get-Date) -lt $deadline) {
         $task = Get-ScheduledTask -TaskName $TaskName
         $info = Get-ScheduledTaskInfo -TaskName $TaskName
-        if ($info.LastRunTime -gt $StartedAfter -and $task.State -notin @("Queued", "Running")) {
+        if ($info.LastRunTime -ne $PreviousLastRunTime -and $task.State -notin @("Queued", "Running")) {
             return $info.LastTaskResult
         }
 
@@ -106,11 +106,11 @@ if ($ValidateConfig) {
 
     $validationResult = $null
     try {
-        $validationStartedAt = Get-Date
+        $validationInfo = Get-ScheduledTaskInfo -TaskName $validationTaskName
         Start-ScheduledTask -TaskName $validationTaskName
         $validationResult = Wait-TaskCompletion `
             -TaskName $validationTaskName `
-            -StartedAfter $validationStartedAt
+            -PreviousLastRunTime $validationInfo.LastRunTime
     } finally {
         try {
             Unregister-ScheduledTask -TaskName $validationTaskName -Confirm:$false -ErrorAction Stop | Out-Null

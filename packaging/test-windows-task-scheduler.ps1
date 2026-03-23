@@ -34,6 +34,7 @@ function ShowTaskState {
 }
 
 trap {
+    Write-Host ($_ | Out-String)
     Cleanup
     throw
 }
@@ -62,7 +63,6 @@ $configJson = @"
 Set-Content -LiteralPath $configPath -Value $configJson -Encoding utf8
 Set-Content -LiteralPath $tokenPath -Value "dummy-token`n" -Encoding utf8
 
-$registeredAt = Get-Date
 & $registerScriptPath `
     -TaskName $taskName `
     -BinaryPath $binaryPath `
@@ -83,6 +83,8 @@ if ($taskArguments -match "ValidateConfig") {
     throw "scheduled task should not keep ValidateConfig in the installed action"
 }
 
+$initialLastRunTime = (Get-ScheduledTaskInfo -TaskName $taskName).LastRunTime
+
 $invalidConfigJson = @"
 {
   "record": {
@@ -95,7 +97,7 @@ $ranAfterRegistration = $false
 $deadline = (Get-Date).AddMinutes(3)
 while ((Get-Date) -lt $deadline) {
     $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
-    if ($taskInfo.LastRunTime -gt $registeredAt) {
+    if ($taskInfo.LastRunTime -ne $initialLastRunTime) {
         $ranAfterRegistration = $true
     }
 
