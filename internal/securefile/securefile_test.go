@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidate(t *testing.T) {
@@ -414,6 +415,38 @@ func TestValidateParentDirectory(t *testing.T) {
 	}
 }
 
+func TestValidateParentDirectoryAllowsRootAliasSymlink(t *testing.T) {
+	originalLstatPath := lstatPath
+	t.Cleanup(func() {
+		lstatPath = originalLstatPath
+	})
+
+	root := string(filepath.Separator)
+	if volume := filepath.VolumeName(filepath.Clean(root)); volume != "" {
+		root = volume + string(filepath.Separator)
+	}
+	aliasDir := filepath.Join(root, "var")
+	parentDir := filepath.Join(aliasDir, "tmp")
+	targetPath := filepath.Join(parentDir, "secret")
+
+	lstatPath = func(path string) (os.FileInfo, error) {
+		switch path {
+		case root:
+			return testFileInfo{name: root, mode: os.ModeDir | 0o755}, nil
+		case aliasDir:
+			return testFileInfo{name: filepath.Base(aliasDir), mode: os.ModeSymlink}, nil
+		case parentDir:
+			return testFileInfo{name: filepath.Base(parentDir), mode: os.ModeDir | 0o700}, nil
+		default:
+			return nil, os.ErrNotExist
+		}
+	}
+
+	if err := validateParentDirectory(targetPath); err != nil {
+		t.Fatalf("validateParentDirectory() error = %v", err)
+	}
+}
+
 func TestAllowRootAliasSymlink(t *testing.T) {
 	t.Parallel()
 
@@ -560,3 +593,15 @@ func TestIsSystemdCredentialPath(t *testing.T) {
 		t.Fatal("isSystemdCredentialPath() = true, want false for relative/absolute mismatch")
 	}
 }
+
+type testFileInfo struct {
+	name string
+	mode os.FileMode
+}
+
+func (i testFileInfo) Name() string       { return i.name }
+func (i testFileInfo) Size() int64        { return 0 }
+func (i testFileInfo) Mode() os.FileMode  { return i.mode }
+func (i testFileInfo) ModTime() time.Time { return time.Time{} }
+func (i testFileInfo) IsDir() bool        { return i.mode.IsDir() }
+func (i testFileInfo) Sys() any           { return nil }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
@@ -32,12 +33,12 @@ func TestLoadRejectsInsecureHTTPByDefault(t *testing.T) {
     "ipv6_url": "https://6.ip.omsab.net/",
     "timeout": "10s"
   },
-  "provider": {
+	"provider": {
     "type": "cloudflare",
     "timeout": "10s",
     "cloudflare": {
       "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
-      "api_token_file": "` + tokenFile + `"
+      "api_token_file": ` + jsonStringLiteral(t, tokenFile) + `
     }
   }
 }`
@@ -68,12 +69,12 @@ func TestLoadRejectsGroupReadableTokenFile(t *testing.T) {
   "probe": {
     "timeout": "10s"
   },
-  "provider": {
+	"provider": {
     "type": "cloudflare",
     "timeout": "10s",
     "cloudflare": {
       "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
-      "api_token_file": "` + tokenFile + `"
+      "api_token_file": ` + jsonStringLiteral(t, tokenFile) + `
     }
   }
 }`
@@ -292,11 +293,11 @@ func TestLoadAppliesDefaults(t *testing.T) {
     "zone": "example.com.",
     "ttl_seconds": 300
   },
-  "provider": {
+	"provider": {
     "type": "cloudflare",
     "cloudflare": {
       "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
-      "api_token_file": "` + tokenFile + `"
+      "api_token_file": ` + jsonStringLiteral(t, tokenFile) + `
     }
   }
 }`
@@ -342,11 +343,11 @@ func TestLoadAcceptsCloudflareSamplePlaceholders(t *testing.T) {
     "zone": "example.com.",
     "ttl_seconds": 300
   },
-  "provider": {
+	"provider": {
     "type": "cloudflare",
     "cloudflare": {
       "zone_id": "CLOUDFLARE_ZONE_ID",
-      "api_token_file": "` + tokenFile + `"
+      "api_token_file": ` + jsonStringLiteral(t, tokenFile) + `
     }
   }
 }`
@@ -380,11 +381,11 @@ func TestLoadRejectsUnsupportedCloudflareTTL(t *testing.T) {
     "zone": "example.com.",
     "ttl_seconds": 15
   },
-  "provider": {
+	"provider": {
     "type": "cloudflare",
     "cloudflare": {
       "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
-      "api_token_file": "` + tokenFile + `"
+      "api_token_file": ` + jsonStringLiteral(t, tokenFile) + `
     }
   }
 }`
@@ -744,7 +745,9 @@ func TestValidateSecretFile(t *testing.T) {
 	if err := os.WriteFile(insecure, []byte("secret"), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if err := validateSecretFile(insecure); err == nil {
+	if err := validateSecretFile(insecure); runtime.GOOS == "windows" && err != nil {
+		t.Fatalf("validateSecretFile() error = %v, want Windows permission-bit bypass", err)
+	} else if runtime.GOOS != "windows" && err == nil {
 		t.Fatal("validateSecretFile() error = nil, want permission error")
 	}
 }
@@ -823,11 +826,11 @@ func TestLoadWithOptionsOverridesCloudflareTokenPathFromEnv(t *testing.T) {
     "zone": "example.com.",
     "ttl_seconds": 300
   },
-  "provider": {
+	"provider": {
     "type": "cloudflare",
     "cloudflare": {
       "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
-      "api_token_file": "` + fileToken + `"
+      "api_token_file": ` + jsonStringLiteral(t, fileToken) + `
     }
   }
 }`
@@ -970,10 +973,12 @@ func TestLookupEnvAndResolvePath(t *testing.T) {
 	if got, want := resolvePath("", "/tmp"), ""; got != want {
 		t.Fatalf("resolvePath(empty) = %q, want %q", got, want)
 	}
-	if got, want := resolvePath("/tmp/abs", "/base"), "/tmp/abs"; got != want {
+	baseDir := t.TempDir()
+	absPath := filepath.Join(t.TempDir(), "abs")
+	if got, want := resolvePath(absPath, baseDir), absPath; got != want {
 		t.Fatalf("resolvePath(abs) = %q, want %q", got, want)
 	}
-	if got, want := resolvePath("rel", "/base"), "/base/rel"; got != want {
+	if got, want := resolvePath("rel", baseDir), filepath.Join(baseDir, "rel"); got != want {
 		t.Fatalf("resolvePath(rel) = %q, want %q", got, want)
 	}
 }
@@ -1044,11 +1049,11 @@ func writeConfigFile(t *testing.T, path string, tokenFile string) {
     "zone": "example.com.",
     "ttl_seconds": 300
   },
-  "provider": {
+	"provider": {
     "type": "cloudflare",
     "cloudflare": {
       "zone_id": "023e105f4ecef8ad9ca31a8372d0c353",
-      "api_token_file": "` + tokenFile + `"
+      "api_token_file": ` + jsonStringLiteral(t, tokenFile) + `
     }
   }
 }`
@@ -1056,4 +1061,14 @@ func writeConfigFile(t *testing.T, path string, tokenFile string) {
 	if err := os.WriteFile(path, []byte(configJSON), 0o600); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", path, err)
 	}
+}
+
+func jsonStringLiteral(t *testing.T, value string) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("json.Marshal(%q) error = %v", value, err)
+	}
+	return string(encoded)
 }

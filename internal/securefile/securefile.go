@@ -117,7 +117,7 @@ func validateParentDirectory(path string) error {
 
 	var parentInfo os.FileInfo
 	for index, directory := range directories {
-		info, err := os.Lstat(directory)
+		info, err := lstatPath(directory)
 		if err != nil {
 			return err
 		}

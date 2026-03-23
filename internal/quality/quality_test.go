@@ -234,16 +234,22 @@ func applyMutant(root string, tc mutant) error {
 		return err
 	}
 
-	content := string(data)
-	count := strings.Count(content, tc.old)
+	content := normalizeNewlines(string(data))
+	old := normalizeNewlines(tc.old)
+	newValue := normalizeNewlines(tc.new)
+	count := strings.Count(content, old)
 	if count != 1 {
 		return fmt.Errorf("expected one mutation target in %s, found %d", tc.file, count)
 	}
 
-	mutated := strings.Replace(content, tc.old, tc.new, 1)
+	mutated := strings.Replace(content, old, newValue, 1)
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, []byte(mutated), info.Mode().Perm())
+}
+
+func normalizeNewlines(value string) string {
+	return strings.ReplaceAll(value, "\r\n", "\n")
 }
