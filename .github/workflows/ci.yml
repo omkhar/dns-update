@@ -127,9 +127,9 @@ jobs:
       - name: Fuzz smoke test
         if: ${{ runner.os == 'Linux' }}
         run: |
-          go test -run '^$' -fuzz '^FuzzNormalizeFQDN$' -fuzztime=5s ./internal/config
-          go test -run '^$' -fuzz '^FuzzParseProbeURL$' -fuzztime=5s ./internal/config
-          go test -run '^$' -fuzz '^FuzzParseResponse$' -fuzztime=5s ./internal/egress
+          go test -run '^$' -fuzz '^FuzzNormalizeFQDN$' -fuzztime=15s ./internal/config
+          go test -run '^$' -fuzz '^FuzzParseProbeURL$' -fuzztime=15s ./internal/config
+          go test -run '^$' -fuzz '^FuzzParseResponse$' -fuzztime=15s ./internal/egress
 
       - name: Race test
         if: ${{ runner.os == 'Linux' }}
