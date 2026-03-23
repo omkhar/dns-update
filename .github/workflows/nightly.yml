@@ -33,7 +33,6 @@ jobs:
           cache-dependency-path: |
             go.mod
             go.sum
-          check-latest: true
 
       - name: Coverage gate
         run: go test -count=1 -run '^TestCoverageThreshold$' ./internal/quality
@@ -48,7 +47,7 @@ jobs:
           go test -run '^$' -fuzz '^FuzzParseResponse$' -fuzztime=30s ./internal/egress
 
   reproducibility:
-    name: Release Archive Reproducibility
+    name: Release Artifact Reproducibility
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -67,13 +66,13 @@ jobs:
           cache-dependency-path: |
             go.mod
             go.sum
-          check-latest: true
 
-      - name: Install archive tooling
+      - name: Install packaging tooling
         shell: bash
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends zip unzip
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            --no-install-recommends rpm unzip zip
 
-      - name: Check release archive reproducibility
+      - name: Check release artifact reproducibility
         run: ./packaging/check-release-reproducibility.sh

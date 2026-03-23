@@ -35,7 +35,6 @@ jobs:
           cache-dependency-path: |
             go.mod
             go.sum
-          check-latest: true
 
       - name: Install lint tooling
         shell: bash
@@ -111,7 +110,6 @@ jobs:
           cache-dependency-path: |
             go.mod
             go.sum
-          check-latest: true
 
       - name: Unit and integration tests
         shell: bash

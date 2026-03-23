@@ -32,7 +32,6 @@ jobs:
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
         with:
           go-version-file: go.mod
-          check-latest: true
 
       - name: Run launchd scheduler integration test
         run: |
@@ -55,7 +54,6 @@ jobs:
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
         with:
           go-version-file: go.mod
-          check-latest: true
 
       - name: Run Task Scheduler integration test
         shell: pwsh

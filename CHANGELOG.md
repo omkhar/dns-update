@@ -2,6 +2,17 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.9 - 2026-03-22
+
+- Makes the published `.deb` and `.rpm` assets reproducible by normalizing
+  package timestamps and RPM metadata to a stable source date.
+- Aligns the reproducibility checker and nightly gate with the real trusted
+  release path so package assets are covered alongside archives.
+- Changes the macOS and Windows scheduler helpers so config validation is an
+  install-time preflight instead of a persistent validation-only job mode.
+- Pins GitHub Actions to the exact Go toolchain declared in `go.mod` and bumps
+  release metadata to `1.3.9`.
+
 ## 1.3.8 - 2026-03-22
 
 - Fixes the RPM packaging script so environments that expose GNU tar only as

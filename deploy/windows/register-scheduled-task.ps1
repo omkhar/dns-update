@@ -31,21 +31,101 @@ if ($logDir) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
 
-$taskArguments = @(
-    "-NoProfile",
-    "-NonInteractive",
-    "-ExecutionPolicy", "Bypass",
-    "-File", ('"{0}"' -f $wrapperPath),
-    "-BinaryPath", ('"{0}"' -f $binaryPath),
-    "-ConfigPath", ('"{0}"' -f $configPath),
-    "-TokenPath", ('"{0}"' -f $tokenPath),
-    "-LogPath", ('"{0}"' -f $logPath),
-    "-Timeout", ('"{0}"' -f $Timeout)
-)
+function New-TaskArguments {
+    param(
+        [switch]$ValidateOnly
+    )
+
+    $arguments = @(
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy", "Bypass",
+        "-File", ('"{0}"' -f $wrapperPath),
+        "-BinaryPath", ('"{0}"' -f $binaryPath),
+        "-ConfigPath", ('"{0}"' -f $configPath),
+        "-TokenPath", ('"{0}"' -f $tokenPath),
+        "-LogPath", ('"{0}"' -f $logPath),
+        "-Timeout", ('"{0}"' -f $Timeout)
+    )
+    if ($ValidateOnly) {
+        $arguments += "-ValidateConfig"
+    }
+
+    return $arguments
+}
+
+function Wait-TaskCompletion {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TaskName,
+        [Parameter(Mandatory = $true)]
+        [datetime]$StartedAfter,
+        [timespan]$Timeout = (New-TimeSpan -Minutes 2)
+    )
+
+    $deadline = (Get-Date).Add($Timeout)
+    while ((Get-Date) -lt $deadline) {
+        $task = Get-ScheduledTask -TaskName $TaskName
+        $info = Get-ScheduledTaskInfo -TaskName $TaskName
+        if ($info.LastRunTime -gt $StartedAfter -and $task.State -notin @("Queued", "Running")) {
+            return $info.LastTaskResult
+        }
+
+        Start-Sleep -Seconds 2
+    }
+
+    throw "Task '$TaskName' did not finish within $($Timeout.TotalSeconds) seconds."
+}
+
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 10) `
+    -MultipleInstances IgnoreNew `
+    -StartWhenAvailable
 
 if ($ValidateConfig) {
-    $taskArguments += "-ValidateConfig"
+    $validationTaskName = "$TaskName-validate-config"
+    $validationAction = New-ScheduledTaskAction `
+        -Execute $powerShellPath `
+        -Argument ((New-TaskArguments -ValidateOnly) -join " ") `
+        -WorkingDirectory $workingDirectory
+    $validationTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5)
+
+    try {
+        Unregister-ScheduledTask -TaskName $validationTaskName -Confirm:$false -ErrorAction Stop | Out-Null
+    } catch {
+    }
+
+    Register-ScheduledTask `
+        -TaskName $validationTaskName `
+        -Action $validationAction `
+        -Trigger $validationTrigger `
+        -Principal $principal `
+        -Settings $settings `
+        -Force | Out-Null
+
+    $validationResult = $null
+    try {
+        $validationStartedAt = Get-Date
+        Start-ScheduledTask -TaskName $validationTaskName
+        $validationResult = Wait-TaskCompletion `
+            -TaskName $validationTaskName `
+            -StartedAfter $validationStartedAt
+    } finally {
+        try {
+            Unregister-ScheduledTask -TaskName $validationTaskName -Confirm:$false -ErrorAction Stop | Out-Null
+        } catch {
+        }
+    }
+
+    if ($validationResult -ne 0) {
+        throw "ValidateConfig preflight task failed with exit code $validationResult."
+    }
+
+    Remove-Item -LiteralPath $logPath -Force -ErrorAction SilentlyContinue
 }
+
+$taskArguments = New-TaskArguments
 
 $action = New-ScheduledTaskAction `
     -Execute $powerShellPath `
@@ -56,11 +136,6 @@ $trigger = New-ScheduledTaskTrigger `
     -At (Get-Date).AddMinutes(1) `
     -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) `
     -RepetitionDuration (New-TimeSpan -Days 3650)
-$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 10) `
-    -MultipleInstances IgnoreNew `
-    -StartWhenAvailable
 
 try {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction Stop | Out-Null

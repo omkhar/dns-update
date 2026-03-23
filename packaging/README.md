@@ -87,7 +87,7 @@ To rebuild an already tagged release from the GitHub-hosted builder, run the
 
 ```sh
 gh workflow run release.yml --ref main \
-  -f release_tag=v1.3.8 \
+  -f release_tag=v1.3.9 \
   -f rebuild_existing_release=true
 ```
 
@@ -111,11 +111,15 @@ That produces:
 - macOS archives for `amd64` and `arm64`
 - Windows archives for `amd64` and `arm64`
 
-Check that two consecutive archive builds are reproducible with:
+Check that two consecutive full release-asset builds are reproducible with:
 
 ```sh
 ./packaging/check-release-reproducibility.sh
 ```
+
+That check follows the same direct Debian and RPM packaging path used by the
+trusted release workflow, so it requires the local `dpkg-deb`, `rpmbuild`,
+`zip`, and `unzip` tooling.
 
 ## Debian build
 
@@ -174,7 +178,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.3.8 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.3.9 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -213,9 +217,9 @@ Separate native scheduler integration jobs validate:
 - `deploy/launchd/install-launchd-job.sh` on `macos-latest`
 - `deploy/windows/register-scheduled-task.ps1` on `windows-latest`
 
-Those macOS and Windows jobs validate real scheduler-driven runs by waiting for
-the installed native scheduler job to execute `dns-update -validate-config`
-successfully.
+Those macOS and Windows jobs run an install-time config-validation preflight
+and then prove a later scheduler-fired invocation uses the installed
+non-validation action.
 
 For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
 supports amd64 and arm64 hosts.
@@ -245,14 +249,14 @@ Verify an artifact with:
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.8-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.9-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.8-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.9-1.x86_64.rpm
 ```
 
 Validate the expected payload layout of built archives and packages with:

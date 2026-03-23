@@ -2,7 +2,7 @@
 %bcond_without check
 %define _binary_payload w9.xzdio
 
-%global upstream_version 1.3.8
+%global upstream_version 1.3.9
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -70,6 +70,10 @@ install -D -m 0644 SECURITY.md %{buildroot}%{_docdir}/%{name}/SECURITY.md
 install -D -m 0644 CONTRIBUTING.md %{buildroot}%{_docdir}/%{name}/CONTRIBUTING.md
 install -D -m 0644 packaging/README.md %{buildroot}%{_docdir}/%{name}/packaging-README.md
 install -D -m 0644 docs/dns-update.1 %{buildroot}%{_mandir}/man1/dns-update.1
+install -D -m 0644 LICENSE %{buildroot}%{_licensedir}/%{name}-%{version}/LICENSE
+if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+    find %{buildroot} -exec touch -h -d "@${SOURCE_DATE_EPOCH}" {} +
+fi
 
 %post
 if [ "$1" -eq 1 ] ; then
@@ -87,7 +91,7 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 
 %files
 %defattr(-,root,root,-)
-%license LICENSE
+%license %{_licensedir}/%{name}-%{version}/LICENSE
 %doc %{_docdir}/%{name}/README.md
 %doc %{_docdir}/%{name}/SECURITY.md
 %doc %{_docdir}/%{name}/CONTRIBUTING.md
@@ -102,6 +106,16 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.9-1
+- Make the published .deb and .rpm assets reproducible by normalizing
+  package timestamps and RPM metadata to a stable source date
+- Align the reproducibility checker and nightly workflow with the real
+  trusted release path so package assets are covered alongside archives
+- Change the macOS and Windows scheduler helpers so validate-config is an
+  install-time preflight instead of a persistent scheduled mode
+- Pin GitHub Actions to the exact Go toolchain declared in go.mod and
+  refresh release metadata for the 1.3.9 release
+
 * Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.8-1
 - Fix the RPM packaging script so builders that expose GNU tar only as gtar still pass the tar prerequisite check
 - Refresh release metadata for the 1.3.8 release

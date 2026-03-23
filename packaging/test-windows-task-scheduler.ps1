@@ -62,6 +62,7 @@ $configJson = @"
 Set-Content -LiteralPath $configPath -Value $configJson -Encoding utf8
 Set-Content -LiteralPath $tokenPath -Value "dummy-token`n" -Encoding utf8
 
+$registeredAt = Get-Date
 & $registerScriptPath `
     -TaskName $taskName `
     -BinaryPath $binaryPath `
@@ -72,15 +73,48 @@ Set-Content -LiteralPath $tokenPath -Value "dummy-token`n" -Encoding utf8
     -Timeout "30s" `
     -ValidateConfig
 
+$taskArguments = (
+    Get-ScheduledTask -TaskName $taskName |
+        Select-Object -ExpandProperty Actions |
+        Select-Object -ExpandProperty Arguments
+)
+if ($taskArguments -match "ValidateConfig") {
+    ShowTaskState
+    throw "scheduled task should not keep ValidateConfig in the installed action"
+}
+
+$invalidConfigJson = @"
+{
+  "record": {
+    "name": "host.example.com.",
+"@
+
+Set-Content -LiteralPath $configPath -Value $invalidConfigJson -Encoding utf8
+
+$ranAfterRegistration = $false
 $deadline = (Get-Date).AddMinutes(3)
 while ((Get-Date) -lt $deadline) {
+    $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+    if ($taskInfo.LastRunTime -gt $registeredAt) {
+        $ranAfterRegistration = $true
+    }
+
     if (Test-Path -LiteralPath $logPath) {
         $logContent = Get-Content -LiteralPath $logPath -Raw
-        if ($logContent -match "config is valid") {
+        if (
+            $ranAfterRegistration -and
+            $logContent -match "failed to load config: decode config: unexpected EOF" -and
+            $logContent -match "exit code: 1"
+        ) {
             break
         }
     }
     Start-Sleep -Seconds 5
+}
+
+if (-not $ranAfterRegistration) {
+    ShowTaskState
+    throw "scheduled task did not run after registration"
 }
 
 if (-not (Test-Path -LiteralPath $logPath)) {
@@ -89,10 +123,13 @@ if (-not (Test-Path -LiteralPath $logPath)) {
 }
 
 $logContent = Get-Content -LiteralPath $logPath -Raw
-if ($logContent -notmatch "config is valid") {
+if (
+    $logContent -notmatch "failed to load config: decode config: unexpected EOF" -or
+    $logContent -notmatch "exit code: 1"
+) {
     ShowTaskState
     Write-Host $logContent
-    throw "scheduled task did not validate the config successfully"
+    throw "scheduled task did not execute the installed action after registration"
 }
 
 Cleanup
