@@ -195,6 +195,27 @@ func TestValidateAndReadSingleTokenAllowWindowsPermissionBits(t *testing.T) {
 	}
 }
 
+func TestValidateAndReadSingleTokenEnforceUnixPermissionBits(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+	})
+	usesUnixPermissionBits = func() bool { return true }
+
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "cloudflare.token")
+	if err := os.WriteFile(tokenPath, []byte("secret\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := Validate(tokenPath); err == nil {
+		t.Fatal("Validate() error = nil, want permission error")
+	}
+	if _, err := ReadSingleToken(tokenPath); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want permission error")
+	}
+}
+
 func TestReadSingleTokenErrors(t *testing.T) {
 	t.Parallel()
 
@@ -444,6 +465,27 @@ func TestValidateParentDirectoryAllowsRootAliasSymlink(t *testing.T) {
 	}
 }
 
+func TestValidateParentDirectoryEnforcesUnixPermissionBits(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+	})
+	usesUnixPermissionBits = func() bool { return true }
+
+	dir := t.TempDir()
+	writableDir := filepath.Join(dir, "writable")
+	if err := os.Mkdir(writableDir, 0o733); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+	if err := os.Chmod(writableDir, 0o733); err != nil {
+		t.Fatalf("Chmod() error = %v", err)
+	}
+
+	if err := validateParentDirectory(filepath.Join(writableDir, "secret")); err == nil {
+		t.Fatal("validateParentDirectory() error = nil, want permission error")
+	}
+}
+
 func TestAllowRootAliasSymlink(t *testing.T) {
 	t.Parallel()
 
@@ -599,6 +641,40 @@ func (i testFileInfo) Mode() os.FileMode  { return i.mode }
 func (i testFileInfo) ModTime() time.Time { return time.Time{} }
 func (i testFileInfo) IsDir() bool        { return i.mode.IsDir() }
 func (i testFileInfo) Sys() any           { return nil }
+
+func TestHasSecurePermissions(t *testing.T) {
+	originalUsesUnixPermissionBits := usesUnixPermissionBits
+	originalLookupEnv := lookupEnv
+	t.Cleanup(func() {
+		usesUnixPermissionBits = originalUsesUnixPermissionBits
+		lookupEnv = originalLookupEnv
+	})
+
+	usesUnixPermissionBits = func() bool { return false }
+	if !hasSecurePermissions("cloudflare.token", 0o644) {
+		t.Fatal("hasSecurePermissions() = false, want Windows permission-bit bypass")
+	}
+
+	usesUnixPermissionBits = func() bool { return true }
+
+	if !hasSecurePermissions("cloudflare.token", 0o600) {
+		t.Fatal("hasSecurePermissions() = false, want private permissions to pass")
+	}
+
+	credDir := filepath.Join(testRootPath(t), "run", "credentials", "test.service")
+	lookupEnv = func(key string) (string, bool) {
+		if key == "CREDENTIALS_DIRECTORY" {
+			return credDir, true
+		}
+		return "", false
+	}
+	if !hasSecurePermissions(filepath.Join(credDir, "cloudflare.token"), 0o440) {
+		t.Fatal("hasSecurePermissions() = false, want systemd credential mask to pass")
+	}
+	if hasSecurePermissions("cloudflare.token", 0o644) {
+		t.Fatal("hasSecurePermissions() = true, want group-readable permissions to fail")
+	}
+}
 
 func testRootPath(t *testing.T) string {
 	t.Helper()
