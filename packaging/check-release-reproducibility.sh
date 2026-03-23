@@ -5,7 +5,9 @@ set -eu
 . "$(dirname "$0")/lib.sh"
 
 repo_root=$(repo_root "$0")
-tmp_root=$(mktemp -d "$repo_root/out/reproducibility.XXXXXX")
+tmp_parent="$repo_root/out"
+mkdir -p "$tmp_parent"
+tmp_root=$(mktemp -d "$tmp_parent/reproducibility.XXXXXX")
 out_one=$tmp_root/one
 out_two=$tmp_root/two
 
