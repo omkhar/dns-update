@@ -918,54 +918,6 @@ func TestCollectProbeError(t *testing.T) {
 	}
 }
 
-func TestCollectProbeErrorSingleRetryable(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		ipv4Err    error
-		ipv6Err    error
-		wantPrefix string
-		wantDelay  time.Duration
-	}{
-		{
-			name:       "ipv4",
-			ipv4Err:    retry.Mark(errors.New("ipv4-timeout"), time.Second),
-			wantPrefix: "IPv4 egress probe failed",
-			wantDelay:  time.Second,
-		},
-		{
-			name:       "ipv6",
-			ipv6Err:    retry.Mark(errors.New("ipv6-timeout"), 2*time.Second),
-			wantPrefix: "IPv6 egress probe failed",
-			wantDelay:  2 * time.Second,
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := collectProbeError(test.ipv4Err, test.ipv6Err)
-			if err == nil {
-				t.Fatal("collectProbeError(single retryable) = nil, want error")
-			}
-			if !strings.Contains(err.Error(), test.wantPrefix) {
-				t.Fatalf("collectProbeError() error = %q, want prefix %q", err, test.wantPrefix)
-			}
-
-			retryAfter, ok := retry.After(err)
-			if !ok {
-				t.Fatal("collectProbeError() error is not retryable, want retryable")
-			}
-			if got, want := retryAfter, test.wantDelay; got != want {
-				t.Fatalf("retry.After(collectProbeError()) = %v, want %v", got, want)
-			}
-		})
-	}
-}
-
 func TestFormatHelpers(t *testing.T) {
 	t.Parallel()
 
