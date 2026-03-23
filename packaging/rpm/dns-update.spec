@@ -1,6 +1,14 @@
 %global debug_package %{nil}
 %bcond_without check
 %define _binary_payload w9.xzdio
+#
+# Release builds already strip the Go binary with "-s -w". Running RPM's
+# native strip helpers afterwards only mutates the amd64 ELF mtime after the
+# buildroot timestamps were normalized, which breaks reproducibility without
+# materially changing the packaged payload.
+%global __brp_strip %{nil}
+%global __brp_strip_comment_note %{nil}
+%global __brp_strip_static_archive %{nil}
 
 %global upstream_version 1.3.10
 %global upstream_release 1
