@@ -23,6 +23,23 @@ EOF
 
 repo_root=$(repo_root "$0")
 local_tar=$(release_tar)
+source_epoch=$(source_date_epoch "$repo_root")
+go_version=$(sed -n 's/^go //p' "$repo_root/go.mod")
+container_path=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+remote_root=
+go_arch=
+local_config_path=${REMOTE_BUILD_LOCAL_CONFIG:-"$repo_root/packaging/build-remote-container.local.env"}
+
+require_cmd ssh
+require_cmd "$local_tar"
+
+if [ -f "$local_config_path" ]; then
+	set -a
+	# shellcheck source=/dev/null
+	. "$local_config_path"
+	set +a
+fi
+
 host=${REMOTE_BUILD_HOST:-}
 mode=${REMOTE_BUILD_MODE:-release-assets}
 output_dir=
@@ -31,14 +48,6 @@ bootstrap_image=${REMOTE_BUILD_BOOTSTRAP_IMAGE:-}
 image_tag=${REMOTE_BUILD_TAG:-}
 keep_remote_root=0
 rebuild_image=${REMOTE_BUILD_REBUILD_IMAGE:-0}
-source_epoch=$(source_date_epoch "$repo_root")
-go_version=$(sed -n 's/^go //p' "$repo_root/go.mod")
-container_path=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-remote_root=
-go_arch=
-
-require_cmd ssh
-require_cmd "$local_tar"
 
 write_remote_dockerfile() {
 	if [ -n "$bootstrap_image" ]; then

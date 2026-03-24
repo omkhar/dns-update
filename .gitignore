@@ -22,6 +22,7 @@
 /coverage.*
 /dist/
 /out/
+/packaging/build-remote-container.local.env
 
 # Debian packaging byproducts
 /debian/.debhelper/
