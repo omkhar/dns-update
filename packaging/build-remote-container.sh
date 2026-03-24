@@ -13,10 +13,10 @@ usage:
                             [--keep-remote-root] [--rebuild-image]
 
 examples:
-  ./packaging/build-remote-container.sh --host builder@bewear
-  ./packaging/build-remote-container.sh --host builder@bewear \
+  ./packaging/build-remote-container.sh --host builder@example-build-host
+  ./packaging/build-remote-container.sh --host builder@example-build-host \
     --bootstrap-image node:22-trixie-slim
-  ./packaging/build-remote-container.sh --host builder@bewear --mode reproducibility
+  ./packaging/build-remote-container.sh --host builder@example-build-host --mode reproducibility
 EOF
 	exit 2
 }
