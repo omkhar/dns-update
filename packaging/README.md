@@ -111,6 +111,38 @@ That produces:
 - macOS archives for `amd64` and `arm64`
 - Windows archives for `amd64` and `arm64`
 
+Build the same Linux packaging and cross-platform archive set on a remote Linux
+Docker host inside a dedicated container with:
+
+```sh
+./packaging/build-remote-container.sh --host builder@bewear
+```
+
+That wrapper:
+
+- streams a fresh source snapshot to the remote host
+- builds a dedicated remote image tag for that run, reusing Docker layer cache
+  unless `--rebuild-image` is passed
+- runs the build as the remote login UID/GID so bind-mounted outputs remain
+  removable by that shared account
+- carries `SOURCE_DATE_EPOCH` into the container so release timestamps stay
+  stable
+- copies the remote `out/` tree back under `out/remote/<run-id>/` locally
+
+The remote wrapper is intended for the release-asset and reproducibility lanes.
+It intentionally does not run `packaging/test-systemd-timer.sh`, because that
+integration test already drives privileged Docker containers against the remote
+host daemon.
+
+If the remote Docker daemon cannot pull the default `golang:1.26.1-bookworm`
+base image directly, bootstrap from a locally cached Debian-based image and let
+the wrapper install Go plus the packaging tools into that image:
+
+```sh
+./packaging/build-remote-container.sh --host builder@bewear \
+  --bootstrap-image node:22-trixie-slim
+```
+
 Check that two consecutive full release-asset builds are reproducible with:
 
 ```sh
@@ -120,6 +152,12 @@ Check that two consecutive full release-asset builds are reproducible with:
 That check follows the same direct Debian and RPM packaging path used by the
 trusted release workflow, so it requires the local `dpkg-deb`, `rpmbuild`,
 `zip`, and `unzip` tooling.
+
+Run the same reproducibility check inside the remote container wrapper with:
+
+```sh
+./packaging/build-remote-container.sh --host builder@bewear --mode reproducibility
+```
 
 ## Debian build
 
