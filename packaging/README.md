@@ -115,7 +115,7 @@ Build the same Linux packaging and cross-platform archive set on a remote Linux
 Docker host inside a dedicated container with:
 
 ```sh
-./packaging/build-remote-container.sh --host builder@bewear
+./packaging/build-remote-container.sh --host builder@example-build-host
 ```
 
 That wrapper:
@@ -139,7 +139,7 @@ base image directly, bootstrap from a locally cached Debian-based image and let
 the wrapper install Go plus the packaging tools into that image:
 
 ```sh
-./packaging/build-remote-container.sh --host builder@bewear \
+./packaging/build-remote-container.sh --host builder@example-build-host \
   --bootstrap-image node:22-trixie-slim
 ```
 
@@ -156,7 +156,7 @@ trusted release workflow, so it requires the local `dpkg-deb`, `rpmbuild`,
 Run the same reproducibility check inside the remote container wrapper with:
 
 ```sh
-./packaging/build-remote-container.sh --host builder@bewear --mode reproducibility
+./packaging/build-remote-container.sh --host builder@example-build-host --mode reproducibility
 ```
 
 ## Debian build
