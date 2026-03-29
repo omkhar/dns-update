@@ -77,7 +77,13 @@ jobs:
         run: |
           set -euo pipefail
           case "${TEST_LABEL}" in
-            debian-stable|debian-unstable|ubuntu-stable|ubuntu-unstable|fedora-stable|fedora-unstable) ;;
+            debian-stable|\
+            debian-unstable|\
+            ubuntu-stable|\
+            ubuntu-unstable|\
+            fedora-stable|\
+            fedora-unstable)
+              ;;
             *)
               echo "Unexpected systemd test label: ${TEST_LABEL}" >&2
               exit 1
@@ -85,7 +91,13 @@ jobs:
           esac
 
           case "${TEST_IMAGE}" in
-            debian:stable-slim|debian:unstable-slim|ubuntu:rolling|ubuntu:devel|quay.io/fedora/fedora:43|quay.io/fedora/fedora:rawhide) ;;
+            debian:stable-slim|\
+            debian:unstable-slim|\
+            ubuntu:rolling|\
+            ubuntu:devel|\
+            quay.io/fedora/fedora:43|\
+            quay.io/fedora/fedora:rawhide)
+              ;;
             *)
               echo "Unexpected systemd test image: ${TEST_IMAGE}" >&2
               exit 1
