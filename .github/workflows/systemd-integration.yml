@@ -29,27 +29,33 @@ jobs:
         include:
           - name: Debian Stable
             label: debian-stable
-            image: debian:stable-slim@sha256:99fc6d2a0882fcbcdc452948d2d54eab91faafc7db037df82425edcdcf950e1f
+            image: "debian:stable-slim@sha256:\
+              99fc6d2a0882fcbcdc452948d2d54eab91faafc7db037df82425edcdcf950e1f"
             family: debian
           - name: Debian Unstable
             label: debian-unstable
-            image: debian:unstable-slim@sha256:4629867cb5aa1f25958b91d0ac0a867308ec5a72d470811fc2e551df1e240087
+            image: "debian:unstable-slim@sha256:\
+              4629867cb5aa1f25958b91d0ac0a867308ec5a72d470811fc2e551df1e240087"
             family: debian
           - name: Ubuntu Stable
             label: ubuntu-stable
-            image: ubuntu:rolling@sha256:4a9232cc47bf99defcc8860ef6222c99773330367fcecbf21ba2edb0b810a31e
+            image: "ubuntu:rolling@sha256:\
+              4a9232cc47bf99defcc8860ef6222c99773330367fcecbf21ba2edb0b810a31e"
             family: ubuntu
           - name: Ubuntu Unstable
             label: ubuntu-unstable
-            image: ubuntu:devel@sha256:91832dcd7bc5e44c098ecefc0a251a5c5d596dae494b33fb248e01b6840f8ce0
+            image: "ubuntu:devel@sha256:\
+              91832dcd7bc5e44c098ecefc0a251a5c5d596dae494b33fb248e01b6840f8ce0"
             family: ubuntu
           - name: Fedora Stable
             label: fedora-stable
-            image: quay.io/fedora/fedora:43@sha256:57b692a43ab02f16b5fa814f0ff2a3ebdc30ee0245d8ef50fdc17bd2e47ecbff
+            image: "quay.io/fedora/fedora:43@sha256:\
+              57b692a43ab02f16b5fa814f0ff2a3ebdc30ee0245d8ef50fdc17bd2e47ecbff"
             family: fedora
           - name: Fedora Unstable
             label: fedora-unstable
-            image: quay.io/fedora/fedora:rawhide@sha256:574edacc07a5bc212fc12e3685b2ae0a0124bd774a99ed4701f2ac00dbe596a3
+            image: "quay.io/fedora/fedora:rawhide@sha256:\
+              574edacc07a5bc212fc12e3685b2ae0a0124bd774a99ed4701f2ac00dbe596a3"
             family: fedora
     steps:
       - name: Checkout
@@ -91,12 +97,18 @@ jobs:
           esac
 
           case "${TEST_IMAGE}" in
-            debian:stable-slim@sha256:99fc6d2a0882fcbcdc452948d2d54eab91faafc7db037df82425edcdcf950e1f|\
-            debian:unstable-slim@sha256:4629867cb5aa1f25958b91d0ac0a867308ec5a72d470811fc2e551df1e240087|\
-            ubuntu:rolling@sha256:4a9232cc47bf99defcc8860ef6222c99773330367fcecbf21ba2edb0b810a31e|\
-            ubuntu:devel@sha256:91832dcd7bc5e44c098ecefc0a251a5c5d596dae494b33fb248e01b6840f8ce0|\
-            quay.io/fedora/fedora:43@sha256:57b692a43ab02f16b5fa814f0ff2a3ebdc30ee0245d8ef50fdc17bd2e47ecbff|\
-            quay.io/fedora/fedora:rawhide@sha256:574edacc07a5bc212fc12e3685b2ae0a0124bd774a99ed4701f2ac00dbe596a3)
+            "debian:stable-slim@sha256:\
+            99fc6d2a0882fcbcdc452948d2d54eab91faafc7db037df82425edcdcf950e1f"|\
+            "debian:unstable-slim@sha256:\
+            4629867cb5aa1f25958b91d0ac0a867308ec5a72d470811fc2e551df1e240087"|\
+            "ubuntu:rolling@sha256:\
+            4a9232cc47bf99defcc8860ef6222c99773330367fcecbf21ba2edb0b810a31e"|\
+            "ubuntu:devel@sha256:\
+            91832dcd7bc5e44c098ecefc0a251a5c5d596dae494b33fb248e01b6840f8ce0"|\
+            "quay.io/fedora/fedora:43@sha256:\
+            57b692a43ab02f16b5fa814f0ff2a3ebdc30ee0245d8ef50fdc17bd2e47ecbff"|\
+            "quay.io/fedora/fedora:rawhide@sha256:\
+            574edacc07a5bc212fc12e3685b2ae0a0124bd774a99ed4701f2ac00dbe596a3")
               ;;
             *)
               echo "Unexpected systemd test image: ${TEST_IMAGE}" >&2
