@@ -28,8 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
-      security-events: write
+      contents: read  # Check out repository workflows for static analysis.
+      security-events: write  # Upload Zizmor SARIF results to code scanning.
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
