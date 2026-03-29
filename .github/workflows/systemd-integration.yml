@@ -71,9 +71,37 @@ jobs:
       - name: Run systemd timer integration test
         env:
           PACKAGING_SYSTEMD_TEST_MODE: package
+          TEST_FAMILY: ${{ matrix.family }}
+          TEST_IMAGE: ${{ matrix.image }}
+          TEST_LABEL: ${{ matrix.label }}
         run: |
+          set -euo pipefail
+          case "${TEST_LABEL}" in
+            debian-stable|debian-unstable|ubuntu-stable|ubuntu-unstable|fedora-stable|fedora-unstable) ;;
+            *)
+              echo "Unexpected systemd test label: ${TEST_LABEL}" >&2
+              exit 1
+              ;;
+          esac
+
+          case "${TEST_IMAGE}" in
+            debian:stable-slim|debian:unstable-slim|ubuntu:rolling|ubuntu:devel|quay.io/fedora/fedora:43|quay.io/fedora/fedora:rawhide) ;;
+            *)
+              echo "Unexpected systemd test image: ${TEST_IMAGE}" >&2
+              exit 1
+              ;;
+          esac
+
+          case "${TEST_FAMILY}" in
+            debian|ubuntu|fedora) ;;
+            *)
+              echo "Unexpected systemd test family: ${TEST_FAMILY}" >&2
+              exit 1
+              ;;
+          esac
+
           chmod +x packaging/test-systemd-timer.sh
           ./packaging/test-systemd-timer.sh \
-            --label "${{ matrix.label }}" \
-            --image "${{ matrix.image }}" \
-            --family "${{ matrix.family }}"
+            --label "${TEST_LABEL}" \
+            --image "${TEST_IMAGE}" \
+            --family "${TEST_FAMILY}"

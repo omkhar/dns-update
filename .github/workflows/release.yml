@@ -30,9 +30,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
-      attestations: write
-      contents: write
-      id-token: write
+      attestations: write # Publish GitHub attestations for the generated release assets.
+      contents: write # Create and update release metadata and uploaded artifacts.
+      id-token: write # Mint OIDC identities for Sigstore signing and attestations.
     steps:
       - name: Resolve release metadata
         id: release
