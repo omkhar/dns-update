@@ -21,9 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      contents: read # Check out repository contents for Scorecard analysis.
-      security-events: write # Upload Scorecard SARIF results to code scanning.
-      id-token: write # Publish Scorecard results with OIDC-backed identity.
+      contents: read  # Check out repository contents for Scorecard analysis.
+      security-events: write  # Upload Scorecard SARIF results to code scanning.
+      id-token: write  # Publish Scorecard results with OIDC-backed identity.
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
