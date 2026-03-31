@@ -55,13 +55,13 @@ jobs:
             label: fedora-stable
             floating_image: "quay.io/fedora/fedora:43"
             pinned_image: "quay.io/fedora/fedora:43@sha256:\
-              57b692a43ab02f16b5fa814f0ff2a3ebdc30ee0245d8ef50fdc17bd2e47ecbff"
+              e43db0af14f5a44939d644204b4238699c42e8b298f15321d2f03b206f72426c"
             family: fedora
           - name: Fedora Unstable
             label: fedora-unstable
             floating_image: "quay.io/fedora/fedora:rawhide"
             pinned_image: "quay.io/fedora/fedora:rawhide@sha256:\
-              574edacc07a5bc212fc12e3685b2ae0a0124bd774a99ed4701f2ac00dbe596a3"
+              8e17642e777a37ce6b68a4174ad2de38f1ffee3fb4bdb77308b2caeb00de72df"
             family: fedora
     steps:
       - name: Checkout
@@ -70,7 +70,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
         with:
           go-version-file: go.mod
 
