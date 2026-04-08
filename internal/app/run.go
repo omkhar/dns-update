@@ -284,10 +284,7 @@ func collectProbeError(ipv4Err error, ipv6Err error) error {
 		ipv4RetryAfter, ipv4Retryable := retry.After(ipv4Err)
 		ipv6RetryAfter, ipv6Retryable := retry.After(ipv6Err)
 		if ipv4Retryable && ipv6Retryable {
-			retryAfter := ipv4RetryAfter
-			if ipv6RetryAfter > retryAfter {
-				retryAfter = ipv6RetryAfter
-			}
+			retryAfter := max(ipv6RetryAfter, ipv4RetryAfter)
 			return retry.Mark(combined, retryAfter)
 		}
 		return combined

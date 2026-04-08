@@ -31,6 +31,47 @@ if ($logDir) {
     New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 }
 
+function Get-RequiredTokenPrincipals {
+    $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+    if ($null -eq $currentUser) {
+        throw "Unable to resolve the current Windows identity."
+    }
+
+    return @(
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null),
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null),
+        $currentUser
+    )
+}
+
+function Protect-TokenPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $acl = Get-Acl -LiteralPath $Path
+    $acl.SetAccessRuleProtection($true, $false)
+    foreach ($rule in @($acl.Access)) {
+        $null = $acl.RemoveAccessRuleSpecific($rule)
+    }
+
+    foreach ($principal in (Get-RequiredTokenPrincipals)) {
+        $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
+            $principal,
+            [System.Security.AccessControl.FileSystemRights]::FullControl,
+            [System.Security.AccessControl.InheritanceFlags]::None,
+            [System.Security.AccessControl.PropagationFlags]::None,
+            [System.Security.AccessControl.AccessControlType]::Allow
+        )
+        $null = $acl.AddAccessRule($rule)
+    }
+
+    Set-Acl -LiteralPath $Path -AclObject $acl
+}
+
+Protect-TokenPath -Path $tokenPath
+
 function New-TaskArguments {
     param(
         [switch]$ValidateOnly

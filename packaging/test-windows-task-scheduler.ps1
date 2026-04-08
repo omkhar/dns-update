@@ -33,6 +33,34 @@ function ShowTaskState {
     }
 }
 
+function Assert-TokenAcl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $acl = Get-Acl -LiteralPath $Path
+    if (-not $acl.AreAccessRulesProtected) {
+        throw "token ACL should disable inheritance"
+    }
+
+    $expectedSids = @(
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null).Value,
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null).Value,
+        ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+    ) | Sort-Object -Unique
+
+    $actualSids = @(
+        $acl.Access |
+            Where-Object { -not $_.IsInherited -and $_.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow } |
+            ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }
+    ) | Sort-Object -Unique
+
+    if (@(Compare-Object -ReferenceObject $expectedSids -DifferenceObject $actualSids).Count -ne 0) {
+        throw ("unexpected token ACL identities: expected [{0}] got [{1}]" -f ($expectedSids -join ", "), ($actualSids -join ", "))
+    }
+}
+
 trap {
     Write-Host ($_ | Out-String)
     Cleanup
@@ -72,6 +100,8 @@ Set-Content -LiteralPath $tokenPath -Value "dummy-token`n" -Encoding utf8
     -IntervalMinutes 1 `
     -Timeout "30s" `
     -ValidateConfig
+
+Assert-TokenAcl -Path $tokenPath
 
 $taskArguments = (
     Get-ScheduledTask -TaskName $taskName |

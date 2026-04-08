@@ -19,7 +19,6 @@ func TestParseBoolValue(t *testing.T) {
 		{name: "false", raw: "false", want: false},
 		{name: "invalid", raw: "maybe", wantError: true},
 	} {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -57,7 +56,6 @@ func TestParseDeleteSelection(t *testing.T) {
 		{name: "false disables delete", raw: "false", want: provider.RecordSelectionNone},
 		{name: "invalid", raw: "ipv4", wantError: true},
 	} {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 

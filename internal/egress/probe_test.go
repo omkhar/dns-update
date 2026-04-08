@@ -100,7 +100,6 @@ func TestLookup(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			endpoint, err := url.Parse(test.endpoint)
 			if err != nil {
@@ -197,7 +196,6 @@ func TestLookupErrors(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			if test.prepare != nil {
 				test.prepare()
@@ -313,7 +311,6 @@ func TestParseResponse(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -422,7 +419,6 @@ func TestLookupFamilySelectionErrors(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 

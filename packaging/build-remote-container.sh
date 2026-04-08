@@ -24,7 +24,7 @@ EOF
 repo_root=$(repo_root "$0")
 local_tar=$(release_tar)
 source_epoch=$(source_date_epoch "$repo_root")
-go_version=$(sed -n 's/^go //p' "$repo_root/go.mod")
+go_version=$(module_go_version "$repo_root")
 container_path=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 remote_root=
 go_arch=
@@ -43,7 +43,7 @@ fi
 host=${REMOTE_BUILD_HOST:-}
 mode=${REMOTE_BUILD_MODE:-release-assets}
 output_dir=
-base_image=${REMOTE_BUILD_IMAGE:-golang:1.26.1-bookworm}
+base_image=${REMOTE_BUILD_IMAGE:-golang:$go_version-bookworm}
 bootstrap_image=${REMOTE_BUILD_BOOTSTRAP_IMAGE:-}
 image_tag=${REMOTE_BUILD_TAG:-}
 keep_remote_root=0
@@ -63,6 +63,8 @@ RUN apt-get update \\
     zip \\
  && rm -rf /var/lib/apt/lists/* \\
  && curl -fsSL "https://go.dev/dl/go$go_version.linux-$go_arch.tar.gz" -o /tmp/go.tgz \\
+ && expected_sha256="$(curl -fsSL "https://dl.google.com/go/go$go_version.linux-$go_arch.tar.gz.sha256")" \\
+ && printf '%s  %s\n' "\$expected_sha256" /tmp/go.tgz | sha256sum -c - \\
  && rm -rf /usr/local/go \\
  && tar -C /usr/local -xzf /tmp/go.tgz \\
  && rm -f /tmp/go.tgz

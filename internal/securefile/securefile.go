@@ -178,7 +178,7 @@ func tokenPathDirectories(path string) ([]string, error) {
 	}
 
 	directories := []string{current}
-	for _, component := range strings.Split(remainder, string(filepath.Separator)) {
+	for component := range strings.SplitSeq(remainder, string(filepath.Separator)) {
 		switch component {
 		case "", ".":
 			continue

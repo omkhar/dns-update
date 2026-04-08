@@ -462,7 +462,6 @@ func TestNormalizeFQDN(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -499,7 +498,6 @@ func TestIsNameWithinZone(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			if got := isNameWithinZone(test.host, test.zone); got != test.want {
@@ -536,7 +534,6 @@ func TestParseProbeURL(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -622,7 +619,6 @@ func TestNormalizeProviderConfig(t *testing.T) {
 		{ZoneID: "023e105f4ecef8ad9ca31a8372d0c353", APITokenFile: tokenFile, BaseURL: "http://api.cloudflare.com/client/v4/"},
 	}
 	for _, raw := range tests {
-		raw := raw
 		t.Run(raw.ZoneID+raw.APITokenFile+raw.BaseURL, func(t *testing.T) {
 			t.Parallel()
 			if _, err := normalizeProviderConfig("cloudflare", time.Second, raw, dir, 300); err == nil {
@@ -704,7 +700,6 @@ func TestNormalizeErrors(t *testing.T) {
 	}
 
 	for _, raw := range tests {
-		raw := raw
 		t.Run(raw.Record.Name+raw.Record.Zone+raw.Probe.IPv4URL+raw.Probe.IPv6URL+raw.Probe.Timeout+raw.Provider.Timeout+raw.Provider.Type, func(t *testing.T) {
 			t.Parallel()
 			if _, err := normalize(raw, dir); err == nil {
@@ -773,7 +768,6 @@ func TestParseHTTPSURL(t *testing.T) {
 		"https://api.example.com/client/v4/",
 	}
 	for _, raw := range tests {
-		raw := raw
 		t.Run(raw, func(t *testing.T) {
 			t.Parallel()
 			if _, err := parseHTTPSURL(raw, defaultCloudflareBaseURL); err == nil {

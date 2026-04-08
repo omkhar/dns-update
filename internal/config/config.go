@@ -190,8 +190,8 @@ func normalizeFQDN(value string) (string, error) {
 	}
 
 	trimmed := strings.TrimSuffix(name, ".")
-	labels := strings.Split(trimmed, ".")
-	for _, label := range labels {
+	labels := strings.SplitSeq(trimmed, ".")
+	for label := range labels {
 		if label == "" {
 			return "", errors.New("contains an empty label")
 		}

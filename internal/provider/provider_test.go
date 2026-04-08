@@ -34,7 +34,7 @@ func TestPlanHelpers(t *testing.T) {
 					Type:       RecordTypeAAAA,
 					Content:    "2001:db8::2",
 					TTLSeconds: 300,
-					Options:    RecordOptions{Proxy: boolPtr(true)},
+					Options:    RecordOptions{Proxy: new(true)},
 				},
 			},
 			{
@@ -76,8 +76,8 @@ func TestBuildSingleAddressPlanNoop(t *testing.T) {
 		State{
 			Name: "host.example.com.",
 			Records: []Record{
-				{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
-				{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: ipv6.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
+				{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
+				{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: ipv6.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
 			},
 		},
 		DesiredState{
@@ -85,7 +85,7 @@ func TestBuildSingleAddressPlanNoop(t *testing.T) {
 			TTLSeconds: 300,
 			IPv4:       &ipv4,
 			IPv6:       &ipv6,
-			Options:    RecordOptions{Proxy: boolPtr(false)},
+			Options:    RecordOptions{Proxy: new(false)},
 		},
 	)
 	if err != nil {
@@ -109,15 +109,15 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 			State{
 				Name: "host.example.com.",
 				Records: []Record{
-					{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: currentIPv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
-					{ID: "a2", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.11", TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
+					{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: currentIPv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
+					{ID: "a2", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.11", TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
 				},
 			},
 			DesiredState{
 				Name:       "host.example.com.",
 				TTLSeconds: 300,
 				IPv4:       &desiredIPv4,
-				Options:    RecordOptions{Proxy: boolPtr(false)},
+				Options:    RecordOptions{Proxy: new(false)},
 			},
 		)
 		if err != nil {
@@ -137,7 +137,7 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 				Name:       "host.example.com.",
 				TTLSeconds: 300,
 				IPv4:       &desiredIPv4,
-				Options:    RecordOptions{Proxy: boolPtr(false)},
+				Options:    RecordOptions{Proxy: new(false)},
 			},
 		)
 		if err != nil {
@@ -187,7 +187,7 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 					{ID: "c1", Name: "host.example.com.", Type: RecordTypeCNAME, Content: "other.example.com.", TTLSeconds: 300},
 				},
 			},
-			DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &desiredIPv4, Options: RecordOptions{Proxy: boolPtr(false)}},
+			DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &desiredIPv4, Options: RecordOptions{Proxy: new(false)}},
 		)
 		if err == nil {
 			t.Fatal("BuildSingleAddressPlan() error = nil, want CNAME rejection")
@@ -293,7 +293,6 @@ func TestRecordSelectionHelpers(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -323,8 +322,8 @@ func TestVerifySingleAddressState(t *testing.T) {
 		State{
 			Name: "host.example.com.",
 			Records: []Record{
-				{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
-				{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: ipv6.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
+				{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
+				{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: ipv6.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
 			},
 		},
 		DesiredState{
@@ -332,7 +331,7 @@ func TestVerifySingleAddressState(t *testing.T) {
 			TTLSeconds: 300,
 			IPv4:       &ipv4,
 			IPv6:       &ipv6,
-			Options:    RecordOptions{Proxy: boolPtr(false)},
+			Options:    RecordOptions{Proxy: new(false)},
 		},
 	); err != nil {
 		t.Fatalf("VerifySingleAddressState() error = %v", err)
@@ -349,31 +348,31 @@ func TestVerifySingleAddressState(t *testing.T) {
 				Name:    "host.example.com.",
 				Records: []Record{{ID: "c1", Name: "host.example.com.", Type: RecordTypeCNAME, Content: "other.example.com.", TTLSeconds: 300}},
 			},
-			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &ipv4, Options: RecordOptions{Proxy: boolPtr(false)}},
+			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &ipv4, Options: RecordOptions{Proxy: new(false)}},
 		},
 		{
 			name:    "missing ipv4",
 			state:   State{Name: "host.example.com."},
-			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &ipv4, Options: RecordOptions{Proxy: boolPtr(false)}},
+			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &ipv4, Options: RecordOptions{Proxy: new(false)}},
 		},
 		{
 			name: "duplicate ipv4",
 			state: State{
 				Name: "host.example.com.",
 				Records: []Record{
-					{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
-					{ID: "a2", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.11", TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
+					{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
+					{ID: "a2", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.11", TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
 				},
 			},
-			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &ipv4, Options: RecordOptions{Proxy: boolPtr(false)}},
+			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &ipv4, Options: RecordOptions{Proxy: new(false)}},
 		},
 		{
 			name: "ttl mismatch",
 			state: State{
 				Name:    "host.example.com.",
-				Records: []Record{{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 600, Options: RecordOptions{Proxy: boolPtr(false)}}},
+				Records: []Record{{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 600, Options: RecordOptions{Proxy: new(false)}}},
 			},
-			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &ipv4, Options: RecordOptions{Proxy: boolPtr(false)}},
+			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &ipv4, Options: RecordOptions{Proxy: new(false)}},
 		},
 		{
 			name: "expected none",
@@ -387,14 +386,13 @@ func TestVerifySingleAddressState(t *testing.T) {
 			name: "ipv6 mismatch",
 			state: State{
 				Name:    "host.example.com.",
-				Records: []Record{{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: "2001:db8::20", TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}}},
+				Records: []Record{{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: "2001:db8::20", TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}}},
 			},
-			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv6: &ipv6, Options: RecordOptions{Proxy: boolPtr(false)}},
+			desired: DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv6: &ipv6, Options: RecordOptions{Proxy: new(false)}},
 		},
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			if err := VerifySingleAddressState(test.state, test.desired); err == nil {
@@ -453,7 +451,6 @@ func TestVerifyDeletedTypes(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			if err := VerifyDeletedTypes(test.state, test.selection); err == nil {
@@ -469,20 +466,20 @@ func TestHelperFunctions(t *testing.T) {
 	if !recordOptionsEqual(RecordOptions{}, RecordOptions{}) {
 		t.Fatal("recordOptionsEqual({}, {}) = false, want true")
 	}
-	if recordOptionsEqual(RecordOptions{Proxy: boolPtr(true)}, RecordOptions{}) {
+	if recordOptionsEqual(RecordOptions{Proxy: new(true)}, RecordOptions{}) {
 		t.Fatal("recordOptionsEqual(non-zero, zero) = true, want false")
 	}
-	if recordOptionsEqual(RecordOptions{Proxy: boolPtr(true)}, RecordOptions{Proxy: boolPtr(false)}) {
+	if recordOptionsEqual(RecordOptions{Proxy: new(true)}, RecordOptions{Proxy: new(false)}) {
 		t.Fatal("recordOptionsEqual(true, false) = true, want false")
 	}
-	if !recordOptionsEqual(RecordOptions{Proxy: boolPtr(true)}, RecordOptions{Proxy: boolPtr(true)}) {
+	if !recordOptionsEqual(RecordOptions{Proxy: new(true)}, RecordOptions{Proxy: new(true)}) {
 		t.Fatal("recordOptionsEqual(true, true) = false, want true")
 	}
 
 	if got := cloneRecordOptions(RecordOptions{}); got.Proxy != nil {
 		t.Fatalf("cloneRecordOptions(zero) = %+v, want zero value", got)
 	}
-	if got := cloneRecordOptions(RecordOptions{Proxy: boolPtr(true)}); got.Proxy == nil || !*got.Proxy {
+	if got := cloneRecordOptions(RecordOptions{Proxy: new(true)}); got.Proxy == nil || !*got.Proxy {
 		t.Fatalf("cloneRecordOptions() = %+v, want cloned proxy option", got)
 	}
 
@@ -495,13 +492,13 @@ func TestHelperFunctions(t *testing.T) {
 	if got := formatOptions(RecordOptions{}); got != "" {
 		t.Fatalf("formatOptions(zero) = %q, want empty", got)
 	}
-	if got := formatOptions(RecordOptions{Proxy: boolPtr(true)}); got != " proxy=true" {
+	if got := formatOptions(RecordOptions{Proxy: new(true)}); got != " proxy=true" {
 		t.Fatalf("formatOptions(true) = %q, want proxy string", got)
 	}
 	if got := formatProxyValue(nil); got != "unset" {
 		t.Fatalf("formatProxyValue(nil) = %q, want unset", got)
 	}
-	if got := formatProxyValue(boolPtr(false)); got != "false" {
+	if got := formatProxyValue(new(false)); got != "false" {
 		t.Fatalf("formatProxyValue(false) = %q, want false", got)
 	}
 
@@ -529,8 +526,8 @@ func TestHelperFunctions(t *testing.T) {
 		t.Fatal("recordMatchesDesired() = true, want false for mismatched names")
 	}
 	if recordMatchesDesired(
-		Record{Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.10", TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(true)}},
-		Record{Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.10", TTLSeconds: 300, Options: RecordOptions{Proxy: boolPtr(false)}},
+		Record{Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.10", TTLSeconds: 300, Options: RecordOptions{Proxy: new(true)}},
+		Record{Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.10", TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
 	) {
 		t.Fatal("recordMatchesDesired() = true, want false for option mismatch")
 	}
@@ -608,8 +605,8 @@ func TestSortFunctions(t *testing.T) {
 	t.Run("sortRecords by options within same type, name, ID, content", func(t *testing.T) {
 		t.Parallel()
 		records := []Record{
-			{ID: "a", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.1", Options: RecordOptions{Proxy: boolPtr(true)}},
-			{ID: "a", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.1", Options: RecordOptions{Proxy: boolPtr(false)}},
+			{ID: "a", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.1", Options: RecordOptions{Proxy: new(true)}},
+			{ID: "a", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.1", Options: RecordOptions{Proxy: new(false)}},
 		}
 		sortRecords(records)
 		// " proxy=false" < " proxy=true" lexicographically
@@ -657,8 +654,8 @@ func TestSortFunctions(t *testing.T) {
 	t.Run("sortOperations by Desired.Options within same Kind, Type, ID, Content", func(t *testing.T) {
 		t.Parallel()
 		ops := []Operation{
-			{Kind: OperationCreate, Desired: Record{Content: "x", Options: RecordOptions{Proxy: boolPtr(true)}}},
-			{Kind: OperationCreate, Desired: Record{Content: "x", Options: RecordOptions{Proxy: boolPtr(false)}}},
+			{Kind: OperationCreate, Desired: Record{Content: "x", Options: RecordOptions{Proxy: new(true)}}},
+			{Kind: OperationCreate, Desired: Record{Content: "x", Options: RecordOptions{Proxy: new(false)}}},
 		}
 		sortOperations(ops)
 		// " proxy=false" < " proxy=true"
@@ -666,10 +663,6 @@ func TestSortFunctions(t *testing.T) {
 			t.Fatalf("sortOperations options: expected proxy=false first")
 		}
 	})
-}
-
-func boolPtr(value bool) *bool {
-	return &value
 }
 
 func mustAddr(t *testing.T, value string) netip.Addr {
