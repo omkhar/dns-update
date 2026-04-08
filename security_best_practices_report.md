@@ -1,9 +1,9 @@
-# dns-update adversarial review and Go 1.26.1 assessment
+# dns-update adversarial review and Go 1.26.2 assessment
 
 ## Executive summary
 
-This repository is already aligned to the latest official Go patch release,
-`1.26.1`, as of April 8, 2026. This branch combines the pending local source
+This branch updates the repository to the latest official Go patch release,
+`1.26.2`, as of April 8, 2026. It also combines the pending local source
 modernization work with the live remote workflow updates and closes the two
 meaningful hardening gaps that remained outside the Unix happy path:
 
@@ -18,8 +18,10 @@ Dependabot PR red in `Systemd Integration`.
 
 ## Evidence collected
 
-- `go.mod` requires `go 1.26.1`.
-- The local toolchain is `go version go1.26.1 darwin/arm64`.
+- `go.mod` now requires `go 1.26.2`.
+- The host toolchain on this machine started at `go version go1.26.1 darwin/arm64`,
+  and the repository validation was rerun with Go toolchain auto-resolution after
+  the module bump.
 - The local worktree applies the safe `go fix -diff ./...` suggestions in:
   - `internal/app/run.go`
   - `internal/config/config.go`

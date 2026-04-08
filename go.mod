@@ -1,6 +1,6 @@
 module dns-update
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/cloudflare/cloudflare-go/v6 v6.8.0
