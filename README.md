@@ -185,7 +185,7 @@ Behavior notes:
 
 ## Toolchain
 
-Build and test with a patched Go toolchain. The module now requires Go `1.26.1`.
+Build and test with a patched Go toolchain. The module now requires Go `1.26.2`.
 
 ## Dependencies
 

@@ -52,6 +52,11 @@ package_release() {
 	printf '%s\n' "${version_field##*-}"
 }
 
+module_go_version() {
+	repo_root=$1
+	sed -n 's/^go //p' "$repo_root/go.mod"
+}
+
 release_goflags() {
 	printf '%s\n' "-mod=readonly -trimpath -buildvcs=false"
 }
@@ -208,9 +213,10 @@ run_native_tests() {
 	if [ "${PACKAGING_SKIP_NATIVE_TESTS:-}" = 1 ]; then
 		return 0
 	fi
+	go_version=$(module_go_version "$repo_root")
 	(
 		cd "$repo_root" || exit 1
-		env GOTOOLCHAIN="${GOTOOLCHAIN:-go1.26.1+auto}" go test ./...
+		env GOTOOLCHAIN="${GOTOOLCHAIN:-go$go_version+auto}" go test ./...
 	)
 }
 

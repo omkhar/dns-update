@@ -60,7 +60,7 @@ func TestNewSuccess(t *testing.T) {
 	if runner == nil {
 		t.Fatal("New() = nil, want non-nil")
 	}
-	if diff := cmp.Diff(provider.RecordOptions{Proxy: boolPtr(false)}, runner.desiredOptions); diff != "" {
+	if diff := cmp.Diff(provider.RecordOptions{Proxy: new(false)}, runner.desiredOptions); diff != "" {
 		t.Fatalf("runner.desiredOptions mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -179,7 +179,7 @@ func TestRunForcePushNoopWithoutManagedAddresses(t *testing.T) {
 		cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
 		prober:         &fakeProber{},
 		provider:       fake,
-		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		desiredOptions: provider.RecordOptions{Proxy: new(false)},
 		logger:         slog.New(slog.NewTextHandler(buffer, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		retries:        testRetryPolicy(),
 	}
@@ -216,7 +216,7 @@ func TestRunDeleteBothSkipsProbesAndApplies(t *testing.T) {
 		cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
 		prober:         prober,
 		provider:       fake,
-		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		desiredOptions: provider.RecordOptions{Proxy: new(false)},
 		logger:         testLogger(),
 		retries:        testRetryPolicy(),
 	}
@@ -304,7 +304,7 @@ func TestRunDeleteNoop(t *testing.T) {
 		cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
 		prober:         prober,
 		provider:       fake,
-		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		desiredOptions: provider.RecordOptions{Proxy: new(false)},
 		logger:         testLogger(),
 		retries:        testRetryPolicy(),
 	}
@@ -466,7 +466,7 @@ func TestRunNoopLogsOnlyAtDebug(t *testing.T) {
 				cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
 				prober:         tc.prober,
 				provider:       &fakeProvider{readStates: []provider.State{tc.providerState}},
-				desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+				desiredOptions: provider.RecordOptions{Proxy: new(false)},
 				logger:         slog.New(slog.NewTextHandler(infoBuffer, &slog.HandlerOptions{Level: slog.LevelInfo})),
 				retries:        testRetryPolicy(),
 			}
@@ -482,7 +482,7 @@ func TestRunNoopLogsOnlyAtDebug(t *testing.T) {
 				cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
 				prober:         tc.prober,
 				provider:       &fakeProvider{readStates: []provider.State{tc.providerState}},
-				desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+				desiredOptions: provider.RecordOptions{Proxy: new(false)},
 				logger:         slog.New(slog.NewTextHandler(debugBuffer, &slog.HandlerOptions{Level: slog.LevelDebug})),
 				retries:        testRetryPolicy(),
 			}
@@ -673,7 +673,7 @@ func TestRunPartialProbeFailureDoesNotApply(t *testing.T) {
 			ipv6:    mustAddr(t, "2001:db8::10"),
 		},
 		provider:       fake,
-		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		desiredOptions: provider.RecordOptions{Proxy: new(false)},
 		logger:         testLogger(),
 		retries:        testRetryPolicy(),
 	}
@@ -943,7 +943,6 @@ func TestCollectProbeErrorSingleRetryable(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -992,7 +991,7 @@ func testRunnerWithProvider(t *testing.T, fake *fakeProvider) *Runner {
 		cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
 		prober:         defaultFakeProber(t),
 		provider:       fake,
-		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		desiredOptions: provider.RecordOptions{Proxy: new(false)},
 		logger:         testLogger(),
 		retries:        testRetryPolicy(),
 	}
@@ -1005,7 +1004,7 @@ func testRunnerWithLogger(t *testing.T, fake *fakeProvider, level slog.Level, ou
 		cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
 		prober:         defaultFakeProber(t),
 		provider:       fake,
-		desiredOptions: provider.RecordOptions{Proxy: boolPtr(false)},
+		desiredOptions: provider.RecordOptions{Proxy: new(false)},
 		logger: slog.New(slog.NewTextHandler(output, &slog.HandlerOptions{
 			Level: level,
 		})),
@@ -1114,7 +1113,7 @@ func record(id string, recordType provider.RecordType, content string) provider.
 		Type:       recordType,
 		Content:    content,
 		TTLSeconds: 300,
-		Options:    provider.RecordOptions{Proxy: boolPtr(false)},
+		Options:    provider.RecordOptions{Proxy: new(false)},
 	}
 }
 
@@ -1132,8 +1131,4 @@ func testRunOptions(dryRun bool, forcePush bool) RunOptions {
 		DryRun:    dryRun,
 		ForcePush: forcePush,
 	}
-}
-
-func boolPtr(value bool) *bool {
-	return &value
 }

@@ -78,7 +78,7 @@ func TestRunWithLiveCloudflareAndProbeStubs(t *testing.T) {
 	for i := range want {
 		want[i].Name = "host.example.com."
 		want[i].TTLSeconds = 300
-		want[i].Options = provider.RecordOptions{Proxy: boolPtr(false)}
+		want[i].Options = provider.RecordOptions{Proxy: new(false)}
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("records mismatch (-want +got):\n%s", diff)
@@ -234,10 +234,10 @@ func (s *cloudflareStubServer) applyBatch(body io.ReadCloser) {
 			Type:       provider.RecordType(post.Type),
 			Content:    post.Content,
 			TTLSeconds: post.TTL,
-			Options:    provider.RecordOptions{Proxy: boolPtr(false)},
+			Options:    provider.RecordOptions{Proxy: new(false)},
 		}
 		if post.Proxied != nil {
-			record.Options.Proxy = boolPtr(*post.Proxied)
+			record.Options.Proxy = new(*post.Proxied)
 		}
 		s.recordsSet = append(s.recordsSet, record)
 	}

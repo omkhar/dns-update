@@ -98,7 +98,7 @@ func TestReadState(t *testing.T) {
 				Type:       provider.RecordTypeA,
 				Content:    "198.51.100.10",
 				TTLSeconds: 300,
-				Options:    provider.RecordOptions{Proxy: boolPtr(false)},
+				Options:    provider.RecordOptions{Proxy: new(false)},
 			}},
 		}
 		if diff := cmp.Diff(want, state); diff != "" {
@@ -227,7 +227,7 @@ func TestApply(t *testing.T) {
 						Type:       provider.RecordTypeA,
 						Content:    "198.51.100.20",
 						TTLSeconds: 300,
-						Options:    provider.RecordOptions{Proxy: boolPtr(false)},
+						Options:    provider.RecordOptions{Proxy: new(false)},
 					},
 				},
 				{
@@ -237,7 +237,7 @@ func TestApply(t *testing.T) {
 						Type:       provider.RecordTypeAAAA,
 						Content:    "2001:db8::10",
 						TTLSeconds: 300,
-						Options:    provider.RecordOptions{Proxy: boolPtr(false)},
+						Options:    provider.RecordOptions{Proxy: new(false)},
 					},
 				},
 			},
@@ -377,7 +377,6 @@ func TestNewErrors(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			if _, err := New(test.config); err == nil {
@@ -395,7 +394,7 @@ func TestBatchHelpers(t *testing.T) {
 		Type:       provider.RecordTypeA,
 		Content:    "198.51.100.10",
 		TTLSeconds: 300,
-		Options:    provider.RecordOptions{Proxy: boolPtr(true)},
+		Options:    provider.RecordOptions{Proxy: new(true)},
 	}
 	recordAAAA := provider.Record{
 		Name:       "host.example.com.",
@@ -408,10 +407,10 @@ func TestBatchHelpers(t *testing.T) {
 		Type:       provider.RecordTypeAAAA,
 		Content:    "2001:db8::20",
 		TTLSeconds: 600,
-		Options:    provider.RecordOptions{Proxy: boolPtr(true)},
+		Options:    provider.RecordOptions{Proxy: new(true)},
 	}
 
-	if diff := cmp.Diff(provider.RecordOptions{Proxy: boolPtr(false)}, Config{Proxied: false}.RecordOptions()); diff != "" {
+	if diff := cmp.Diff(provider.RecordOptions{Proxy: new(false)}, Config{Proxied: false}.RecordOptions()); diff != "" {
 		t.Fatalf("Config.RecordOptions() mismatch (-want +got):\n%s", diff)
 	}
 
@@ -529,7 +528,7 @@ func TestErrorFormattingAndNormalization(t *testing.T) {
 	if got, want := normalizeProviderName(" HOST.Example.com. "), "host.example.com."; got != want {
 		t.Fatalf("normalizeProviderName() = %q, want %q", got, want)
 	}
-	if diff := cmp.Diff(provider.RecordOptions{Proxy: boolPtr(true)}, recordOptions(true)); diff != "" {
+	if diff := cmp.Diff(provider.RecordOptions{Proxy: new(true)}, recordOptions(true)); diff != "" {
 		t.Fatalf("recordOptions(true) mismatch (-want +got):\n%s", diff)
 	}
 
@@ -727,12 +726,12 @@ func TestSharedPlanAndVerify(t *testing.T) {
 		Name:       "host.example.com.",
 		TTLSeconds: 300,
 		IPv4:       &ipv4,
-		Options:    provider.RecordOptions{Proxy: boolPtr(false)},
+		Options:    provider.RecordOptions{Proxy: new(false)},
 	}
 	current := provider.State{
 		Name: "host.example.com.",
 		Records: []provider.Record{
-			{ID: "a1", Name: "host.example.com.", Type: provider.RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: provider.RecordOptions{Proxy: boolPtr(false)}},
+			{ID: "a1", Name: "host.example.com.", Type: provider.RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: provider.RecordOptions{Proxy: new(false)}},
 		},
 	}
 	plan, err := provider.BuildSingleAddressPlan(current, desired)
@@ -752,7 +751,3 @@ type temporaryNetError struct{}
 func (temporaryNetError) Error() string   { return "temporary network error" }
 func (temporaryNetError) Timeout() bool   { return true }
 func (temporaryNetError) Temporary() bool { return true }
-
-func boolPtr(value bool) *bool {
-	return &value
-}

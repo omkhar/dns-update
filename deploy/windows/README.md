@@ -2,15 +2,18 @@
 
 Use Task Scheduler for native scheduled execution on Windows.
 
-Windows deployments rely on normal NTFS ACLs for token-file privacy. The
-Unix-style `chmod 600` and parent-directory mode-bit checks documented for
-systemd deployments do not apply on this platform.
+Windows deployments rely on NTFS ACLs for token-file privacy. The registration
+helper now disables inherited access on the token file and replaces it with
+explicit rules for `SYSTEM`, local Administrators, and the user running the
+installer so the scheduled task can read the token without leaving it broadly
+readable.
 
 The helper scripts in this directory:
 
 - register a recurring scheduled task that runs as `SYSTEM`
 - invoke `dns-update` with a config file path
 - pass the Cloudflare token path and timeout through environment variables
+- lock the token file down to explicit NTFS access rules before registering the task
 - append combined stdout and stderr to a log file
 
 Suggested installed layout:

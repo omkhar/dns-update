@@ -116,7 +116,6 @@ func TestMutationSuite(t *testing.T) {
 	}
 
 	for _, tc := range mutants {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			workspace := filepath.Join(t.TempDir(), "repo")
 			if err := copyTree(root, workspace); err != nil {
@@ -159,7 +158,7 @@ func runCommand(dir string, extraEnv []string, name string, args ...string) (str
 }
 
 func parseCoverageTotal(output string) (float64, error) {
-	for _, line := range strings.Split(output, "\n") {
+	for line := range strings.SplitSeq(output, "\n") {
 		if !strings.HasPrefix(line, "total:") {
 			continue
 		}

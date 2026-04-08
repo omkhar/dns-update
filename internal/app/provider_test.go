@@ -43,7 +43,7 @@ func TestNewProviderSuccess(t *testing.T) {
 	if dnsProvider == nil {
 		t.Fatal("newProvider() provider = nil, want non-nil")
 	}
-	if diff := cmp.Diff(providerpkg.RecordOptions{Proxy: boolPtr(true)}, desiredOptions); diff != "" {
+	if diff := cmp.Diff(providerpkg.RecordOptions{Proxy: new(true)}, desiredOptions); diff != "" {
 		t.Fatalf("options mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -71,7 +71,6 @@ func TestNewProviderErrors(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.Type, func(t *testing.T) {
 			t.Parallel()
 			if _, _, err := newProvider(test); err == nil {
@@ -101,7 +100,6 @@ func TestNewProviderRejectsInvalidTokenFileContents(t *testing.T) {
 	}
 
 	for _, tokenPath := range []string{emptyPath, multiPath} {
-		tokenPath := tokenPath
 		t.Run(filepath.Base(tokenPath), func(t *testing.T) {
 			t.Parallel()
 			if _, _, err := newProvider(config.ProviderConfig{

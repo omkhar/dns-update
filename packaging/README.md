@@ -134,9 +134,10 @@ It intentionally does not run `packaging/test-systemd-timer.sh`, because that
 integration test already drives privileged Docker containers against the remote
 host daemon.
 
-If the remote Docker daemon cannot pull the default `golang:1.26.1-bookworm`
+If the remote Docker daemon cannot pull the default `golang:<go.mod version>-bookworm`
 base image directly, bootstrap from a locally cached Debian-based image and let
-the wrapper install Go plus the packaging tools into that image:
+the wrapper install the exact module Go toolchain plus the packaging tools into
+that image:
 
 ```sh
 ./packaging/build-remote-container.sh --host builder@example-build-host \
@@ -204,7 +205,7 @@ Requirements:
 
 - `rpmbuild`
 - `cosign`
-- `golang >= 1.26.1`
+- `golang >= 1.26.2`
 - `tar` or `gtar` (GNU tar is preferred on macOS)
 
 Build:
