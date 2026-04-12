@@ -27,6 +27,49 @@ log=/var/log/dns-update.log
 timeout=2m
 validate_config=0
 
+xml_escape() {
+	printf '%s' "$1" | sed \
+		-e 's/&/\&amp;/g' \
+		-e 's/</\&lt;/g' \
+		-e 's/>/\&gt;/g'
+}
+
+write_plist() {
+	{
+		printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
+		printf '%s\n' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+		printf '%s\n' '<plist version="1.0">'
+		printf '%s\n' '<dict>'
+		printf '%s\n' '  <key>Label</key>'
+		printf '  <string>%s</string>\n' "$(xml_escape "$label")"
+		printf '%s\n' '  <key>ProgramArguments</key>'
+		printf '%s\n' '  <array>'
+		printf '    <string>%s</string>\n' "$(xml_escape "$binary")"
+		printf '%s\n' '    <string>-config</string>'
+		printf '    <string>%s</string>\n' "$(xml_escape "$config")"
+		printf '%s\n' '  </array>'
+		printf '%s\n' '  <key>EnvironmentVariables</key>'
+		printf '%s\n' '  <dict>'
+		printf '%s\n' '    <key>DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE</key>'
+		printf '    <string>%s</string>\n' "$(xml_escape "$token")"
+		printf '%s\n' '    <key>DNS_UPDATE_TIMEOUT</key>'
+		printf '    <string>%s</string>\n' "$(xml_escape "$timeout")"
+		printf '%s\n' '  </dict>'
+		printf '%s\n' '  <key>ProcessType</key>'
+		printf '%s\n' '  <string>Background</string>'
+		printf '%s\n' '  <key>RunAtLoad</key>'
+		printf '%s\n' '  <true/>'
+		printf '%s\n' '  <key>StartInterval</key>'
+		printf '  <integer>%s</integer>\n' "$interval"
+		printf '%s\n' '  <key>StandardOutPath</key>'
+		printf '  <string>%s</string>\n' "$(xml_escape "$log")"
+		printf '%s\n' '  <key>StandardErrorPath</key>'
+		printf '  <string>%s</string>\n' "$(xml_escape "$log")"
+		printf '%s\n' '</dict>'
+		printf '%s\n' '</plist>'
+	} >"$plist"
+}
+
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 	--label)
@@ -107,42 +150,7 @@ if [ "$validate_config" = 1 ]; then
 	rm -f "$log"
 fi
 
-cat >"$plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>$label</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$binary</string>
-EOF
-
-cat >>"$plist" <<EOF
-    <string>-config</string>
-    <string>$config</string>
-  </array>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE</key>
-    <string>$token</string>
-    <key>DNS_UPDATE_TIMEOUT</key>
-    <string>$timeout</string>
-  </dict>
-  <key>ProcessType</key>
-  <string>Background</string>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>StartInterval</key>
-  <integer>$interval</integer>
-  <key>StandardOutPath</key>
-  <string>$log</string>
-  <key>StandardErrorPath</key>
-  <string>$log</string>
-</dict>
-</plist>
-EOF
+write_plist
 
 chmod 0644 "$plist"
 

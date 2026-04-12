@@ -79,6 +79,9 @@ jobs:
       - name: Lint shell scripts
         run: shellcheck -x packaging/*.sh deploy/launchd/*.sh
 
+      - name: Check launchd plist escaping
+        run: ./packaging/test-launchd-plist-escaping.sh
+
       - name: Lint Go
         run: >-
           golangci-lint run --timeout=5m --default=none --enable=errcheck

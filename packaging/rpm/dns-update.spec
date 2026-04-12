@@ -10,7 +10,7 @@
 %global __brp_strip_comment_note %{nil}
 %global __brp_strip_static_archive %{nil}
 
-%global upstream_version 1.3.10
+%global upstream_version 1.3.11
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -114,6 +114,14 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Sun Apr 12 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.11-1
+- Escape interpolated launchd plist values so hostile installer arguments
+  cannot inject extra XML nodes or scheduler arguments into the generated
+  LaunchDaemon
+- Add a dedicated regression test that stubs launchctl and verifies the plist
+  stays well-formed under adversarial input
+- Refresh release metadata for the 1.3.11 release
+
 * Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.10-1
 - Fix the Windows Task Scheduler validation-preflight race by waiting on
   the task's previous LastRunTime instead of a wall-clock timestamp
