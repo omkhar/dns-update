@@ -2,6 +2,16 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.11 - 2026-04-12
+
+- Escapes all interpolated `launchd` plist values so hostile installer
+  arguments cannot inject extra XML nodes or scheduler arguments into the
+  generated `LaunchDaemon`.
+- Adds a dedicated regression test that stubs `launchctl` and proves the
+  generated plist remains well-formed and non-injectable under adversarial
+  input.
+- Refreshes the runtime user-agent and package metadata to `1.3.11`.
+
 ## 1.3.10 - 2026-03-22
 
 - Fixes the Windows Task Scheduler validation-preflight race by waiting on the
