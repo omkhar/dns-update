@@ -47,6 +47,9 @@ func Validate(path string) error {
 	if !hasSecurePermissions(path, info.Mode().Perm()) {
 		return errors.New("must not be accessible by group or other users")
 	}
+	if err := validatePlatformFilePermissions(path); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -77,6 +80,9 @@ func ReadSingleToken(path string) (string, error) {
 	}
 	if !hasSecurePermissions(path, info.Mode().Perm()) {
 		return "", errors.New("must not be accessible by group or other users")
+	}
+	if err := validatePlatformFilePermissions(path); err != nil {
+		return "", err
 	}
 
 	data, err := readTokenBytes(file)
@@ -141,6 +147,9 @@ func validateParentDirectory(path string) error {
 
 	if usesUnixPermissionBits() && parentInfo.Mode().Perm()&0o022 != 0 {
 		return errors.New("parent directory must not be writable by group or other users")
+	}
+	if err := validatePlatformParentDirectoryPermissions(directories[len(directories)-1]); err != nil {
+		return err
 	}
 	return nil
 }

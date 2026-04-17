@@ -87,7 +87,7 @@ To rebuild an already tagged release from the GitHub-hosted builder, run the
 
 ```sh
 gh workflow run release.yml --ref main \
-  -f release_tag=v1.3.11 \
+  -f release_tag=v1.3.12 \
   -f rebuild_existing_release=true
 ```
 
@@ -128,6 +128,19 @@ That wrapper:
 - carries `SOURCE_DATE_EPOCH` into the container so release timestamps stay
   stable
 - copies the remote `out/` tree back under `out/remote/<run-id>/` locally
+
+If you keep local defaults in `packaging/build-remote-container.local.env`,
+that file now accepts only literal `KEY=VALUE` entries for:
+
+- `REMOTE_BUILD_HOST`
+- `REMOTE_BUILD_MODE`
+- `REMOTE_BUILD_IMAGE`
+- `REMOTE_BUILD_BOOTSTRAP_IMAGE`
+- `REMOTE_BUILD_TAG`
+- `REMOTE_BUILD_REBUILD_IMAGE`
+
+The wrapper no longer shell-sources that file, so shell syntax, command
+substitutions, and unrelated environment keys are rejected.
 
 The remote wrapper is intended for the release-asset and reproducibility lanes.
 It intentionally does not run `packaging/test-systemd-timer.sh`, because that
@@ -217,7 +230,7 @@ Build:
 Override the default version and release if needed:
 
 ```sh
-RPM_VERSION=1.3.11 RPM_RELEASE=1 ./packaging/build-rpm.sh
+RPM_VERSION=1.3.12 RPM_RELEASE=1 ./packaging/build-rpm.sh
 ```
 
 Build both formats in one pass:
@@ -288,14 +301,14 @@ Verify an artifact with:
 ```sh
 SIGSTORE_CERTIFICATE_IDENTITY=you@example.com \
 SIGSTORE_OIDC_ISSUER=https://accounts.google.com \
-./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.11-1_amd64.deb
+./packaging/verify-artifacts.sh out/packages/deb/amd64/dns-update_1.3.12-1_amd64.deb
 ```
 
 Or with a key:
 
 ```sh
 COSIGN_KEY=cosign.pub \
-./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.11-1.x86_64.rpm
+./packaging/verify-artifacts.sh out/packages/rpm/amd64/dns-update-1.3.12-1.x86_64.rpm
 ```
 
 Validate the expected payload layout of built archives and packages with:

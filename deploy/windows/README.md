@@ -6,7 +6,8 @@ Windows deployments rely on NTFS ACLs for token-file privacy. The registration
 helper now disables inherited access on the token file and replaces it with
 explicit rules for `SYSTEM`, local Administrators, and the user running the
 installer so the scheduled task can read the token without leaving it broadly
-readable.
+readable. `dns-update` also validates that the token file and its parent
+directory do not grant risky access to other Windows users at runtime.
 
 The helper scripts in this directory:
 

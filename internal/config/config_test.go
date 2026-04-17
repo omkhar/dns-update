@@ -85,10 +85,7 @@ func TestLoadRejectsGroupReadableTokenFile(t *testing.T) {
 
 	_, err := Load(configPath)
 	if runtime.GOOS == "windows" {
-		if err != nil {
-			t.Fatalf("Load() error = %v, want Windows permission-bit bypass", err)
-		}
-		return
+		t.Skip("Windows ACL behavior is covered by config_windows_test.go")
 	}
 	if err == nil || !strings.Contains(err.Error(), "must not be accessible by group or other users") {
 		t.Fatalf("Load() error = %v, want token file permission rejection", err)
@@ -741,9 +738,10 @@ func TestValidateSecretFile(t *testing.T) {
 	if err := os.WriteFile(insecure, []byte("secret"), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if err := validateSecretFile(insecure); runtime.GOOS == "windows" && err != nil {
-		t.Fatalf("validateSecretFile() error = %v, want Windows permission-bit bypass", err)
-	} else if runtime.GOOS != "windows" && err == nil {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows ACL behavior is covered by config_windows_test.go")
+	}
+	if err := validateSecretFile(insecure); err == nil {
 		t.Fatal("validateSecretFile() error = nil, want permission error")
 	}
 }

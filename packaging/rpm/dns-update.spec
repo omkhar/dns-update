@@ -10,7 +10,7 @@
 %global __brp_strip_comment_note %{nil}
 %global __brp_strip_static_archive %{nil}
 
-%global upstream_version 1.3.11
+%global upstream_version 1.3.12
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
@@ -114,6 +114,13 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Fri Apr 17 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.12-1
+- Stop packaging/build-remote-container.sh from shell-sourcing the optional
+  local override file and accept only literal REMOTE_BUILD_* key/value entries
+- Enforce Windows token-file privacy with NTFS ACL checks in securefile
+- Add regression coverage for the local config parser and Windows ACL validation
+- Refresh release metadata for the 1.3.12 release
+
 * Sun Apr 12 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.11-1
 - Escape interpolated launchd plist values so hostile installer arguments
   cannot inject extra XML nodes or scheduler arguments into the generated

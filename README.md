@@ -162,7 +162,9 @@ Behavior notes:
   app rejects token paths whose parent directory is writable by group or other
   users.
 - Windows deployments rely on NTFS ACLs instead of Unix owner/group/other mode
-  bits for token-file directory privacy.
+  bits for token-file directory privacy, and the app rejects token paths whose
+  file ACL grants read/write access to other users or whose parent directory
+  grants write access to other users.
 - The token file itself must not be a symlink. Deeper configured path
   components are rejected if they are symlinks, and on Unix-like systems the
   token file is opened without following symlinks, then revalidated at read
