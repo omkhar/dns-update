@@ -29,6 +29,9 @@ var (
 	windowsGetACE = func(acl *windows.ACL, aceIndex uint32, ace **windows.ACCESS_ALLOWED_ACE) error {
 		return windows.GetAce(acl, aceIndex, ace)
 	}
+	windowsCreateWellKnownSID = func(sidType windows.WELL_KNOWN_SID_TYPE) (*windows.SID, error) {
+		return windows.CreateWellKnownSid(sidType)
+	}
 	currentWindowsUserSID = func() (*windows.SID, error) {
 		token, err := windows.OpenCurrentProcessToken()
 		if err != nil {
@@ -94,11 +97,11 @@ func windowsAllowedPrincipalSet(sd *windows.SECURITY_DESCRIPTOR) (map[string]str
 		return nil, err
 	}
 
-	systemSID, err := windows.CreateWellKnownSid(windows.WinLocalSystemSid)
+	systemSID, err := windowsCreateWellKnownSID(windows.WinLocalSystemSid)
 	if err != nil {
 		return nil, err
 	}
-	adminSID, err := windows.CreateWellKnownSid(windows.WinBuiltinAdministratorsSid)
+	adminSID, err := windowsCreateWellKnownSID(windows.WinBuiltinAdministratorsSid)
 	if err != nil {
 		return nil, err
 	}

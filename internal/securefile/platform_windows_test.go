@@ -228,6 +228,44 @@ func TestValidateWindowsACLSkipsInheritOnlyAndDenyEntries(t *testing.T) {
 	}
 }
 
+func TestValidateWindowsACLSkipsNonRiskyEntries(t *testing.T) {
+	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
+	originalCurrentWindowsUserSID := currentWindowsUserSID
+	t.Cleanup(func() {
+		windowsSecurityDescriptorForPath = originalWindowsSecurityDescriptorForPath
+		currentWindowsUserSID = originalCurrentWindowsUserSID
+	})
+
+	systemSID := mustWellKnownSID(t, windows.WinLocalSystemSid)
+	builtinUsersSID := mustWellKnownSID(t, windows.WinBuiltinUsersSid)
+	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{
+		explicitAccessEntryForSID(builtinUsersSID, windows.READ_CONTROL),
+		explicitAccessEntryForSID(systemSID, windows.GENERIC_ALL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("ACLFromEntries() error = %v", err)
+	}
+
+	sd, err := windows.NewSecurityDescriptor()
+	if err != nil {
+		t.Fatalf("NewSecurityDescriptor() error = %v", err)
+	}
+	if err := sd.SetDACL(acl, true, false); err != nil {
+		t.Fatalf("SetDACL() error = %v", err)
+	}
+
+	windowsSecurityDescriptorForPath = func(string) (*windows.SECURITY_DESCRIPTOR, error) {
+		return sd, nil
+	}
+	currentWindowsUserSID = func() (*windows.SID, error) {
+		return systemSID, nil
+	}
+
+	if err := validateWindowsACL("ignored", fileRiskyAccessMask(), errors.New("validation error")); err != nil {
+		t.Fatalf("validateWindowsACL() error = %v", err)
+	}
+}
+
 func TestValidateWindowsACLReturnsEntryReadError(t *testing.T) {
 	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
 	originalCurrentWindowsUserSID := currentWindowsUserSID
@@ -270,6 +308,56 @@ func TestValidateWindowsACLReturnsEntryReadError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "read Windows ACL entry") {
 		t.Fatalf("validateWindowsACL() error = %v, want ACL entry read prefix", err)
+	}
+}
+
+func TestWindowsAllowedPrincipalSetPropagatesSystemSIDError(t *testing.T) {
+	originalCurrentWindowsUserSID := currentWindowsUserSID
+	originalWindowsCreateWellKnownSID := windowsCreateWellKnownSID
+	t.Cleanup(func() {
+		currentWindowsUserSID = originalCurrentWindowsUserSID
+		windowsCreateWellKnownSID = originalWindowsCreateWellKnownSID
+	})
+
+	currentWindowsUserSID = func() (*windows.SID, error) {
+		return mustWellKnownSID(t, windows.WinLocalSystemSid), nil
+	}
+
+	injectedErr := errors.New("system SID lookup failed")
+	windowsCreateWellKnownSID = func(sidType windows.WELL_KNOWN_SID_TYPE) (*windows.SID, error) {
+		if sidType == windows.WinLocalSystemSid {
+			return nil, injectedErr
+		}
+		return windows.CreateWellKnownSid(sidType)
+	}
+
+	if _, err := windowsAllowedPrincipalSet(nil); !errors.Is(err, injectedErr) {
+		t.Fatalf("windowsAllowedPrincipalSet() error = %v, want %v", err, injectedErr)
+	}
+}
+
+func TestWindowsAllowedPrincipalSetPropagatesAdminSIDError(t *testing.T) {
+	originalCurrentWindowsUserSID := currentWindowsUserSID
+	originalWindowsCreateWellKnownSID := windowsCreateWellKnownSID
+	t.Cleanup(func() {
+		currentWindowsUserSID = originalCurrentWindowsUserSID
+		windowsCreateWellKnownSID = originalWindowsCreateWellKnownSID
+	})
+
+	currentWindowsUserSID = func() (*windows.SID, error) {
+		return mustWellKnownSID(t, windows.WinLocalSystemSid), nil
+	}
+
+	injectedErr := errors.New("admin SID lookup failed")
+	windowsCreateWellKnownSID = func(sidType windows.WELL_KNOWN_SID_TYPE) (*windows.SID, error) {
+		if sidType == windows.WinBuiltinAdministratorsSid {
+			return nil, injectedErr
+		}
+		return windows.CreateWellKnownSid(sidType)
+	}
+
+	if _, err := windowsAllowedPrincipalSet(nil); !errors.Is(err, injectedErr) {
+		t.Fatalf("windowsAllowedPrincipalSet() error = %v, want %v", err, injectedErr)
 	}
 }
 
