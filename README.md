@@ -362,7 +362,7 @@ that runs `dns-update` as `SYSTEM`.
 
 - suggested binary path: `C:\Program Files\dns-update\dns-update.exe`
 - suggested config path: `C:\ProgramData\dns-update\config.json`
-- suggested token path: `C:\ProgramData\dns-update\cloudflare.token`
+- suggested token path: `C:\ProgramData\dns-update\credentials\cloudflare.token`
 - suggested log path: `C:\ProgramData\dns-update\dns-update.log`
 
 Example:
@@ -372,7 +372,7 @@ Example:
   -TaskName "dns-update" `
   -BinaryPath "C:\Program Files\dns-update\dns-update.exe" `
   -ConfigPath "C:\ProgramData\dns-update\config.json" `
-  -TokenPath "C:\ProgramData\dns-update\cloudflare.token" `
+  -TokenPath "C:\ProgramData\dns-update\credentials\cloudflare.token" `
   -LogPath "C:\ProgramData\dns-update\dns-update.log" `
   -IntervalMinutes 5
 ```

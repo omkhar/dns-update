@@ -5,13 +5,15 @@ $tempRoot = Join-Path $env:ProgramData ("dns-update-test-" + [guid]::NewGuid().T
 $taskName = "dns-update-ci-$PID"
 $binaryPath = Join-Path $tempRoot "dns-update.exe"
 $configPath = Join-Path $tempRoot "config.json"
-$tokenPath = Join-Path $tempRoot "cloudflare.token"
+$tokenDir = Join-Path $tempRoot "credentials"
+$tokenPath = Join-Path $tokenDir "cloudflare.token"
 $logPath = Join-Path $tempRoot "dns-update.log"
 $deployRoot = Join-Path $tempRoot "deploy\windows"
 $registerScriptPath = Join-Path $deployRoot "register-scheduled-task.ps1"
 $invokeScriptPath = Join-Path $deployRoot "invoke-dns-update.ps1"
 
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $tokenDir -Force | Out-Null
 New-Item -ItemType Directory -Path $deployRoot -Force | Out-Null
 
 Import-Module ScheduledTasks -ErrorAction Stop | Out-Null
@@ -46,8 +48,7 @@ function Assert-TokenAcl {
 
     $expectedSids = @(
         [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null).Value,
-        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null).Value,
-        ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null).Value
     ) | Sort-Object -Unique
 
     $actualSids = @(
@@ -74,8 +75,7 @@ function Assert-TokenDirectoryAcl {
 
     $expectedSids = @(
         [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null).Value,
-        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null).Value,
-        ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null).Value
     ) | Sort-Object -Unique
 
     $actualSids = @(
@@ -130,7 +130,7 @@ Set-Content -LiteralPath $tokenPath -Value "dummy-token`n" -Encoding utf8
     -ValidateConfig
 
 Assert-TokenAcl -Path $tokenPath
-Assert-TokenDirectoryAcl -Path (Split-Path -Parent $tokenPath)
+Assert-TokenDirectoryAcl -Path $tokenDir
 
 $taskArguments = (
     Get-ScheduledTask -TaskName $taskName |

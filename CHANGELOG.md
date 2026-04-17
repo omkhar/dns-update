@@ -9,10 +9,12 @@ All notable public releases of `dns-update` are documented in this file.
   supported `REMOTE_BUILD_*` settings and rejects unknown keys.
 - Enforces Windows token-file privacy with NTFS ACL checks in `securefile`,
   rejecting token files that grant read/write access to other users or sit in a
-  writable parent directory.
+  writable parent directory, and updates the Windows helper to use a dedicated
+  credentials directory that is locked down to `SYSTEM` and local
+  Administrators alongside the token file.
 - Adds regression coverage for the remote-build local-config parser and the new
-  Windows ACL validation path, and refreshes the runtime user-agent and package
-  metadata to `1.3.12`.
+  Windows ACL validation path, refreshes the pinned Fedora CI images, and bumps
+  the runtime user-agent and package metadata to `1.3.12`.
 
 ## 1.3.11 - 2026-04-12
 

@@ -5,9 +5,11 @@ dns-update (1.3.12-1) unstable; urgency=medium
     the supported REMOTE_BUILD_* settings and rejects unknown keys.
   * Enforce Windows token-file privacy with NTFS ACL checks in securefile,
     rejecting token files that grant read/write access to other users or sit
-    in a writable parent directory.
+    in a writable parent directory, and use a dedicated Windows credentials
+    directory so the helper can lock down both the token and its parent path
+    to SYSTEM and local Administrators.
   * Add regression coverage for the remote-build local-config parser and the
-    Windows ACL validation path.
+    Windows ACL validation path, and refresh the pinned Fedora CI images.
   * Refresh the runtime user-agent and package metadata to 1.3.12.
 
  -- dns-update Maintainers <opensource@dns-update.invalid>  Fri, 17 Apr 2026 10:43:17 -0400

@@ -82,7 +82,7 @@ func TestValidateAndReadSingleTokenRejectWindowsWritableParent(t *testing.T) {
 	}
 }
 
-func TestValidateAndReadSingleTokenAllowWindowsOwnerWhenRuntimeUserDiffers(t *testing.T) {
+func TestValidateAndReadSingleTokenRejectWindowsInstallerUserWhenRuntimeUserDiffers(t *testing.T) {
 	dir := t.TempDir()
 	tokenPath := filepath.Join(dir, "cloudflare.token")
 	if err := os.WriteFile(tokenPath, []byte("secret\n"), 0o600); err != nil {
@@ -109,15 +109,11 @@ func TestValidateAndReadSingleTokenAllowWindowsOwnerWhenRuntimeUserDiffers(t *te
 		currentWindowsUserSID = restoreCurrentWindowsUserSID
 	})
 
-	if err := Validate(tokenPath); err != nil {
-		t.Fatalf("Validate() error = %v", err)
+	if err := Validate(tokenPath); err == nil {
+		t.Fatal("Validate() error = nil, want runtime-user mismatch rejection")
 	}
-	token, err := ReadSingleToken(tokenPath)
-	if err != nil {
-		t.Fatalf("ReadSingleToken() error = %v", err)
-	}
-	if got, want := token, "secret"; got != want {
-		t.Fatalf("ReadSingleToken() = %q, want %q", got, want)
+	if _, err := ReadSingleToken(tokenPath); err == nil {
+		t.Fatal("ReadSingleToken() error = nil, want runtime-user mismatch rejection")
 	}
 }
 

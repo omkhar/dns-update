@@ -26,13 +26,6 @@ var (
 	windowsSecurityDescriptorForPath = func(path string) (*windows.SECURITY_DESCRIPTOR, error) {
 		return windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
 	}
-	windowsOwnerSIDForSecurityDescriptor = func(sd *windows.SECURITY_DESCRIPTOR) (*windows.SID, error) {
-		owner, _, err := sd.Owner()
-		if err != nil {
-			return nil, err
-		}
-		return owner, nil
-	}
 	currentWindowsUserSID = func() (*windows.SID, error) {
 		token, err := windows.OpenCurrentProcessToken()
 		if err != nil {
@@ -97,10 +90,6 @@ func windowsAllowedPrincipalSet(sd *windows.SECURITY_DESCRIPTOR) (map[string]str
 	if err != nil {
 		return nil, err
 	}
-	ownerSID, err := windowsOwnerSIDForSecurityDescriptor(sd)
-	if err != nil {
-		return nil, err
-	}
 
 	systemSID, err := windows.CreateWellKnownSid(windows.WinLocalSystemSid)
 	if err != nil {
@@ -110,17 +99,10 @@ func windowsAllowedPrincipalSet(sd *windows.SECURITY_DESCRIPTOR) (map[string]str
 	if err != nil {
 		return nil, err
 	}
-	creatorOwnerSID, err := windows.CreateWellKnownSid(windows.WinCreatorOwnerSid)
-	if err != nil {
-		return nil, err
-	}
 
-	allowedSIDs := make(map[string]struct{}, 5)
-	for _, sid := range []*windows.SID{currentUserSID, systemSID, adminSID, creatorOwnerSID} {
+	allowedSIDs := make(map[string]struct{}, 3)
+	for _, sid := range []*windows.SID{currentUserSID, systemSID, adminSID} {
 		allowedSIDs[sid.String()] = struct{}{}
-	}
-	if ownerSID != nil {
-		allowedSIDs[ownerSID.String()] = struct{}{}
 	}
 	return allowedSIDs, nil
 }

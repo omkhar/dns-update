@@ -2,7 +2,7 @@ param(
     [string]$TaskName = "dns-update",
     [string]$BinaryPath = "C:\Program Files\dns-update\dns-update.exe",
     [string]$ConfigPath = "C:\ProgramData\dns-update\config.json",
-    [string]$TokenPath = "C:\ProgramData\dns-update\cloudflare.token",
+    [string]$TokenPath = "C:\ProgramData\dns-update\credentials\cloudflare.token",
     [string]$LogPath = "C:\ProgramData\dns-update\dns-update.log",
     [int]$IntervalMinutes = 5,
     [string]$Timeout = "2m",
@@ -33,15 +33,9 @@ if ($logDir) {
 }
 
 function Get-RequiredTokenPrincipals {
-    $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-    if ($null -eq $currentUser) {
-        throw "Unable to resolve the current Windows identity."
-    }
-
     return @(
         [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null),
-        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null),
-        $currentUser
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null)
     )
 }
 
@@ -71,10 +65,10 @@ function Protect-PathAcl {
     Set-Acl -LiteralPath $Path -AclObject $acl
 }
 
+Protect-PathAcl -Path $tokenPath
 if ($tokenDir) {
     Protect-PathAcl -Path $tokenDir
 }
-Protect-PathAcl -Path $tokenPath
 
 function New-TaskArguments {
     param(

@@ -519,9 +519,12 @@ func TestValidateParentDirectory(t *testing.T) {
 
 func TestValidateParentDirectoryAllowsRootAliasSymlink(t *testing.T) {
 	originalLstatPath := lstatPath
+	originalValidatePlatformParentDirectoryPermissions := validatePlatformParentDirectoryPermissions
 	t.Cleanup(func() {
 		lstatPath = originalLstatPath
+		validatePlatformParentDirectoryPermissions = originalValidatePlatformParentDirectoryPermissions
 	})
+	validatePlatformParentDirectoryPermissions = func(string) error { return nil }
 
 	root := testRootPath(t)
 	aliasDir := filepath.Join(root, "var")
