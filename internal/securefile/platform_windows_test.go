@@ -82,6 +82,45 @@ func TestValidateAndReadSingleTokenRejectWindowsWritableParent(t *testing.T) {
 	}
 }
 
+func TestValidateAndReadSingleTokenAllowWindowsOwnerWhenRuntimeUserDiffers(t *testing.T) {
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "cloudflare.token")
+	if err := os.WriteFile(tokenPath, []byte("secret\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := setProtectedACL(dir, secureWindowsEntries(t, windows.GENERIC_ALL)...); err != nil {
+		t.Fatalf("setProtectedACL(dir) error = %v", err)
+	}
+	if err := setProtectedACL(tokenPath, secureWindowsEntries(t, windows.GENERIC_ALL)...); err != nil {
+		t.Fatalf("setProtectedACL(tokenPath) error = %v", err)
+	}
+
+	systemSID, err := windows.CreateWellKnownSid(windows.WinLocalSystemSid)
+	if err != nil {
+		t.Fatalf("CreateWellKnownSid(WinLocalSystemSid) error = %v", err)
+	}
+
+	restoreCurrentWindowsUserSID := currentWindowsUserSID
+	currentWindowsUserSID = func() (*windows.SID, error) {
+		return systemSID, nil
+	}
+	t.Cleanup(func() {
+		currentWindowsUserSID = restoreCurrentWindowsUserSID
+	})
+
+	if err := Validate(tokenPath); err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	token, err := ReadSingleToken(tokenPath)
+	if err != nil {
+		t.Fatalf("ReadSingleToken() error = %v", err)
+	}
+	if got, want := token, "secret"; got != want {
+		t.Fatalf("ReadSingleToken() = %q, want %q", got, want)
+	}
+}
+
 func setProtectedACL(path string, entries ...windows.EXPLICIT_ACCESS) error {
 	acl, err := windows.ACLFromEntries(entries, nil)
 	if err != nil {

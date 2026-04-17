@@ -26,6 +26,13 @@ var (
 	windowsSecurityDescriptorForPath = func(path string) (*windows.SECURITY_DESCRIPTOR, error) {
 		return windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
 	}
+	windowsOwnerSIDForSecurityDescriptor = func(sd *windows.SECURITY_DESCRIPTOR) (*windows.SID, error) {
+		owner, _, err := sd.Owner()
+		if err != nil {
+			return nil, err
+		}
+		return owner, nil
+	}
 	currentWindowsUserSID = func() (*windows.SID, error) {
 		token, err := windows.OpenCurrentProcessToken()
 		if err != nil {
@@ -42,17 +49,17 @@ var (
 )
 
 func validateWindowsACL(path string, riskyMask windows.ACCESS_MASK, validationErr error) error {
-	allowedSIDs, err := windowsAllowedPrincipalSet()
-	if err != nil {
-		return fmt.Errorf("resolve current Windows token identity: %w", err)
-	}
-
 	sd, err := windowsSecurityDescriptorForPath(path)
 	if err != nil {
 		return fmt.Errorf("read Windows ACL: %w", err)
 	}
 	if sd == nil || !sd.IsValid() {
 		return validationErr
+	}
+
+	allowedSIDs, err := windowsAllowedPrincipalSet(sd)
+	if err != nil {
+		return fmt.Errorf("resolve allowed Windows principals: %w", err)
 	}
 
 	dacl, _, err := sd.DACL()
@@ -85,8 +92,12 @@ func validateWindowsACL(path string, riskyMask windows.ACCESS_MASK, validationEr
 	return nil
 }
 
-func windowsAllowedPrincipalSet() (map[string]struct{}, error) {
+func windowsAllowedPrincipalSet(sd *windows.SECURITY_DESCRIPTOR) (map[string]struct{}, error) {
 	currentUserSID, err := currentWindowsUserSID()
+	if err != nil {
+		return nil, err
+	}
+	ownerSID, err := windowsOwnerSIDForSecurityDescriptor(sd)
 	if err != nil {
 		return nil, err
 	}
@@ -104,9 +115,12 @@ func windowsAllowedPrincipalSet() (map[string]struct{}, error) {
 		return nil, err
 	}
 
-	allowedSIDs := make(map[string]struct{}, 4)
+	allowedSIDs := make(map[string]struct{}, 5)
 	for _, sid := range []*windows.SID{currentUserSID, systemSID, adminSID, creatorOwnerSID} {
 		allowedSIDs[sid.String()] = struct{}{}
+	}
+	if ownerSID != nil {
+		allowedSIDs[ownerSID.String()] = struct{}{}
 	}
 	return allowedSIDs, nil
 }
