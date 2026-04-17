@@ -3,8 +3,10 @@
 package securefile
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"golang.org/x/sys/windows"
@@ -117,6 +119,156 @@ func TestValidateAndReadSingleTokenRejectWindowsInstallerUserWhenRuntimeUserDiff
 	}
 }
 
+func TestValidateWindowsACLReturnsDescriptorReadError(t *testing.T) {
+	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
+	t.Cleanup(func() {
+		windowsSecurityDescriptorForPath = originalWindowsSecurityDescriptorForPath
+	})
+
+	injectedErr := windows.ERROR_ACCESS_DENIED
+	windowsSecurityDescriptorForPath = func(string) (*windows.SECURITY_DESCRIPTOR, error) {
+		return nil, injectedErr
+	}
+
+	err := validateWindowsACL("ignored", fileRiskyAccessMask(), errors.New("validation error"))
+	if err == nil {
+		t.Fatal("validateWindowsACL() error = nil, want descriptor read error")
+	}
+	if !errors.Is(err, injectedErr) {
+		t.Fatalf("validateWindowsACL() error = %v, want wrapped %v", err, injectedErr)
+	}
+	if !strings.Contains(err.Error(), "read Windows ACL") {
+		t.Fatalf("validateWindowsACL() error = %v, want read Windows ACL prefix", err)
+	}
+}
+
+func TestValidateWindowsACLRejectsNilDescriptor(t *testing.T) {
+	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
+	t.Cleanup(func() {
+		windowsSecurityDescriptorForPath = originalWindowsSecurityDescriptorForPath
+	})
+
+	windowsSecurityDescriptorForPath = func(string) (*windows.SECURITY_DESCRIPTOR, error) {
+		return nil, nil
+	}
+
+	validationErr := errors.New("validation error")
+	if err := validateWindowsACL("ignored", fileRiskyAccessMask(), validationErr); !errors.Is(err, validationErr) {
+		t.Fatalf("validateWindowsACL() error = %v, want %v", err, validationErr)
+	}
+}
+
+func TestValidateWindowsACLPropagatesPrincipalResolutionError(t *testing.T) {
+	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
+	originalCurrentWindowsUserSID := currentWindowsUserSID
+	t.Cleanup(func() {
+		windowsSecurityDescriptorForPath = originalWindowsSecurityDescriptorForPath
+		currentWindowsUserSID = originalCurrentWindowsUserSID
+	})
+
+	windowsSecurityDescriptorForPath = func(string) (*windows.SECURITY_DESCRIPTOR, error) {
+		return mustWindowsSecurityDescriptorFromString(t, "D:P(A;;GA;;;SY)"), nil
+	}
+
+	injectedErr := errors.New("lookup failed")
+	currentWindowsUserSID = func() (*windows.SID, error) {
+		return nil, injectedErr
+	}
+
+	err := validateWindowsACL("ignored", fileRiskyAccessMask(), errors.New("validation error"))
+	if err == nil {
+		t.Fatal("validateWindowsACL() error = nil, want principal resolution error")
+	}
+	if !errors.Is(err, injectedErr) {
+		t.Fatalf("validateWindowsACL() error = %v, want wrapped %v", err, injectedErr)
+	}
+	if !strings.Contains(err.Error(), "resolve allowed Windows principals") {
+		t.Fatalf("validateWindowsACL() error = %v, want principal resolution prefix", err)
+	}
+}
+
+func TestValidateWindowsACLRejectsMissingDACL(t *testing.T) {
+	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
+	t.Cleanup(func() {
+		windowsSecurityDescriptorForPath = originalWindowsSecurityDescriptorForPath
+	})
+
+	sd, err := windows.NewSecurityDescriptor()
+	if err != nil {
+		t.Fatalf("NewSecurityDescriptor() error = %v", err)
+	}
+	windowsSecurityDescriptorForPath = func(string) (*windows.SECURITY_DESCRIPTOR, error) {
+		return sd, nil
+	}
+
+	validationErr := errors.New("validation error")
+	if err := validateWindowsACL("ignored", fileRiskyAccessMask(), validationErr); !errors.Is(err, validationErr) {
+		t.Fatalf("validateWindowsACL() error = %v, want %v", err, validationErr)
+	}
+}
+
+func TestValidateWindowsACLSkipsInheritOnlyAndDenyEntries(t *testing.T) {
+	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
+	originalCurrentWindowsUserSID := currentWindowsUserSID
+	t.Cleanup(func() {
+		windowsSecurityDescriptorForPath = originalWindowsSecurityDescriptorForPath
+		currentWindowsUserSID = originalCurrentWindowsUserSID
+	})
+
+	systemSID := mustWellKnownSID(t, windows.WinLocalSystemSid)
+	windowsSecurityDescriptorForPath = func(string) (*windows.SECURITY_DESCRIPTOR, error) {
+		return mustWindowsSecurityDescriptorFromString(t, "D:P(A;IO;GA;;;BU)(D;;GA;;;BU)(A;;GA;;;SY)"), nil
+	}
+	currentWindowsUserSID = func() (*windows.SID, error) {
+		return systemSID, nil
+	}
+
+	if err := validateWindowsACL("ignored", fileRiskyAccessMask(), errors.New("validation error")); err != nil {
+		t.Fatalf("validateWindowsACL() error = %v", err)
+	}
+}
+
+func TestValidateWindowsACLReturnsEntryReadError(t *testing.T) {
+	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
+	originalCurrentWindowsUserSID := currentWindowsUserSID
+	t.Cleanup(func() {
+		windowsSecurityDescriptorForPath = originalWindowsSecurityDescriptorForPath
+		currentWindowsUserSID = originalCurrentWindowsUserSID
+	})
+
+	systemSID := mustWellKnownSID(t, windows.WinLocalSystemSid)
+	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{
+		explicitAccessEntryForSID(systemSID, windows.READ_CONTROL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("ACLFromEntries() error = %v", err)
+	}
+	acl.AceCount = 2
+
+	sd, err := windows.NewSecurityDescriptor()
+	if err != nil {
+		t.Fatalf("NewSecurityDescriptor() error = %v", err)
+	}
+	if err := sd.SetDACL(acl, true, false); err != nil {
+		t.Fatalf("SetDACL() error = %v", err)
+	}
+
+	windowsSecurityDescriptorForPath = func(string) (*windows.SECURITY_DESCRIPTOR, error) {
+		return sd, nil
+	}
+	currentWindowsUserSID = func() (*windows.SID, error) {
+		return systemSID, nil
+	}
+
+	err = validateWindowsACL("ignored", fileRiskyAccessMask(), errors.New("validation error"))
+	if err == nil {
+		t.Fatal("validateWindowsACL() error = nil, want ACL entry read error")
+	}
+	if !strings.Contains(err.Error(), "read Windows ACL entry") {
+		t.Fatalf("validateWindowsACL() error = %v, want ACL entry read prefix", err)
+	}
+}
+
 func setProtectedACL(path string, entries ...windows.EXPLICIT_ACCESS) error {
 	acl, err := windows.ACLFromEntries(entries, nil)
 	if err != nil {
@@ -162,6 +314,26 @@ func explicitAccessEntryForSID(sid *windows.SID, permissions windows.ACCESS_MASK
 			TrusteeValue: windows.TrusteeValueFromSID(sid),
 		},
 	}
+}
+
+func mustWindowsSecurityDescriptorFromString(t *testing.T, sddl string) *windows.SECURITY_DESCRIPTOR {
+	t.Helper()
+
+	sd, err := windows.SecurityDescriptorFromString(sddl)
+	if err != nil {
+		t.Fatalf("SecurityDescriptorFromString(%q) error = %v", sddl, err)
+	}
+	return sd
+}
+
+func mustWellKnownSID(t *testing.T, sidType windows.WELL_KNOWN_SID_TYPE) *windows.SID {
+	t.Helper()
+
+	sid, err := windows.CreateWellKnownSid(sidType)
+	if err != nil {
+		t.Fatalf("CreateWellKnownSid(%v) error = %v", sidType, err)
+	}
+	return sid
 }
 
 func currentWindowsUserSIDForTest(t *testing.T) *windows.SID {
