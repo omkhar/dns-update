@@ -22,6 +22,7 @@ $wrapperPath = (Resolve-Path $wrapperPath).Path
 $binaryPath = (Resolve-Path $BinaryPath).Path
 $configPath = (Resolve-Path $ConfigPath).Path
 $tokenPath = (Resolve-Path $TokenPath).Path
+$tokenDir = Split-Path -Parent $tokenPath
 $logPath = [System.IO.Path]::GetFullPath($LogPath)
 $powerShellPath = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $workingDirectory = Split-Path -Parent $binaryPath
@@ -44,7 +45,7 @@ function Get-RequiredTokenPrincipals {
     )
 }
 
-function Protect-TokenPath {
+function Protect-PathAcl {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Path
@@ -70,7 +71,10 @@ function Protect-TokenPath {
     Set-Acl -LiteralPath $Path -AclObject $acl
 }
 
-Protect-TokenPath -Path $tokenPath
+if ($tokenDir) {
+    Protect-PathAcl -Path $tokenDir
+}
+Protect-PathAcl -Path $tokenPath
 
 function New-TaskArguments {
     param(
