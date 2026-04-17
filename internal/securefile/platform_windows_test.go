@@ -231,9 +231,11 @@ func TestValidateWindowsACLSkipsInheritOnlyAndDenyEntries(t *testing.T) {
 func TestValidateWindowsACLReturnsEntryReadError(t *testing.T) {
 	originalWindowsSecurityDescriptorForPath := windowsSecurityDescriptorForPath
 	originalCurrentWindowsUserSID := currentWindowsUserSID
+	originalWindowsGetACE := windowsGetACE
 	t.Cleanup(func() {
 		windowsSecurityDescriptorForPath = originalWindowsSecurityDescriptorForPath
 		currentWindowsUserSID = originalCurrentWindowsUserSID
+		windowsGetACE = originalWindowsGetACE
 	})
 
 	systemSID := mustWellKnownSID(t, windows.WinLocalSystemSid)
@@ -258,6 +260,12 @@ func TestValidateWindowsACLReturnsEntryReadError(t *testing.T) {
 	}
 	currentWindowsUserSID = func() (*windows.SID, error) {
 		return systemSID, nil
+	}
+	windowsGetACE = func(acl *windows.ACL, aceIndex uint32, ace **windows.ACCESS_ALLOWED_ACE) error {
+		if aceIndex == 0 {
+			return originalWindowsGetACE(acl, aceIndex, ace)
+		}
+		return windows.ERROR_INVALID_ACL
 	}
 
 	err = validateWindowsACL("ignored", fileRiskyAccessMask(), errors.New("validation error"))

@@ -26,6 +26,9 @@ var (
 	windowsSecurityDescriptorForPath = func(path string) (*windows.SECURITY_DESCRIPTOR, error) {
 		return windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
 	}
+	windowsGetACE = func(acl *windows.ACL, aceIndex uint32, ace **windows.ACCESS_ALLOWED_ACE) error {
+		return windows.GetAce(acl, aceIndex, ace)
+	}
 	currentWindowsUserSID = func() (*windows.SID, error) {
 		token, err := windows.OpenCurrentProcessToken()
 		if err != nil {
@@ -62,7 +65,7 @@ func validateWindowsACL(path string, riskyMask windows.ACCESS_MASK, validationEr
 
 	for aceIndex := uint16(0); aceIndex < dacl.AceCount; aceIndex++ {
 		var ace *windows.ACCESS_ALLOWED_ACE
-		if err := windows.GetAce(dacl, uint32(aceIndex), &ace); err != nil {
+		if err := windowsGetACE(dacl, uint32(aceIndex), &ace); err != nil {
 			return fmt.Errorf("read Windows ACL entry: %w", err)
 		}
 		if ace.Header.AceFlags&windows.INHERIT_ONLY_ACE != 0 {
