@@ -240,7 +240,7 @@ func TestValidateWindowsACLReturnsEntryReadError(t *testing.T) {
 
 	systemSID := mustWellKnownSID(t, windows.WinLocalSystemSid)
 	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{
-		explicitAccessEntryForSID(systemSID, windows.READ_CONTROL),
+		explicitAccessEntryForSID(systemSID, 0),
 	}, nil)
 	if err != nil {
 		t.Fatalf("ACLFromEntries() error = %v", err)
