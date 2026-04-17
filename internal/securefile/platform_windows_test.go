@@ -240,12 +240,11 @@ func TestValidateWindowsACLReturnsEntryReadError(t *testing.T) {
 
 	systemSID := mustWellKnownSID(t, windows.WinLocalSystemSid)
 	acl, err := windows.ACLFromEntries([]windows.EXPLICIT_ACCESS{
-		explicitAccessEntryForSID(systemSID, 0),
+		explicitAccessEntryForSID(systemSID, windows.GENERIC_ALL),
 	}, nil)
 	if err != nil {
 		t.Fatalf("ACLFromEntries() error = %v", err)
 	}
-	acl.AceCount = 2
 
 	sd, err := windows.NewSecurityDescriptor()
 	if err != nil {
@@ -261,10 +260,7 @@ func TestValidateWindowsACLReturnsEntryReadError(t *testing.T) {
 	currentWindowsUserSID = func() (*windows.SID, error) {
 		return systemSID, nil
 	}
-	windowsGetACE = func(acl *windows.ACL, aceIndex uint32, ace **windows.ACCESS_ALLOWED_ACE) error {
-		if aceIndex == 0 {
-			return originalWindowsGetACE(acl, aceIndex, ace)
-		}
+	windowsGetACE = func(*windows.ACL, uint32, **windows.ACCESS_ALLOWED_ACE) error {
 		return windows.ERROR_INVALID_ACL
 	}
 
