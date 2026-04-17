@@ -5,13 +5,15 @@ $tempRoot = Join-Path $env:ProgramData ("dns-update-test-" + [guid]::NewGuid().T
 $taskName = "dns-update-ci-$PID"
 $binaryPath = Join-Path $tempRoot "dns-update.exe"
 $configPath = Join-Path $tempRoot "config.json"
-$tokenPath = Join-Path $tempRoot "cloudflare.token"
+$tokenDir = Join-Path $tempRoot "credentials"
+$tokenPath = Join-Path $tokenDir "cloudflare.token"
 $logPath = Join-Path $tempRoot "dns-update.log"
 $deployRoot = Join-Path $tempRoot "deploy\windows"
 $registerScriptPath = Join-Path $deployRoot "register-scheduled-task.ps1"
 $invokeScriptPath = Join-Path $deployRoot "invoke-dns-update.ps1"
 
 New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $tokenDir -Force | Out-Null
 New-Item -ItemType Directory -Path $deployRoot -Force | Out-Null
 
 Import-Module ScheduledTasks -ErrorAction Stop | Out-Null
@@ -46,8 +48,7 @@ function Assert-TokenAcl {
 
     $expectedSids = @(
         [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null).Value,
-        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null).Value,
-        ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null).Value
     ) | Sort-Object -Unique
 
     $actualSids = @(
@@ -58,6 +59,33 @@ function Assert-TokenAcl {
 
     if (@(Compare-Object -ReferenceObject $expectedSids -DifferenceObject $actualSids).Count -ne 0) {
         throw ("unexpected token ACL identities: expected [{0}] got [{1}]" -f ($expectedSids -join ", "), ($actualSids -join ", "))
+    }
+}
+
+function Assert-TokenDirectoryAcl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $acl = Get-Acl -LiteralPath $Path
+    if (-not $acl.AreAccessRulesProtected) {
+        throw "token parent directory ACL should disable inheritance"
+    }
+
+    $expectedSids = @(
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null).Value,
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null).Value
+    ) | Sort-Object -Unique
+
+    $actualSids = @(
+        $acl.Access |
+            Where-Object { -not $_.IsInherited -and $_.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow } |
+            ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }
+    ) | Sort-Object -Unique
+
+    if (@(Compare-Object -ReferenceObject $expectedSids -DifferenceObject $actualSids).Count -ne 0) {
+        throw ("unexpected token parent directory ACL identities: expected [{0}] got [{1}]" -f ($expectedSids -join ", "), ($actualSids -join ", "))
     }
 }
 
@@ -102,6 +130,7 @@ Set-Content -LiteralPath $tokenPath -Value "dummy-token`n" -Encoding utf8
     -ValidateConfig
 
 Assert-TokenAcl -Path $tokenPath
+Assert-TokenDirectoryAcl -Path $tokenDir
 
 $taskArguments = (
     Get-ScheduledTask -TaskName $taskName |

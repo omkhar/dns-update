@@ -162,7 +162,9 @@ Behavior notes:
   app rejects token paths whose parent directory is writable by group or other
   users.
 - Windows deployments rely on NTFS ACLs instead of Unix owner/group/other mode
-  bits for token-file directory privacy.
+  bits for token-file directory privacy, and the app rejects token paths whose
+  file ACL grants read/write access to other users or whose parent directory
+  grants write access to other users.
 - The token file itself must not be a symlink. Deeper configured path
   components are rejected if they are symlinks, and on Unix-like systems the
   token file is opened without following symlinks, then revalidated at read
@@ -360,7 +362,7 @@ that runs `dns-update` as `SYSTEM`.
 
 - suggested binary path: `C:\Program Files\dns-update\dns-update.exe`
 - suggested config path: `C:\ProgramData\dns-update\config.json`
-- suggested token path: `C:\ProgramData\dns-update\cloudflare.token`
+- suggested token path: `C:\ProgramData\dns-update\credentials\cloudflare.token`
 - suggested log path: `C:\ProgramData\dns-update\dns-update.log`
 
 Example:
@@ -370,7 +372,7 @@ Example:
   -TaskName "dns-update" `
   -BinaryPath "C:\Program Files\dns-update\dns-update.exe" `
   -ConfigPath "C:\ProgramData\dns-update\config.json" `
-  -TokenPath "C:\ProgramData\dns-update\cloudflare.token" `
+  -TokenPath "C:\ProgramData\dns-update\credentials\cloudflare.token" `
   -LogPath "C:\ProgramData\dns-update\dns-update.log" `
   -IntervalMinutes 5
 ```

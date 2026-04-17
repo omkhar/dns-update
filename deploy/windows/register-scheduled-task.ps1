@@ -2,7 +2,7 @@ param(
     [string]$TaskName = "dns-update",
     [string]$BinaryPath = "C:\Program Files\dns-update\dns-update.exe",
     [string]$ConfigPath = "C:\ProgramData\dns-update\config.json",
-    [string]$TokenPath = "C:\ProgramData\dns-update\cloudflare.token",
+    [string]$TokenPath = "C:\ProgramData\dns-update\credentials\cloudflare.token",
     [string]$LogPath = "C:\ProgramData\dns-update\dns-update.log",
     [int]$IntervalMinutes = 5,
     [string]$Timeout = "2m",
@@ -22,6 +22,7 @@ $wrapperPath = (Resolve-Path $wrapperPath).Path
 $binaryPath = (Resolve-Path $BinaryPath).Path
 $configPath = (Resolve-Path $ConfigPath).Path
 $tokenPath = (Resolve-Path $TokenPath).Path
+$tokenDir = Split-Path -Parent $tokenPath
 $logPath = [System.IO.Path]::GetFullPath($LogPath)
 $powerShellPath = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $workingDirectory = Split-Path -Parent $binaryPath
@@ -32,19 +33,13 @@ if ($logDir) {
 }
 
 function Get-RequiredTokenPrincipals {
-    $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-    if ($null -eq $currentUser) {
-        throw "Unable to resolve the current Windows identity."
-    }
-
     return @(
         [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null),
-        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null),
-        $currentUser
+        [System.Security.Principal.SecurityIdentifier]::new([System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null)
     )
 }
 
-function Protect-TokenPath {
+function Protect-PathAcl {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Path
@@ -70,7 +65,10 @@ function Protect-TokenPath {
     Set-Acl -LiteralPath $Path -AclObject $acl
 }
 
-Protect-TokenPath -Path $tokenPath
+Protect-PathAcl -Path $tokenPath
+if ($tokenDir) {
+    Protect-PathAcl -Path $tokenDir
+}
 
 function New-TaskArguments {
     param(

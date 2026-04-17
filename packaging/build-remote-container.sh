@@ -21,6 +21,70 @@ EOF
 	exit 2
 }
 
+is_supported_local_config_key() {
+	case "$1" in
+	REMOTE_BUILD_HOST | REMOTE_BUILD_MODE | REMOTE_BUILD_IMAGE | REMOTE_BUILD_BOOTSTRAP_IMAGE | REMOTE_BUILD_TAG | REMOTE_BUILD_REBUILD_IMAGE)
+		return 0
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
+strip_matching_quotes() {
+	value=$1
+	case "$value" in
+	\"*\")
+		value=${value#\"}
+		value=${value%\"}
+		;;
+	\'*\')
+		value=${value#\'}
+		value=${value%\'}
+		;;
+	esac
+	printf '%s\n' "$value"
+}
+
+load_local_config() {
+	config_path=$1
+	while IFS= read -r raw_line || [ -n "$raw_line" ]; do
+		line=$(printf '%s' "$raw_line" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+		[ -n "$line" ] || continue
+		case "$line" in
+		\#*)
+			continue
+			;;
+		*=*)
+			;;
+		*)
+			echo "invalid local config line in $config_path: $raw_line" >&2
+			exit 1
+			;;
+		esac
+
+		key=${line%%=*}
+		value=${line#*=}
+		key=$(printf '%s' "$key" | sed 's/[[:space:]]*$//')
+		value=$(printf '%s' "$value" | sed 's/^[[:space:]]*//')
+
+		case "$key" in
+		'' | [0-9]* | *[!A-Za-z0-9_]*)
+			echo "invalid local config key in $config_path: $key" >&2
+			exit 1
+			;;
+		esac
+		if ! is_supported_local_config_key "$key"; then
+			echo "unsupported local config key in $config_path: $key" >&2
+			exit 1
+		fi
+
+		value=$(strip_matching_quotes "$value")
+		export "$key=$value"
+	done <"$config_path"
+}
+
 repo_root=$(repo_root "$0")
 local_tar=$(release_tar)
 source_epoch=$(source_date_epoch "$repo_root")
@@ -34,10 +98,7 @@ require_cmd ssh
 require_cmd "$local_tar"
 
 if [ -f "$local_config_path" ]; then
-	set -a
-	# shellcheck source=/dev/null
-	. "$local_config_path"
-	set +a
+	load_local_config "$local_config_path"
 fi
 
 host=${REMOTE_BUILD_HOST:-}

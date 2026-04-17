@@ -47,10 +47,10 @@ func TestValidate(t *testing.T) {
 	if err := os.WriteFile(insecure, []byte("secret"), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if err := Validate(insecure); runtime.GOOS == "windows" && err != nil {
-		t.Fatalf("Validate() error = %v, want Windows permission-bit bypass", err)
-	} else if runtime.GOOS != "windows" && err == nil {
-		t.Fatal("Validate() error = nil, want permission error")
+	if runtime.GOOS != "windows" {
+		if err := Validate(insecure); err == nil {
+			t.Fatal("Validate() error = nil, want permission error")
+		}
 	}
 
 	writableDir := filepath.Join(dir, "writable")
@@ -64,10 +64,10 @@ func TestValidate(t *testing.T) {
 	if err := os.WriteFile(writablePath, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if err := Validate(writablePath); runtime.GOOS == "windows" && err != nil {
-		t.Fatalf("Validate() error = %v, want Windows permission-bit bypass", err)
-	} else if runtime.GOOS != "windows" && err == nil {
-		t.Fatal("Validate() error = nil, want parent-directory permission error")
+	if runtime.GOOS != "windows" {
+		if err := Validate(writablePath); err == nil {
+			t.Fatal("Validate() error = nil, want parent-directory permission error")
+		}
 	}
 
 	targetDir := filepath.Join(dir, "target")
@@ -154,39 +154,6 @@ func TestReadSingleTokenAcceptsSystemdCredentialPermissionMask(t *testing.T) {
 	t.Setenv("CREDENTIALS_DIRECTORY", credDir)
 
 	token, err := ReadSingleToken(secretPath)
-	if err != nil {
-		t.Fatalf("ReadSingleToken() error = %v", err)
-	}
-	if got, want := token, "secret"; got != want {
-		t.Fatalf("ReadSingleToken() = %q, want %q", got, want)
-	}
-}
-
-func TestValidateAndReadSingleTokenAllowWindowsPermissionBits(t *testing.T) {
-	originalUsesUnixPermissionBits := usesUnixPermissionBits
-	t.Cleanup(func() {
-		usesUnixPermissionBits = originalUsesUnixPermissionBits
-	})
-	usesUnixPermissionBits = func() bool { return false }
-
-	writableDir := filepath.Join(t.TempDir(), "writable")
-	if err := os.Mkdir(writableDir, 0o733); err != nil {
-		t.Fatalf("Mkdir() error = %v", err)
-	}
-	if err := os.Chmod(writableDir, 0o733); err != nil {
-		t.Fatalf("Chmod() error = %v", err)
-	}
-
-	tokenPath := filepath.Join(writableDir, "cloudflare.token")
-	if err := os.WriteFile(tokenPath, []byte("secret\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile() error = %v", err)
-	}
-
-	if err := Validate(tokenPath); err != nil {
-		t.Fatalf("Validate() error = %v", err)
-	}
-
-	token, err := ReadSingleToken(tokenPath)
 	if err != nil {
 		t.Fatalf("ReadSingleToken() error = %v", err)
 	}
@@ -359,10 +326,10 @@ func TestReadSingleTokenErrors(t *testing.T) {
 	if err := os.WriteFile(insecure, []byte("secret"), 0o644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if _, err := ReadSingleToken(insecure); runtime.GOOS == "windows" && err != nil {
-		t.Fatalf("ReadSingleToken() error = %v, want Windows permission-bit bypass", err)
-	} else if runtime.GOOS != "windows" && err == nil {
-		t.Fatal("ReadSingleToken() error = nil, want permission error")
+	if runtime.GOOS != "windows" {
+		if _, err := ReadSingleToken(insecure); err == nil {
+			t.Fatal("ReadSingleToken() error = nil, want permission error")
+		}
 	}
 
 	subdir := filepath.Join(dir, "subdir")
@@ -404,10 +371,10 @@ func TestReadSingleTokenErrors(t *testing.T) {
 	if err := os.WriteFile(writablePath, []byte("secret"), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
-	if _, err := ReadSingleToken(writablePath); runtime.GOOS == "windows" && err != nil {
-		t.Fatalf("ReadSingleToken() error = %v, want Windows permission-bit bypass", err)
-	} else if runtime.GOOS != "windows" && err == nil {
-		t.Fatal("ReadSingleToken() error = nil, want parent-directory permission error")
+	if runtime.GOOS != "windows" {
+		if _, err := ReadSingleToken(writablePath); err == nil {
+			t.Fatal("ReadSingleToken() error = nil, want parent-directory permission error")
+		}
 	}
 
 	targetDir := filepath.Join(dir, "target.dir")
@@ -552,9 +519,12 @@ func TestValidateParentDirectory(t *testing.T) {
 
 func TestValidateParentDirectoryAllowsRootAliasSymlink(t *testing.T) {
 	originalLstatPath := lstatPath
+	originalValidatePlatformParentDirectoryPermissions := validatePlatformParentDirectoryPermissions
 	t.Cleanup(func() {
 		lstatPath = originalLstatPath
+		validatePlatformParentDirectoryPermissions = originalValidatePlatformParentDirectoryPermissions
 	})
+	validatePlatformParentDirectoryPermissions = func(string) error { return nil }
 
 	root := testRootPath(t)
 	aliasDir := filepath.Join(root, "var")
@@ -764,11 +734,6 @@ func TestHasSecurePermissions(t *testing.T) {
 		lookupEnv = originalLookupEnv
 	})
 
-	usesUnixPermissionBits = func() bool { return false }
-	if !hasSecurePermissions("cloudflare.token", 0o644) {
-		t.Fatal("hasSecurePermissions() = false, want Windows permission-bit bypass")
-	}
-
 	usesUnixPermissionBits = func() bool { return true }
 
 	if !hasSecurePermissions("cloudflare.token", 0o600) {
@@ -787,6 +752,70 @@ func TestHasSecurePermissions(t *testing.T) {
 	}
 	if hasSecurePermissions("cloudflare.token", 0o644) {
 		t.Fatal("hasSecurePermissions() = true, want group-readable permissions to fail")
+	}
+
+	usesUnixPermissionBits = func() bool { return false }
+	if !hasSecurePermissions("cloudflare.token", 0o644) {
+		t.Fatal("hasSecurePermissions() = false, want disabled Unix-bit checks to skip mode enforcement")
+	}
+}
+
+func TestValidateReturnsPlatformFilePermissionError(t *testing.T) {
+	originalValidatePlatformFilePermissions := validatePlatformFilePermissions
+	t.Cleanup(func() {
+		validatePlatformFilePermissions = originalValidatePlatformFilePermissions
+	})
+
+	validatePlatformFilePermissions = func(string) error {
+		return errors.New("platform file ACL error")
+	}
+
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "cloudflare.token")
+	if err := os.WriteFile(tokenPath, []byte("secret"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	err := Validate(tokenPath)
+	if err == nil || !strings.Contains(err.Error(), "platform file ACL error") {
+		t.Fatalf("Validate() error = %v, want platform file ACL error", err)
+	}
+}
+
+func TestReadSingleTokenReturnsPlatformFilePermissionError(t *testing.T) {
+	originalValidatePlatformFilePermissions := validatePlatformFilePermissions
+	t.Cleanup(func() {
+		validatePlatformFilePermissions = originalValidatePlatformFilePermissions
+	})
+
+	validatePlatformFilePermissions = func(string) error {
+		return errors.New("platform file ACL error")
+	}
+
+	dir := t.TempDir()
+	tokenPath := filepath.Join(dir, "cloudflare.token")
+	if err := os.WriteFile(tokenPath, []byte("secret\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if _, err := ReadSingleToken(tokenPath); err == nil || !strings.Contains(err.Error(), "platform file ACL error") {
+		t.Fatalf("ReadSingleToken() error = %v, want platform file ACL error", err)
+	}
+}
+
+func TestValidateParentDirectoryReturnsPlatformPermissionError(t *testing.T) {
+	originalValidatePlatformParentDirectoryPermissions := validatePlatformParentDirectoryPermissions
+	t.Cleanup(func() {
+		validatePlatformParentDirectoryPermissions = originalValidatePlatformParentDirectoryPermissions
+	})
+
+	validatePlatformParentDirectoryPermissions = func(string) error {
+		return errors.New("platform directory ACL error")
+	}
+
+	dir := t.TempDir()
+	if err := validateParentDirectory(filepath.Join(dir, "cloudflare.token")); err == nil || !strings.Contains(err.Error(), "platform directory ACL error") {
+		t.Fatalf("validateParentDirectory() error = %v, want platform directory ACL error", err)
 	}
 }
 

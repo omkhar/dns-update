@@ -2,6 +2,20 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.3.12 - 2026-04-17
+
+- Stops `packaging/build-remote-container.sh` from shell-sourcing the optional
+  local override file; it now accepts only literal `KEY=VALUE` entries for the
+  supported `REMOTE_BUILD_*` settings and rejects unknown keys.
+- Enforces Windows token-file privacy with NTFS ACL checks in `securefile`,
+  rejecting token files that grant read/write access to other users or sit in a
+  writable parent directory, and updates the Windows helper to use a dedicated
+  credentials directory that is locked down to `SYSTEM` and local
+  Administrators alongside the token file.
+- Adds regression coverage for the remote-build local-config parser and the new
+  Windows ACL validation path, refreshes the pinned Fedora CI images, and bumps
+  the runtime user-agent and package metadata to `1.3.12`.
+
 ## 1.3.11 - 2026-04-12
 
 - Escapes all interpolated `launchd` plist values so hostile installer
