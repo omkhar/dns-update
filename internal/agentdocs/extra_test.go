@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -307,11 +308,14 @@ func TestWriteFailsWhenOutputPathIsDirectory(t *testing.T) {
 	}
 }
 
-func TestWriteFailsWhenExpectedOutputIsSymlink(t *testing.T) {
+func TestManagedOutputSymlink(t *testing.T) {
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
+	if err := Write(root); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
 	withLstatPath(t, func(path string) (os.FileInfo, error) {
-		if path == filepath.Join(root, "AGENTS.md") {
+		if samePath(path, filepath.Join(root, "AGENTS.md")) {
 			return fakeFileInfo{mode: os.ModeSymlink}, nil
 		}
 		return os.Lstat(path)
@@ -320,9 +324,19 @@ func TestWriteFailsWhenExpectedOutputIsSymlink(t *testing.T) {
 	if err := Write(root); err == nil || !strings.Contains(err.Error(), "traverses symlink") {
 		t.Fatalf("Write() error = %v, want symlink traversal error", err)
 	}
+	mismatches, err := Check(root)
+	if err != ErrOutOfDate {
+		t.Fatalf("Check() error = %v, want %v", err, ErrOutOfDate)
+	}
+	for _, mismatch := range mismatches {
+		if mismatch.Path == "AGENTS.md" && mismatch.Invalid {
+			return
+		}
+	}
+	t.Fatalf("Check() mismatches = %#v, want invalid AGENTS.md", mismatches)
 }
 
-func TestWriteFailsWhenManagedPathTraversesSymlink(t *testing.T) {
+func TestManagedRootSymlinkLifecycle(t *testing.T) {
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
 	symlinkPath := filepath.Join(root, ".agents")
@@ -331,29 +345,49 @@ func TestWriteFailsWhenManagedPathTraversesSymlink(t *testing.T) {
 	}
 	removed := false
 	withRemovePath(t, func(path string) error {
-		if path == symlinkPath {
+		if samePath(path, symlinkPath) {
 			removed = true
 		}
 		return os.Remove(path)
 	})
 	withLstatPath(t, func(path string) (os.FileInfo, error) {
-		if path == symlinkPath && !removed {
+		if samePath(path, symlinkPath) && !removed {
 			return fakeFileInfo{mode: os.ModeSymlink}, nil
 		}
 		return os.Lstat(path)
 	})
 
+	if paths, err := managedPaths(root); err != nil || len(paths) != 1 || paths[0] != ".agents" {
+		t.Fatalf("managedPaths() = (%v, %v), want ([.agents], nil)", paths, err)
+	}
+	if stale, err := staleManagedPaths(root, nil); err != nil || len(stale) != 1 || stale[0] != ".agents" {
+		t.Fatalf("staleManagedPaths() = (%v, %v), want ([.agents], nil)", stale, err)
+	}
 	if err := Write(root); err != nil {
 		t.Fatalf("Write() error = %v, want stale symlink replacement", err)
-	}
-	if info, err := os.Lstat(filepath.Join(root, ".agents")); err != nil {
-		t.Fatalf("Lstat(.agents) = %v", err)
-	} else if info.Mode()&os.ModeSymlink != 0 {
-		t.Fatal(".agents remained a symlink after Write()")
 	}
 	if _, err := os.Stat(filepath.Join(root, ".agents", "skills", "dns-update-change-gate", "SKILL.md")); err != nil {
 		t.Fatalf("generated skill missing after Write(): %v", err)
 	}
+
+	stalePath := filepath.Join(root, ".agents", "skills", "stale-link")
+	mustWriteFile(t, stalePath, "orphan\n")
+	withLstatPath(t, func(path string) (os.FileInfo, error) {
+		if samePath(path, stalePath) {
+			return fakeFileInfo{mode: os.ModeSymlink}, nil
+		}
+		return os.Lstat(path)
+	})
+	mismatches, err := Check(root)
+	if err != ErrOutOfDate {
+		t.Fatalf("Check() error = %v, want %v", err, ErrOutOfDate)
+	}
+	for _, mismatch := range mismatches {
+		if mismatch.Path == ".agents/skills/stale-link" && mismatch.Stale {
+			return
+		}
+	}
+	t.Fatalf("Check() mismatches = %#v, want stale symlink", mismatches)
 }
 
 func TestCheckReadErrorAndHelpers(t *testing.T) {
@@ -472,7 +506,12 @@ func TestAppendIfRegular(t *testing.T) {
 	if paths := appendIfFile(nil, root, "missing.md"); len(paths) != 0 {
 		t.Fatalf("appendIfFile(missing) = %v, want empty", paths)
 	}
-	mustSymlink(t, "AGENTS.md", filepath.Join(root, "AGENTS.link"))
+	withLstatPath(t, func(path string) (os.FileInfo, error) {
+		if samePath(path, filepath.Join(root, "AGENTS.link")) {
+			return fakeFileInfo{mode: os.ModeSymlink}, nil
+		}
+		return os.Lstat(path)
+	})
 	if paths := appendIfFile(nil, root, "AGENTS.link"); len(paths) != 1 || paths[0] != "AGENTS.link" {
 		t.Fatalf("appendIfFile(symlink) = %v, want symlink path", paths)
 	}
@@ -520,62 +559,6 @@ func TestCheckReportsStaleAndOutOfDateFiles(t *testing.T) {
 	if err != ErrOutOfDate || len(mismatches) < 2 {
 		t.Fatalf("Check() = (%#v, %v), want out-of-date mismatches", mismatches, err)
 	}
-}
-
-func TestCheckReportsStaleSymlink(t *testing.T) {
-	root := t.TempDir()
-	writeCanonicalTree(t, root)
-	if err := Write(root); err != nil {
-		t.Fatalf("Write() error = %v", err)
-	}
-	stalePath := filepath.Join(root, ".agents", "skills", "stale-link")
-	mustWriteFile(t, stalePath, "orphan\n")
-	withLstatPath(t, func(path string) (os.FileInfo, error) {
-		if path == stalePath {
-			return fakeFileInfo{mode: os.ModeSymlink}, nil
-		}
-		return os.Lstat(path)
-	})
-
-	mismatches, err := Check(root)
-	if err != ErrOutOfDate {
-		t.Fatalf("Check() error = %v, want %v", err, ErrOutOfDate)
-	}
-	found := false
-	for _, mismatch := range mismatches {
-		if mismatch.Path == ".agents/skills/stale-link" && mismatch.Stale {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("Check() mismatches = %#v, want stale symlink", mismatches)
-	}
-}
-
-func TestCheckRejectsExpectedSymlink(t *testing.T) {
-	root := t.TempDir()
-	writeCanonicalTree(t, root)
-	if err := Write(root); err != nil {
-		t.Fatalf("Write() error = %v", err)
-	}
-	withLstatPath(t, func(path string) (os.FileInfo, error) {
-		if path == filepath.Join(root, "AGENTS.md") {
-			return fakeFileInfo{mode: os.ModeSymlink}, nil
-		}
-		return os.Lstat(path)
-	})
-
-	mismatches, err := Check(root)
-	if err != ErrOutOfDate {
-		t.Fatalf("Check() error = %v, want %v", err, ErrOutOfDate)
-	}
-	for _, mismatch := range mismatches {
-		if mismatch.Path == "AGENTS.md" && mismatch.Invalid {
-			return
-		}
-	}
-	t.Fatalf("Check() mismatches = %#v, want invalid AGENTS.md", mismatches)
 }
 
 func TestRenderSkillTOMLEscapesLiteralDelimiters(t *testing.T) {
@@ -656,27 +639,12 @@ func TestRejectSymlinkRootAllowsMissingPath(t *testing.T) {
 	}
 }
 
-func TestManagedPathsReturnsManagedRootSymlink(t *testing.T) {
-	root := t.TempDir()
-	withLstatPath(t, func(path string) (os.FileInfo, error) {
-		if path == filepath.Join(root, ".agents") {
-			return fakeFileInfo{mode: os.ModeSymlink}, nil
-		}
-		return os.Lstat(path)
-	})
-
-	paths, err := managedPaths(root)
-	if err != nil {
-		t.Fatalf("managedPaths() error = %v", err)
-	}
-	if len(paths) != 1 || paths[0] != ".agents" {
-		t.Fatalf("managedPaths() = %v, want [.agents]", paths)
-	}
+func TestManagedPathsIncludesExistingProviders(t *testing.T) {
 	otherRoot := t.TempDir()
 	mustWriteFile(t, filepath.Join(otherRoot, ".claude", "skills", "dns-update-change-gate", "SKILL.md"), "skill\n")
 	mustWriteFile(t, filepath.Join(otherRoot, ".gemini", "commands", "dns-update", "change-gate.toml"), "prompt = \"x\"\n")
 
-	paths, err = managedPaths(otherRoot)
+	paths, err := managedPaths(otherRoot)
 	if err != nil {
 		t.Fatalf("managedPaths() error = %v", err)
 	}
@@ -807,6 +775,15 @@ func withReadSourceFile(t *testing.T, fn func(string) ([]byte, error)) {
 	t.Cleanup(func() {
 		readSourceFile = previous
 	})
+}
+
+func samePath(got, want string) bool {
+	got = filepath.Clean(got)
+	want = filepath.Clean(want)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(got, want)
+	}
+	return got == want
 }
 
 type fakeFileInfo struct {
