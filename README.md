@@ -468,7 +468,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for public release history.
 
 ## Quality Checks
 
-`go test ./...` runs the normal unit and integration suite and also enforces two
+`go test ./...` runs the normal unit and integration suite and also enforces
 repository-level quality gates:
 
 - a coverage check that fails unless total statement coverage across `./...` is
@@ -476,6 +476,16 @@ repository-level quality gates:
 - a curated mutation suite that copies the repository into temporary workspaces,
   applies compile-preserving mutants, and requires the test suite to kill each
   mutant
+- a generated-agent parity check that fails unless the tracked Codex, Claude,
+  and Gemini projections match `docs/agents/**`
+- a public-repo hygiene check that rejects tracked detritus, local absolute
+  paths, usernames, and non-public references
+
+Regenerate the tracked agent projections with:
+
+```sh
+go run ./cmd/agentdocgen
+```
 
 The mutation and coverage skip environment variables are only for the nested
 subprocesses launched by those tests and normally should remain unset during

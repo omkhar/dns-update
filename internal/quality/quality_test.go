@@ -11,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"dns-update/internal/agentdocs"
+	"dns-update/internal/repopolicy"
 )
 
 const (
@@ -23,6 +26,40 @@ type mutant struct {
 	file string
 	old  string
 	new  string
+}
+
+func TestAgentArtifactsUpToDate(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	mismatches, err := agentdocs.Check(root)
+	if err != nil && !errors.Is(err, agentdocs.ErrOutOfDate) {
+		t.Fatalf("agentdocs.Check() error = %v", err)
+	}
+	if len(mismatches) == 0 {
+		return
+	}
+
+	t.Fatalf("generated agent artifacts are out of date:\n%s", agentdocs.Summary(mismatches))
+}
+
+func TestPublicRepoHygiene(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	findings, err := repopolicy.Check(root)
+	if err != nil {
+		t.Fatalf("repopolicy.Check() error = %v", err)
+	}
+	if len(findings) == 0 {
+		return
+	}
+
+	lines := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		lines = append(lines, fmt.Sprintf("%s: %s", finding.Path, finding.Message))
+	}
+	t.Fatalf("public repository hygiene failures:\n%s", strings.Join(lines, "\n"))
 }
 
 func TestCoverageThreshold(t *testing.T) {

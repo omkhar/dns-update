@@ -1,18 +1,23 @@
 /.DS_Store
 
 # Local assistant and editor state
-/.claude/
+/.agents/*
+!/.agents/skills/
+!/.agents/skills/**
+/.claude/*
+!/.claude/skills/
+!/.claude/skills/**
 /.codex/
 /.cursor/
 /.aider*/
 /.continue/
+/.gemini/*
+!/.gemini/commands/
+!/.gemini/commands/**
 /.windsurf/
 /.openai/
 /.llm/
-/AGENTS.md
-/CLAUDE.md
 /COPILOT.md
-/GEMINI.md
 /llms.txt
 
 # Local build and test outputs
