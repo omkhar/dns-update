@@ -420,7 +420,21 @@ func TestCheckReadErrorAndHelpers(t *testing.T) {
 	if strings.Contains(outputs[0].Content, "Repo Skills") {
 		t.Fatalf("RenderContract(nil skills) should omit helper section:\n%s", outputs[0].Content)
 	}
+	outputs = RenderContract(contract, []Source{{Slug: "dns-update-change-gate", Summary: "summary"}})
+	if !strings.Contains(outputs[0].Content, "`$dns-update-change-gate`") {
+		t.Fatalf("RenderContract(codex skills) = %q, want codex invocation", outputs[0].Content)
+	}
+	if !strings.Contains(outputs[1].Content, "`/dns-update-change-gate`") {
+		t.Fatalf("RenderContract(claude skills) = %q, want claude invocation", outputs[1].Content)
+	}
+	if !strings.Contains(outputs[2].Content, "`/dns-update:change-gate`") {
+		t.Fatalf("RenderContract(gemini commands) = %q, want gemini invocation", outputs[2].Content)
+	}
 	var b strings.Builder
+	renderRootHelpers(&b, nil, rootTargetCodex)
+	if b.Len() != 0 {
+		t.Fatalf("renderRootHelpers(nil skills) = %q, want empty", b.String())
+	}
 	renderRootHelpers(&b, []Source{{Slug: "dns-update-change-gate", Summary: "summary"}}, rootTarget("bogus"))
 	if b.Len() != 0 {
 		t.Fatalf("renderRootHelpers(default target) = %q, want empty", b.String())

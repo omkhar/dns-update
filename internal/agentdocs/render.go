@@ -37,17 +37,14 @@ func renderRootMarkdown(source Source, skills []Source, target rootTarget) strin
 	body := stripLeadingHeading(source.Body)
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "<!-- Generated from %s; do not edit directly. -->\n\n", source.Path)
-	fmt.Fprintf(&b, "# %s\n\n", source.Title)
-	if summary := strings.TrimSpace(source.Summary); summary != "" {
-		b.WriteString(summary)
-		b.WriteString("\n\n")
-	}
 	if body != "" {
 		b.WriteString(body)
-		b.WriteString("\n\n")
+		b.WriteString("\n")
 	}
-	renderRootHelpers(&b, skills, target)
+	if len(skills) > 0 {
+		b.WriteString("\n")
+		renderRootHelpers(&b, skills, target)
+	}
 	return strings.TrimRight(b.String(), "\n") + "\n"
 }
 
@@ -58,14 +55,11 @@ func renderRootHelpers(b *strings.Builder, skills []Source, target rootTarget) {
 
 	switch target {
 	case rootTargetCodex:
-		b.WriteString("## Repo Skills\n\n")
-		b.WriteString("Invoke these repo skills when the task matches:\n\n")
+		b.WriteString("## Repo Skills\n")
 	case rootTargetClaude:
-		b.WriteString("## Project Skills\n\n")
-		b.WriteString("Invoke these project skills when the task matches:\n\n")
+		b.WriteString("## Project Skills\n")
 	case rootTargetGemini:
-		b.WriteString("## Project Commands\n\n")
-		b.WriteString("Invoke these project commands when the task matches:\n\n")
+		b.WriteString("## Project Commands\n")
 	default:
 		return
 	}
@@ -80,7 +74,6 @@ func renderSkillMarkdown(source Source) string {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "---\nname: %s\ndescription: %s\n---\n", source.Slug, source.Summary)
-	fmt.Fprintf(&b, "<!-- Generated from %s; do not edit directly. -->\n\n", source.Path)
 	if body != "" {
 		b.WriteString(body)
 		b.WriteString("\n")
@@ -92,8 +85,7 @@ func renderSkillTOML(source Source) string {
 	body := strings.TrimSpace(source.Body)
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "# Generated from %s; do not edit directly.\n", source.Path)
-	fmt.Fprintf(&b, "description = %q\n\n", source.Summary)
+	fmt.Fprintf(&b, "description = %q\n", source.Summary)
 	if body != "" {
 		body += "\n"
 	}
