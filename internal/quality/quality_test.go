@@ -64,6 +64,9 @@ func TestPublicRepoHygiene(t *testing.T) {
 
 func TestAgentdocsIntegration(t *testing.T) {
 	source := filepath.Join(repoRoot(t), "docs", "agents")
+	if _, err := agentdocs.Check(t.TempDir()); err == nil || !strings.Contains(err.Error(), "contract.md") {
+		t.Fatalf("agentdocs.Check(missing contract) error = %v, want contract path failure", err)
+	}
 	root := t.TempDir()
 	if err := copyTree(source, filepath.Join(root, "docs", "agents")); err != nil {
 		t.Fatal(err)
