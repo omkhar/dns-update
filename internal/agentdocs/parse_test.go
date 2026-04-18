@@ -15,6 +15,8 @@ summary: Validate a change for correctness, safety, and reviewability before mer
 
 # dns-update change gate
 
+---
+
 Use this playbook before a change lands.
 `, "\n")))
 	if err != nil {
@@ -31,6 +33,9 @@ Use this playbook before a change lands.
 	}
 	if doc.Summary != "Validate a change for correctness, safety, and reviewability before merge." {
 		t.Fatalf("Summary = %q", doc.Summary)
+	}
+	if !strings.Contains(doc.Body, "\n---\n") {
+		t.Fatalf("Body = %q, want horizontal rule preserved", doc.Body)
 	}
 	if !strings.Contains(doc.Body, "Use this playbook") {
 		t.Fatalf("Body = %q", doc.Body)
@@ -54,31 +59,6 @@ Use this playbook before a change lands.
 	}
 	if doc.Title != "dns-update change gate" {
 		t.Fatalf("Title = %q", doc.Title)
-	}
-}
-
-func TestParseDocumentAllowsBodyHorizontalRule(t *testing.T) {
-	doc, err := ParseDocument("docs/agents/skills/dns-update-change-gate.md", []byte(strings.TrimLeft(`---
-kind: skill
-slug: dns-update-change-gate
-title: dns-update change gate
-summary: Validate a change for correctness, safety, and reviewability before merge.
----
-
-# dns-update change gate
-
----
-
-Use this playbook before a change lands.
-`, "\n")))
-	if err != nil {
-		t.Fatalf("ParseDocument() error = %v", err)
-	}
-	if !strings.Contains(doc.Body, "\n---\n") {
-		t.Fatalf("Body = %q, want horizontal rule preserved", doc.Body)
-	}
-	if !strings.Contains(doc.Body, "Use this playbook") {
-		t.Fatalf("Body = %q, want trailing content preserved", doc.Body)
 	}
 }
 

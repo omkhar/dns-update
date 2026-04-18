@@ -129,6 +129,13 @@ func Check(root string) ([]Finding, error) {
 			}
 			return nil, fmt.Errorf("lstat %s: %w", path, err)
 		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			findings = append(findings, Finding{
+				Path:    path,
+				Message: "tracked symlinks do not belong in the public repository",
+			})
+			continue
+		}
 		if !info.Mode().IsRegular() {
 			continue
 		}

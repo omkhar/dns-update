@@ -48,7 +48,7 @@ func TestCheckUsesTrackedFilesAndIgnoresBinaryContent(t *testing.T) {
 	}
 }
 
-func TestCheckSkipsTrackedSymlinks(t *testing.T) {
+func TestCheckRejectsTrackedSymlinks(t *testing.T) {
 	root := t.TempDir()
 	gitRun(t, root, "init")
 
@@ -69,8 +69,11 @@ func TestCheckSkipsTrackedSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Check() error = %v", err)
 	}
-	if len(findings) != 0 {
-		t.Fatalf("findings = %v, want empty", findings)
+	if len(findings) != 1 {
+		t.Fatalf("len(findings) = %d, want 1", len(findings))
+	}
+	if got, want := findings[0].Path, "README.link"; got != want {
+		t.Fatalf("findings[0].Path = %q, want %q", got, want)
 	}
 }
 

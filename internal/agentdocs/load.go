@@ -7,6 +7,8 @@ import (
 	"sort"
 )
 
+var readSourceFile = os.ReadFile
+
 // Load reads the canonical source tree under docs/agents.
 func Load(root string) ([]Source, error) {
 	if err := rejectSymlinkRoot(root); err != nil {
@@ -22,7 +24,14 @@ func Load(root string) ([]Source, error) {
 	paths := append([]string{contractPath}, skillPaths...)
 	sources := make([]Source, 0, len(paths))
 	for _, absPath := range paths {
-		data, err := os.ReadFile(absPath)
+		info, err := lstatPath(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("lstat %s: %w", absPath, err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("canonical source must be a regular file: %s", absPath)
+		}
+		data, err := readSourceFile(absPath)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", absPath, err)
 		}

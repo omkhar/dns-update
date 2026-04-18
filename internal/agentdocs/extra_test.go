@@ -46,14 +46,35 @@ summary: Keep changes simple.
 	}
 }
 
+func TestLoadRejectsNonRegularCanonicalSource(t *testing.T) {
+	root := t.TempDir()
+	writeCanonicalTree(t, root)
+	target := filepath.Join(root, "target.md")
+	mustWriteFile(t, target, "target\n")
+	if err := os.Remove(filepath.Join(root, "docs", "agents", "contract.md")); err != nil {
+		t.Fatalf("Remove(contract.md) = %v", err)
+	}
+	mustSymlink(t, target, filepath.Join(root, "docs", "agents", "contract.md"))
+
+	if _, err := Load(root); err == nil || !strings.Contains(err.Error(), "regular file") {
+		t.Fatalf("Load() error = %v, want regular-file error", err)
+	}
+}
+
 func TestLoadReturnsReadError(t *testing.T) {
 	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "docs", "agents", "contract.md"), 0o755); err != nil {
-		t.Fatalf("MkdirAll(contract.md dir) = %v", err)
-	}
+	writeCanonicalTree(t, root)
+	contractPath := filepath.Join(root, "docs", "agents", "contract.md")
+	injected := errors.New("read blocked")
+	withReadSourceFile(t, func(path string) ([]byte, error) {
+		if path == contractPath {
+			return nil, injected
+		}
+		return os.ReadFile(path)
+	})
 
-	if _, err := Load(root); err == nil || !strings.Contains(err.Error(), "read") {
-		t.Fatalf("Load() error = %v, want read error", err)
+	if _, err := Load(root); !errors.Is(err, injected) || !strings.Contains(err.Error(), "read") {
+		t.Fatalf("Load() error = %v, want read error wrapping %v", err, injected)
 	}
 }
 
@@ -720,6 +741,16 @@ func withWalkDir(t *testing.T, fn func(string, fs.WalkDirFunc) error) {
 	walkDir = fn
 	t.Cleanup(func() {
 		walkDir = previous
+	})
+}
+
+func withReadSourceFile(t *testing.T, fn func(string) ([]byte, error)) {
+	t.Helper()
+
+	previous := readSourceFile
+	readSourceFile = fn
+	t.Cleanup(func() {
+		readSourceFile = previous
 	})
 }
 
