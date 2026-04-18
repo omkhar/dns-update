@@ -21,7 +21,7 @@ This repository keeps its agent-facing docs small, tracked, and generated from `
 
 - Keep changes within the requested scope and preserve unrelated work already present in the tree.
 - Keep pull requests small enough for a human reviewer to reason about the full change. Split unrelated work or large complexity jumps into separate PRs.
-- Pull request CI rejects changes above `35` changed files or `2500` total added plus deleted lines.
+- Pull request CI rejects changes above `35` changed files or `3000` total added plus deleted lines.
 - Keep generated outputs in sync with the canonical source files and never hand-edit generated projections.
 - Prefer the smallest correct change that is still easy to review.
 - Use idiomatic Go and shell, with focused tests that cleanly validate behavior.

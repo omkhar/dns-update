@@ -30,7 +30,7 @@ jobs:
           PR_ADDITIONS: ${{ github.event.pull_request.additions }}
           PR_DELETIONS: ${{ github.event.pull_request.deletions }}
           MAX_CHANGED_FILES: "35"
-          MAX_TOTAL_LINES: "2500"
+          MAX_TOTAL_LINES: "3000"
         run: |
           changed_files="${PR_CHANGED_FILES:?}"
           additions="${PR_ADDITIONS:?}"

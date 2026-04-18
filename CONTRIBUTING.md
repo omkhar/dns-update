@@ -19,7 +19,7 @@ Thanks for contributing to this repository.
 - Add or update tests for behavior you change.
 - Keep pull requests small enough that a reviewer can reason about the full
   change without guesswork.
-- Pull request CI rejects changes above 35 changed files or 2500 total added
+- Pull request CI rejects changes above 35 changed files or 3000 total added
   plus deleted lines.
 - Edit `docs/agents/**` instead of hand-editing generated agent projections.
 - Regenerate agent projections with `go run ./cmd/agentdocgen` whenever
