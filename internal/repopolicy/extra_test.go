@@ -2,6 +2,7 @@ package repopolicy
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,6 +48,95 @@ func TestCheckUsesTrackedFilesAndIgnoresBinaryContent(t *testing.T) {
 	}
 }
 
+func TestCheckSkipsTrackedSymlinks(t *testing.T) {
+	root := t.TempDir()
+	gitRun(t, root, "init")
+
+	target := filepath.Join(t.TempDir(), "outside.txt")
+	if err := os.WriteFile(target, []byte(joinFragments("/Us", "ers/", "alice/", "git/", "private-repo/\n")), 0o644); err != nil {
+		t.Fatalf("WriteFile(target) = %v", err)
+	}
+	link := filepath.Join(root, "README.link")
+	if err := os.Symlink(target, link); err != nil {
+		if os.IsPermission(err) {
+			t.Skipf("Symlink(README.link) error = %v", err)
+		}
+		t.Fatalf("Symlink(README.link) error = %v", err)
+	}
+	gitRun(t, root, "add", "README.link")
+
+	findings, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("findings = %v, want empty", findings)
+	}
+}
+
+func TestCheckReturnsLstatErrorForTrackedFile(t *testing.T) {
+	root := t.TempDir()
+	gitRun(t, root, "init")
+	writeTestFile(t, root, "README.md", "tracked\n")
+	gitRun(t, root, "add", "README.md")
+
+	target := filepath.Join(root, "README.md")
+	injected := errors.New("lstat blocked")
+	withLstatFile(t, func(path string) (os.FileInfo, error) {
+		if path == target {
+			return nil, injected
+		}
+		return os.Lstat(path)
+	})
+
+	if _, err := Check(root); !errors.Is(err, injected) {
+		t.Fatalf("Check() error = %v, want %v", err, injected)
+	}
+}
+
+func TestCheckSkipsTrackedFileDeletedAfterLstat(t *testing.T) {
+	root := t.TempDir()
+	gitRun(t, root, "init")
+	writeTestFile(t, root, "README.md", "tracked\n")
+	gitRun(t, root, "add", "README.md")
+
+	target := filepath.Join(root, "README.md")
+	withReadFile(t, func(path string) ([]byte, error) {
+		if path == target {
+			return nil, os.ErrNotExist
+		}
+		return os.ReadFile(path)
+	})
+
+	findings, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("findings = %v, want empty", findings)
+	}
+}
+
+func TestCheckReturnsReadErrorForTrackedFile(t *testing.T) {
+	root := t.TempDir()
+	gitRun(t, root, "init")
+	writeTestFile(t, root, "README.md", "tracked\n")
+	gitRun(t, root, "add", "README.md")
+
+	target := filepath.Join(root, "README.md")
+	injected := errors.New("read blocked")
+	withReadFile(t, func(path string) ([]byte, error) {
+		if path == target {
+			return nil, injected
+		}
+		return os.ReadFile(path)
+	})
+
+	if _, err := Check(root); !errors.Is(err, injected) {
+		t.Fatalf("Check() error = %v, want %v", err, injected)
+	}
+}
+
 func TestCheckReturnsProjectFilesError(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "missing")
 	if _, err := Check(root); err == nil {
@@ -54,7 +144,7 @@ func TestCheckReturnsProjectFilesError(t *testing.T) {
 	}
 }
 
-func TestCheckReturnsReadErrorForTrackedDirectory(t *testing.T) {
+func TestCheckSkipsTrackedDirectories(t *testing.T) {
 	root := t.TempDir()
 	gitRun(t, root, "init")
 	writeTestFile(t, root, "README.md", "tracked\n")
@@ -66,8 +156,12 @@ func TestCheckReturnsReadErrorForTrackedDirectory(t *testing.T) {
 		t.Fatalf("Mkdir(README.md) = %v", err)
 	}
 
-	if _, err := Check(root); err == nil {
-		t.Fatal("Check() error = nil, want read error")
+	findings, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("findings = %v, want empty", findings)
 	}
 }
 
@@ -189,4 +283,24 @@ func gitRun(t *testing.T, dir string, args ...string) {
 	if err != nil {
 		t.Fatalf("git %v error = %v\n%s", args, err, bytes.TrimSpace(output))
 	}
+}
+
+func withLstatFile(t *testing.T, fn func(string) (os.FileInfo, error)) {
+	t.Helper()
+
+	previous := lstatFile
+	lstatFile = fn
+	t.Cleanup(func() {
+		lstatFile = previous
+	})
+}
+
+func withReadFile(t *testing.T, fn func(string) ([]byte, error)) {
+	t.Helper()
+
+	previous := readFile
+	readFile = fn
+	t.Cleanup(func() {
+		readFile = previous
+	})
 }

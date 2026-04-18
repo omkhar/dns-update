@@ -28,6 +28,8 @@ type contentRule struct {
 }
 
 var (
+	lstatFile         = os.Lstat
+	readFile          = os.ReadFile
 	localCheckoutDirs = joinFragments(
 		`(src|source|code|work|workspace|ws|git|repo|repos|`,
 		`Downloads|Desktop|Documents|Projects|security-evidence)`,
@@ -120,7 +122,17 @@ func Check(root string) ([]Finding, error) {
 	findings := make([]Finding, 0)
 	for _, path := range files {
 		fullPath := filepath.Join(root, filepath.FromSlash(path))
-		data, err := os.ReadFile(fullPath)
+		info, err := lstatFile(fullPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("lstat %s: %w", path, err)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+		data, err := readFile(fullPath)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
