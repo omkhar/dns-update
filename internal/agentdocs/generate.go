@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+var (
+	lstatPath  = os.Lstat
+	removePath = os.Remove
+	makeDirs   = os.MkdirAll
+	walkDir    = filepath.WalkDir
+)
+
 // ErrOutOfDate reports that generated outputs differ from what is on disk.
 var ErrOutOfDate = errors.New("generated agent docs out of date")
 
@@ -58,7 +65,7 @@ func Write(root string) error {
 		return err
 	}
 	for _, stalePath := range stalePaths {
-		if err := os.Remove(filepath.Join(root, filepath.FromSlash(stalePath))); err != nil {
+		if err := removePath(filepath.Join(root, filepath.FromSlash(stalePath))); err != nil {
 			return fmt.Errorf("remove stale %s: %w", stalePath, err)
 		}
 	}
@@ -67,7 +74,7 @@ func Write(root string) error {
 		if err := ensureSafeWritePath(root, output.Path); err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		if err := makeDirs(filepath.Dir(absPath), 0o755); err != nil {
 			return err
 		}
 		if err := os.WriteFile(absPath, []byte(output.Content), 0o644); err != nil {
@@ -95,7 +102,7 @@ func ensureSafeWritePath(root, relPath string) error {
 }
 
 func rejectSymlinkRoot(root string) error {
-	info, err := os.Lstat(root)
+	info, err := lstatPath(root)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -115,7 +122,7 @@ func firstManagedSymlink(root, relPath string) (string, error) {
 	parts := strings.Split(relToRoot, string(os.PathSeparator))
 	for i, part := range parts {
 		current = filepath.Join(current, part)
-		info, err := os.Lstat(current)
+		info, err := lstatPath(current)
 		if os.IsNotExist(err) {
 			if i == len(parts)-1 {
 				return "", nil
@@ -133,7 +140,7 @@ func firstManagedSymlink(root, relPath string) (string, error) {
 }
 
 func readManagedOutput(absPath string) (observed string, missing bool, invalid bool, err error) {
-	info, err := os.Lstat(absPath)
+	info, err := lstatPath(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", true, false, nil
@@ -151,7 +158,7 @@ func readManagedOutput(absPath string) (observed string, missing bool, invalid b
 }
 
 func statManagedRoot(absRoot, relRoot string) (bool, error) {
-	info, err := os.Lstat(absRoot)
+	info, err := lstatPath(absRoot)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -296,7 +303,7 @@ func managedPaths(root string) ([]string, error) {
 			continue
 		}
 
-		if err := filepath.WalkDir(absRoot, func(absPath string, entry os.DirEntry, walkErr error) error {
+		if err := walkDir(absRoot, func(absPath string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
@@ -317,7 +324,7 @@ func managedPaths(root string) ([]string, error) {
 
 func appendIfFile(paths []string, root, relPath string) []string {
 	absPath := filepath.Join(root, relPath)
-	info, err := os.Lstat(absPath)
+	info, err := lstatPath(absPath)
 	if err != nil || info.IsDir() {
 		return paths
 	}

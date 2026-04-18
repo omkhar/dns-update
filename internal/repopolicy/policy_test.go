@@ -38,6 +38,22 @@ func TestCheckFindsBlockedContent(t *testing.T) {
 	}
 }
 
+func TestCheckFindsGitCheckoutContent(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "README.md", "See "+joinFragments("/Us", "ers/", "alice/", "git/", "private-repo/", "notes.\n"))
+
+	findings, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("len(findings) = %d, want 1", len(findings))
+	}
+	if findings[0].Path != "README.md" {
+		t.Fatalf("findings[0].Path = %q, want README.md", findings[0].Path)
+	}
+}
+
 func writeTestFile(t *testing.T, root, relativePath, content string) {
 	t.Helper()
 

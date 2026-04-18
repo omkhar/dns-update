@@ -28,17 +28,23 @@ type contentRule struct {
 }
 
 var (
+	localCheckoutDirs = joinFragments(
+		`(src|source|code|work|workspace|ws|git|repo|repos|`,
+		`Downloads|Desktop|Documents|Projects|security-evidence)`,
+	)
 	localUnixCheckoutPattern = regexp.MustCompile(joinFragments(
 		`/(Users|home)/`,
 		`[^/\s]+/`,
-		`(src|code|work|workspace|Downloads|Desktop|Documents|Projects|security-evidence)/`,
+		localCheckoutDirs,
+		`/`,
 		`|/home/runner/`,
 		`work/`,
 	))
 	localWindowsCheckoutPattern = regexp.MustCompile(joinFragments(
 		`(?i)[A-Z]:\\`,
 		`Users\\[^\\\r\n]+\\`,
-		`(src|code|work|workspace|Downloads|Desktop|Documents|Projects|security-evidence)\\`,
+		localCheckoutDirs,
+		`\\`,
 		`|[A-Z]:\\Users\\[^\\\r\n]+\\AppData\\Local\\`,
 		`Temp\\`,
 		`|[A-Z]:\\`,

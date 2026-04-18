@@ -104,6 +104,19 @@ func TestCheckFindsWindowsCheckoutPathAndKnownPrivateRepo(t *testing.T) {
 	}
 }
 
+func TestCheckFindsWindowsGitCheckoutPath(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "README.md", joinFragments("C", ":\\", "Us", "ers\\", "alice\\", "git\\", "private-repo\\", "note.txt\n"))
+
+	findings, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("len(findings) = %d, want 1", len(findings))
+	}
+}
+
 func TestProjectFilesFallbackSkipsGitDirectory(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, ".git/config", "ignored\n")

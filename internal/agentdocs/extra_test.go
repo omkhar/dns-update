@@ -1,9 +1,10 @@
 package agentdocs
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -16,19 +17,10 @@ func TestLoadMissingContract(t *testing.T) {
 }
 
 func TestLoadRejectsSymlinkRoot(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
 	link := filepath.Join(t.TempDir(), "repo-link")
-	if err := os.Symlink(root, link); err != nil {
-		if os.IsPermission(err) {
-			t.Skipf("Symlink(repo-link) permission denied: %v", err)
-		}
-		t.Fatalf("Symlink(repo-link) = %v", err)
-	}
+	mustSymlink(t, root, link)
 
 	if _, err := Load(link); err == nil || !strings.Contains(err.Error(), "must not be a symlink") {
 		t.Fatalf("Load(symlink root) error = %v, want symlink-root error", err)
@@ -226,32 +218,26 @@ summary: Validate a change.
 }
 
 func TestWriteFailsWhenRemovingStalePathFails(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission-based stale removal behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
-	staleDir := filepath.Join(root, ".gemini", "commands")
-	if err := os.MkdirAll(staleDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(staleDir) = %v", err)
+	staleFile := filepath.Join(root, ".gemini", "commands", "stale.toml")
+	if err := os.MkdirAll(filepath.Dir(staleFile), 0o755); err != nil {
+		t.Fatalf("MkdirAll(staleFile dir) = %v", err)
 	}
-	staleFile := filepath.Join(staleDir, "stale.toml")
 	if err := os.WriteFile(staleFile, []byte("stale\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(staleFile) = %v", err)
 	}
-	if err := os.Chmod(staleDir, 0o500); err != nil {
-		t.Fatalf("Chmod(staleDir) = %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chmod(staleDir, 0o755); err != nil {
-			t.Fatalf("Chmod(staleDir) cleanup = %v", err)
+	injected := errors.New("remove blocked")
+	withRemovePath(t, func(path string) error {
+		if path == staleFile {
+			return injected
 		}
+		return os.Remove(path)
 	})
 
 	err := Write(root)
-	if err == nil || !strings.Contains(err.Error(), "remove stale") {
-		t.Fatalf("Write() error = %v, want stale removal error", err)
+	if !errors.Is(err, injected) || !strings.Contains(err.Error(), "remove stale") {
+		t.Fatalf("Write() error = %v, want stale removal error wrapping %v", err, injected)
 	}
 }
 
@@ -268,20 +254,20 @@ func TestWriteFailsWhenManagedPathsCannotBeListed(t *testing.T) {
 }
 
 func TestWriteFailsWhenParentDirectoryCannotBeCreated(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
-	if err := os.Chmod(root, 0o500); err != nil {
-		t.Fatalf("Chmod(root) = %v", err)
-	}
-	defer os.Chmod(root, 0o700)
+	blockedDir := filepath.Join(root, ".agents", "skills", "dns-update-change-gate")
+	injected := errors.New("mkdir blocked")
+	withMakeDirs(t, func(path string, perm os.FileMode) error {
+		if path == blockedDir {
+			return injected
+		}
+		return os.MkdirAll(path, perm)
+	})
 
 	err := Write(root)
-	if err == nil || !strings.Contains(err.Error(), ".agents") {
-		t.Fatalf("Write() error = %v, want parent directory error", err)
+	if !errors.Is(err, injected) {
+		t.Fatalf("Write() error = %v, want wrapped %v", err, injected)
 	}
 }
 
@@ -299,22 +285,13 @@ func TestWriteFailsWhenOutputPathIsDirectory(t *testing.T) {
 }
 
 func TestWriteFailsWhenExpectedOutputIsSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
 	target := filepath.Join(root, "target.txt")
 	if err := os.WriteFile(target, []byte("target\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile(target) = %v", err)
 	}
-	if err := os.Symlink(target, filepath.Join(root, "AGENTS.md")); err != nil {
-		if os.IsPermission(err) {
-			t.Skipf("Symlink(AGENTS.md) permission denied: %v", err)
-		}
-		t.Fatalf("Symlink(AGENTS.md) = %v", err)
-	}
+	mustSymlink(t, target, filepath.Join(root, "AGENTS.md"))
 
 	if err := Write(root); err == nil || !strings.Contains(err.Error(), "traverses symlink") {
 		t.Fatalf("Write() error = %v, want symlink traversal error", err)
@@ -322,22 +299,13 @@ func TestWriteFailsWhenExpectedOutputIsSymlink(t *testing.T) {
 }
 
 func TestWriteFailsWhenManagedPathTraversesSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
 	outside := filepath.Join(t.TempDir(), "elsewhere")
 	if err := os.MkdirAll(filepath.Join(outside, "skills"), 0o755); err != nil {
 		t.Fatalf("MkdirAll(outside) = %v", err)
 	}
-	if err := os.Symlink(outside, filepath.Join(root, ".agents")); err != nil {
-		if os.IsPermission(err) {
-			t.Skipf("Symlink(.agents) permission denied: %v", err)
-		}
-		t.Fatalf("Symlink(.agents) = %v", err)
-	}
+	mustSymlink(t, outside, filepath.Join(root, ".agents"))
 
 	if err := Write(root); err != nil {
 		t.Fatalf("Write() error = %v, want stale symlink replacement", err)
@@ -425,26 +393,18 @@ func TestCheckReadErrorAndHelpers(t *testing.T) {
 }
 
 func TestCheckReturnsLstatErrorForBlockedOutput(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission behavior is platform-specific")
-	}
-
 	root := t.TempDir()
-	blockedDir := filepath.Join(root, "blocked")
-	if err := os.MkdirAll(blockedDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(blockedDir) = %v", err)
-	}
-	if err := os.Chmod(blockedDir, 0); err != nil {
-		t.Fatalf("Chmod(blockedDir) = %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chmod(blockedDir, 0o755); err != nil {
-			t.Fatalf("Chmod(blockedDir) cleanup = %v", err)
+	blockedPath := filepath.Join(root, "blocked", "file.txt")
+	injected := errors.New("lstat blocked")
+	withLstatPath(t, func(path string) (os.FileInfo, error) {
+		if path == blockedPath {
+			return nil, injected
 		}
+		return os.Lstat(path)
 	})
 
-	if _, _, _, err := readManagedOutput(filepath.Join(blockedDir, "file.txt")); err == nil || !strings.Contains(err.Error(), "read") {
-		t.Fatalf("readManagedOutput() error = %v, want lstat read error", err)
+	if _, _, _, err := readManagedOutput(blockedPath); !errors.Is(err, injected) || !strings.Contains(err.Error(), "read") {
+		t.Fatalf("readManagedOutput() error = %v, want lstat read error wrapping %v", err, injected)
 	}
 }
 
@@ -459,37 +419,29 @@ func TestAppendIfRegular(t *testing.T) {
 	if paths := appendIfFile(nil, root, "missing.md"); len(paths) != 0 {
 		t.Fatalf("appendIfFile(missing) = %v, want empty", paths)
 	}
-	if runtime.GOOS != "windows" {
-		if err := os.Symlink("AGENTS.md", filepath.Join(root, "AGENTS.link")); err != nil {
-			t.Fatalf("Symlink(AGENTS.link) = %v", err)
-		}
-		if paths := appendIfFile(nil, root, "AGENTS.link"); len(paths) != 1 || paths[0] != "AGENTS.link" {
-			t.Fatalf("appendIfFile(symlink) = %v, want symlink path", paths)
-		}
+	mustSymlink(t, "AGENTS.md", filepath.Join(root, "AGENTS.link"))
+	if paths := appendIfFile(nil, root, "AGENTS.link"); len(paths) != 1 || paths[0] != "AGENTS.link" {
+		t.Fatalf("appendIfFile(symlink) = %v, want symlink path", paths)
 	}
 }
 
 func TestManagedPathsErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission-based walk errors are platform-specific")
-	}
-
 	root := t.TempDir()
 	badDir := filepath.Join(root, ".agents", "skills", "blocked")
 	if err := os.MkdirAll(badDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll(badDir) = %v", err)
 	}
-	if err := os.Chmod(badDir, 0); err != nil {
-		t.Fatalf("Chmod(badDir) = %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chmod(badDir, 0o755); err != nil {
-			t.Fatalf("Chmod(badDir) cleanup = %v", err)
+	injected := errors.New("walk blocked")
+	managedRoot := filepath.Join(root, ".agents", "skills")
+	withWalkDir(t, func(root string, fn fs.WalkDirFunc) error {
+		if root == managedRoot {
+			return fn(root, nil, injected)
 		}
+		return filepath.WalkDir(root, fn)
 	})
 
-	if _, err := managedPaths(root); err == nil {
-		t.Fatal("managedPaths() error = nil, want walk error")
+	if _, err := managedPaths(root); !errors.Is(err, injected) {
+		t.Fatalf("managedPaths() error = %v, want %v", err, injected)
 	}
 }
 
@@ -512,10 +464,6 @@ func TestCheckReportsStaleAndOutOfDateFiles(t *testing.T) {
 }
 
 func TestCheckReportsStaleSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
 	if err := Write(root); err != nil {
@@ -526,9 +474,7 @@ func TestCheckReportsStaleSymlink(t *testing.T) {
 		t.Fatalf("WriteFile(target) = %v", err)
 	}
 	stalePath := filepath.Join(root, ".agents", "skills", "stale-link")
-	if err := os.Symlink(target, stalePath); err != nil {
-		t.Fatalf("Symlink(stalePath) = %v", err)
-	}
+	mustSymlink(t, target, stalePath)
 
 	mismatches, err := Check(root)
 	if err != ErrOutOfDate {
@@ -547,10 +493,6 @@ func TestCheckReportsStaleSymlink(t *testing.T) {
 }
 
 func TestCheckRejectsExpectedSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
 	if err := Write(root); err != nil {
@@ -563,12 +505,7 @@ func TestCheckRejectsExpectedSymlink(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, "AGENTS.md")); err != nil {
 		t.Fatalf("Remove(AGENTS.md) = %v", err)
 	}
-	if err := os.Symlink(target, filepath.Join(root, "AGENTS.md")); err != nil {
-		if os.IsPermission(err) {
-			t.Skipf("Symlink(AGENTS.md) permission denied: %v", err)
-		}
-		t.Fatalf("Symlink(AGENTS.md) = %v", err)
-	}
+	mustSymlink(t, target, filepath.Join(root, "AGENTS.md"))
 
 	mismatches, err := Check(root)
 	if err != ErrOutOfDate {
@@ -610,71 +547,45 @@ func TestEnsureSafeWritePath(t *testing.T) {
 	if err := ensureSafeWritePath(root, "../escape"); err == nil || !strings.Contains(err.Error(), "escapes repository root") {
 		t.Fatalf("ensureSafeWritePath(escape) error = %v, want root escape error", err)
 	}
-	if runtime.GOOS == "windows" {
-		return
-	}
-
 	target := filepath.Join(root, "target.txt")
 	mustWriteFile(t, target, "target\n")
 	if err := os.Remove(filepath.Join(root, "AGENTS.md")); err != nil {
 		t.Fatalf("Remove(AGENTS.md) = %v", err)
 	}
-	if err := os.Symlink(target, filepath.Join(root, "AGENTS.md")); err != nil {
-		if os.IsPermission(err) {
-			t.Skipf("Symlink(AGENTS.md) permission denied: %v", err)
-		}
-		t.Fatalf("Symlink(AGENTS.md) = %v", err)
-	}
+	mustSymlink(t, target, filepath.Join(root, "AGENTS.md"))
 	if err := ensureSafeWritePath(root, "AGENTS.md"); err == nil || !strings.Contains(err.Error(), "traverses symlink") {
 		t.Fatalf("ensureSafeWritePath(symlink) error = %v, want symlink error", err)
 	}
 }
 
 func TestEnsureSafeWritePathReturnsLstatError(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	blockedDir := filepath.Join(root, "blocked")
-	if err := os.MkdirAll(blockedDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(blockedDir) = %v", err)
-	}
-	if err := os.Chmod(blockedDir, 0); err != nil {
-		t.Fatalf("Chmod(blockedDir) = %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chmod(blockedDir, 0o755); err != nil {
-			t.Fatalf("Chmod(blockedDir) cleanup = %v", err)
+	injected := errors.New("lstat blocked")
+	withLstatPath(t, func(path string) (os.FileInfo, error) {
+		if path == blockedDir {
+			return nil, injected
 		}
+		return os.Lstat(path)
 	})
 
-	if err := ensureSafeWritePath(root, filepath.ToSlash(filepath.Join("blocked", "file.txt"))); err == nil || !strings.Contains(err.Error(), "lstat") {
-		t.Fatalf("ensureSafeWritePath(blocked) error = %v, want lstat error", err)
+	if err := ensureSafeWritePath(root, filepath.ToSlash(filepath.Join("blocked", "file.txt"))); !errors.Is(err, injected) || !strings.Contains(err.Error(), "lstat") {
+		t.Fatalf("ensureSafeWritePath(blocked) error = %v, want lstat error wrapping %v", err, injected)
 	}
 }
 
 func TestRejectSymlinkRootReturnsLstatError(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission behavior is platform-specific")
-	}
-
-	parent := t.TempDir()
-	blocked := filepath.Join(parent, "blocked")
-	if err := os.MkdirAll(blocked, 0o755); err != nil {
-		t.Fatalf("MkdirAll(blocked) = %v", err)
-	}
-	if err := os.Chmod(blocked, 0); err != nil {
-		t.Fatalf("Chmod(blocked) = %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chmod(blocked, 0o755); err != nil {
-			t.Fatalf("Chmod(blocked) cleanup = %v", err)
+	root := filepath.Join(t.TempDir(), "blocked", "repo")
+	injected := errors.New("lstat blocked")
+	withLstatPath(t, func(path string) (os.FileInfo, error) {
+		if path == root {
+			return nil, injected
 		}
+		return os.Lstat(path)
 	})
 
-	if err := rejectSymlinkRoot(filepath.Join(blocked, "repo")); err == nil {
-		t.Fatal("rejectSymlinkRoot() error = nil, want lstat error")
+	if err := rejectSymlinkRoot(root); !errors.Is(err, injected) {
+		t.Fatalf("rejectSymlinkRoot() error = %v, want %v", err, injected)
 	}
 }
 
@@ -685,21 +596,12 @@ func TestRejectSymlinkRootAllowsMissingPath(t *testing.T) {
 }
 
 func TestManagedPathsReturnsManagedRootSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink behavior is platform-specific")
-	}
-
 	root := t.TempDir()
 	outside := filepath.Join(t.TempDir(), "outside")
 	if err := os.MkdirAll(filepath.Join(outside, "skills"), 0o755); err != nil {
 		t.Fatalf("MkdirAll(outside) = %v", err)
 	}
-	if err := os.Symlink(outside, filepath.Join(root, ".agents")); err != nil {
-		if os.IsPermission(err) {
-			t.Skipf("Symlink(.agents) permission denied: %v", err)
-		}
-		t.Fatalf("Symlink(.agents) = %v", err)
-	}
+	mustSymlink(t, outside, filepath.Join(root, ".agents"))
 
 	paths, err := managedPaths(root)
 	if err != nil {
@@ -745,24 +647,16 @@ func TestStatManagedRoot(t *testing.T) {
 	if _, err := statManagedRoot(filepath.Join(root, "file"), "file"); err == nil || !strings.Contains(err.Error(), "not a directory") {
 		t.Fatalf("statManagedRoot(file) error = %v, want not-a-directory error", err)
 	}
-	if runtime.GOOS == "windows" {
-		return
-	}
-
-	blocked := filepath.Join(root, "blocked")
-	if err := os.MkdirAll(blocked, 0o755); err != nil {
-		t.Fatalf("MkdirAll(blocked) = %v", err)
-	}
-	if err := os.Chmod(blocked, 0); err != nil {
-		t.Fatalf("Chmod(blocked) = %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chmod(blocked, 0o755); err != nil {
-			t.Fatalf("Chmod(blocked) cleanup = %v", err)
+	blockedPath := filepath.Join(root, "blocked", "dir")
+	injected := errors.New("lstat blocked")
+	withLstatPath(t, func(path string) (os.FileInfo, error) {
+		if path == blockedPath {
+			return nil, injected
 		}
+		return os.Lstat(path)
 	})
-	if _, err := statManagedRoot(filepath.Join(blocked, "dir"), "blocked/dir"); err == nil {
-		t.Fatal("statManagedRoot(blocked) error = nil, want lstat error")
+	if _, err := statManagedRoot(blockedPath, "blocked/dir"); !errors.Is(err, injected) {
+		t.Fatalf("statManagedRoot(blocked) error = %v, want %v", err, injected)
 	}
 }
 
@@ -776,6 +670,57 @@ func TestCheckFailsWhenManagedPathsCannotBeListed(t *testing.T) {
 	if _, err := Check(root); err == nil {
 		t.Fatal("Check() error = nil, want managed path error")
 	}
+}
+
+func mustSymlink(t *testing.T, target, link string) {
+	t.Helper()
+
+	if err := os.Symlink(target, link); err != nil {
+		if os.IsPermission(err) || strings.Contains(strings.ToLower(err.Error()), "privilege") {
+			t.Skipf("Symlink(%s) unavailable: %v", link, err)
+		}
+		t.Fatalf("Symlink(%s) = %v", link, err)
+	}
+}
+
+func withLstatPath(t *testing.T, fn func(string) (os.FileInfo, error)) {
+	t.Helper()
+
+	previous := lstatPath
+	lstatPath = fn
+	t.Cleanup(func() {
+		lstatPath = previous
+	})
+}
+
+func withRemovePath(t *testing.T, fn func(string) error) {
+	t.Helper()
+
+	previous := removePath
+	removePath = fn
+	t.Cleanup(func() {
+		removePath = previous
+	})
+}
+
+func withMakeDirs(t *testing.T, fn func(string, os.FileMode) error) {
+	t.Helper()
+
+	previous := makeDirs
+	makeDirs = fn
+	t.Cleanup(func() {
+		makeDirs = previous
+	})
+}
+
+func withWalkDir(t *testing.T, fn func(string, fs.WalkDirFunc) error) {
+	t.Helper()
+
+	previous := walkDir
+	walkDir = fn
+	t.Cleanup(func() {
+		walkDir = previous
+	})
 }
 
 func writeCanonicalTree(t *testing.T, root string) {
