@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,6 +65,31 @@ func TestRunFailsWhenRootIsMissing(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "contract.md") {
 		t.Fatalf("stderr = %q, want missing contract error", stderr.String())
+	}
+}
+
+func TestRunReturnsOneWhenStderrWriteFails(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "missing")
+
+	if got, want := run([]string{"-root", root}, failingWriter{err: errors.New("write failed")}), 1; got != want {
+		t.Fatalf("run(write missing root) exit code = %d, want %d", got, want)
+	}
+}
+
+func TestRunCheckReturnsOneWhenSummaryWriteFails(t *testing.T) {
+	root := t.TempDir()
+	writeCanonicalSources(t, root)
+
+	if got, want := run([]string{"-root", root, "-check"}, failingWriter{err: errors.New("write failed")}), 1; got != want {
+		t.Fatalf("run(check missing artifacts) exit code = %d, want %d", got, want)
+	}
+}
+
+func TestRunCheckReturnsOneWhenErrorWriteFails(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "missing")
+
+	if got, want := run([]string{"-root", root, "-check"}, failingWriter{err: errors.New("write failed")}), 1; got != want {
+		t.Fatalf("run(check missing root) exit code = %d, want %d", got, want)
 	}
 }
 
@@ -143,4 +169,12 @@ func mustWriteFile(t *testing.T, path, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile(%s) = %v", path, err)
 	}
+}
+
+type failingWriter struct {
+	err error
+}
+
+func (w failingWriter) Write(_ []byte) (int, error) {
+	return 0, w.err
 }

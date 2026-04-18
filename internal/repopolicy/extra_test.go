@@ -74,7 +74,7 @@ func TestCheckReturnsReadErrorForTrackedDirectory(t *testing.T) {
 func TestCheckSortsFindingsByPathThenMessage(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, "coverage/report.txt", "detritus\n")
-	writeTestFile(t, root, "README.md", blockedContentRules[0].needle+blockedContentRules[2].needle)
+	writeTestFile(t, root, "README.md", joinFragments("/Us", "ers/", "alice/", "src/", "private-repo/\n", "work", "cell", "\n"))
 
 	findings, err := Check(root)
 	if err != nil {
@@ -88,6 +88,19 @@ func TestCheckSortsFindingsByPathThenMessage(t *testing.T) {
 	}
 	if findings[0].Message > findings[1].Message {
 		t.Fatalf("same-path findings not sorted by message: %+v", findings[:2])
+	}
+}
+
+func TestCheckFindsWindowsCheckoutPathAndKnownPrivateRepo(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "README.md", joinFragments("C", ":\\", "Us", "ers\\", "alice\\", "Downloads\\", "note.txt\n", "cloudflare-", "site-platform-", "ts", "\n"))
+
+	findings, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if len(findings) != 2 {
+		t.Fatalf("len(findings) = %d, want 2", len(findings))
 	}
 }
 
@@ -129,7 +142,11 @@ func TestProjectFilesFallbackReturnsWalkError(t *testing.T) {
 	if err := os.Chmod(blockedDir, 0); err != nil {
 		t.Fatalf("Chmod(blockedDir) = %v", err)
 	}
-	defer os.Chmod(blockedDir, 0o755)
+	t.Cleanup(func() {
+		if err := os.Chmod(blockedDir, 0o755); err != nil {
+			t.Fatalf("Chmod(blockedDir) cleanup = %v", err)
+		}
+	})
 
 	if _, err := projectFiles(root); err == nil {
 		t.Fatal("projectFiles() error = nil, want walk error")

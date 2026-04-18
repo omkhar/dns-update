@@ -64,6 +64,9 @@ func Write(root string) error {
 	}
 	for _, output := range outputs {
 		absPath := filepath.Join(root, filepath.FromSlash(output.Path))
+		if err := ensureSafeWritePath(root, output.Path); err != nil {
+			return err
+		}
 		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
 			return err
 		}
@@ -72,6 +75,93 @@ func Write(root string) error {
 		}
 	}
 	return nil
+}
+
+func ensureSafeWritePath(root, relPath string) error {
+	absPath := filepath.Join(root, filepath.FromSlash(relPath))
+	relToRoot, _ := filepath.Rel(root, absPath)
+	if relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("generated path escapes repository root: %s", relPath)
+	}
+
+	symlinkPath, err := firstManagedSymlink(root, relPath)
+	if err != nil {
+		return err
+	}
+	if symlinkPath != "" {
+		return fmt.Errorf("managed output path %s traverses symlink %s", relPath, symlinkPath)
+	}
+	return nil
+}
+
+func rejectSymlinkRoot(root string) error {
+	info, err := os.Lstat(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("repository root must not be a symlink: %s", root)
+	}
+	return nil
+}
+
+func firstManagedSymlink(root, relPath string) (string, error) {
+	absPath := filepath.Join(root, filepath.FromSlash(relPath))
+	relToRoot, _ := filepath.Rel(root, absPath)
+	current := root
+	parts := strings.Split(relToRoot, string(os.PathSeparator))
+	for i, part := range parts {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if os.IsNotExist(err) {
+			if i == len(parts)-1 {
+				return "", nil
+			}
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("lstat %s: %w", relPath, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return filepath.ToSlash(filepath.Join(parts[:i+1]...)), nil
+		}
+	}
+	return "", nil
+}
+
+func readManagedOutput(absPath string) (observed string, missing bool, invalid bool, err error) {
+	info, err := os.Lstat(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", true, false, nil
+		}
+		return "", false, false, fmt.Errorf("read %s: %w", absPath, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return "", false, true, nil
+	}
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return "", false, false, fmt.Errorf("read %s: %w", absPath, err)
+	}
+	return string(data), false, false, nil
+}
+
+func statManagedRoot(absRoot, relRoot string) (bool, error) {
+	info, err := os.Lstat(absRoot)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !info.IsDir() {
+		return false, fmt.Errorf("%s: not a directory", relRoot)
+	}
+	return true, nil
 }
 
 // Check compares the generated projections with what is already on disk.
@@ -95,23 +185,30 @@ func Check(root string) ([]Mismatch, error) {
 
 	for _, output := range outputs {
 		absPath := filepath.Join(root, filepath.FromSlash(output.Path))
-		observed, err := os.ReadFile(absPath)
+		observed, missing, invalid, err := readManagedOutput(absPath)
 		if err != nil {
-			if os.IsNotExist(err) {
-				mismatches = append(mismatches, Mismatch{
-					Path:     output.Path,
-					Expected: output.Content,
-					Missing:  true,
-				})
-				continue
-			}
-			return nil, fmt.Errorf("read %s: %w", absPath, err)
+			return nil, err
 		}
-		if normalizeNewlines(string(observed)) != normalizeNewlines(output.Content) {
+		if missing {
 			mismatches = append(mismatches, Mismatch{
 				Path:     output.Path,
 				Expected: output.Content,
-				Observed: string(observed),
+				Missing:  true,
+			})
+			continue
+		}
+		if invalid {
+			mismatches = append(mismatches, Mismatch{
+				Path:    output.Path,
+				Invalid: true,
+			})
+			continue
+		}
+		if normalizeNewlines(observed) != normalizeNewlines(output.Content) {
+			mismatches = append(mismatches, Mismatch{
+				Path:     output.Path,
+				Expected: output.Content,
+				Observed: observed,
 			})
 		}
 	}
@@ -126,6 +223,9 @@ func Check(root string) ([]Mismatch, error) {
 func FormatMismatch(m Mismatch) string {
 	if m.Stale {
 		return fmt.Sprintf("%s is stale and should be removed", m.Path)
+	}
+	if m.Invalid {
+		return fmt.Sprintf("%s is invalid and should be replaced", m.Path)
 	}
 	if m.Missing {
 		return fmt.Sprintf("%s is missing", m.Path)
@@ -169,27 +269,38 @@ func staleManagedPaths(root string, outputs []Output) ([]string, error) {
 
 func managedPaths(root string) ([]string, error) {
 	paths := make([]string, 0)
-	paths = appendIfRegular(paths, root, "AGENTS.md")
-	paths = appendIfRegular(paths, root, "CLAUDE.md")
-	paths = appendIfRegular(paths, root, "GEMINI.md")
+	paths = appendIfFile(paths, root, "AGENTS.md")
+	paths = appendIfFile(paths, root, "CLAUDE.md")
+	paths = appendIfFile(paths, root, "GEMINI.md")
 
 	for _, relRoot := range []string{
 		filepath.Join(".agents", "skills"),
 		filepath.Join(".claude", "skills"),
 		filepath.Join(".gemini", "commands"),
 	} {
-		absRoot := filepath.Join(root, relRoot)
-		if _, err := os.Stat(absRoot); os.IsNotExist(err) {
-			continue
-		} else if err != nil {
+		symlinkPath, err := firstManagedSymlink(root, filepath.ToSlash(relRoot))
+		if err != nil {
 			return nil, err
+		}
+		if symlinkPath != "" {
+			paths = append(paths, symlinkPath)
+			continue
+		}
+
+		absRoot := filepath.Join(root, relRoot)
+		exists, err := statManagedRoot(absRoot, filepath.ToSlash(relRoot))
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
 		}
 
 		if err := filepath.WalkDir(absRoot, func(absPath string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
-			if entry.IsDir() || !entry.Type().IsRegular() {
+			if entry.IsDir() {
 				return nil
 			}
 			relPath, _ := filepath.Rel(root, absPath)
@@ -204,10 +315,10 @@ func managedPaths(root string) ([]string, error) {
 	return paths, nil
 }
 
-func appendIfRegular(paths []string, root, relPath string) []string {
+func appendIfFile(paths []string, root, relPath string) []string {
 	absPath := filepath.Join(root, relPath)
-	info, err := os.Stat(absPath)
-	if err != nil || !info.Mode().IsRegular() {
+	info, err := os.Lstat(absPath)
+	if err != nil || info.IsDir() {
 		return paths
 	}
 	return append(paths, relPath)

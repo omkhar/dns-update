@@ -478,8 +478,8 @@ repository-level quality gates:
   mutant
 - a generated-agent parity check that fails unless the tracked Codex, Claude,
   and Gemini projections match `docs/agents/**`
-- a public-repo hygiene check that rejects tracked detritus, local absolute
-  paths, usernames, and non-public references
+- a public-repo hygiene check that rejects tracked detritus, local checkout,
+  temp, or evidence paths, and banned non-public references
 
 Regenerate the tracked agent projections with:
 
@@ -493,9 +493,10 @@ regular use.
 
 GitHub Actions is split into four lanes:
 
-- `CI` is the fast PR gate. It checks YAML style, GitHub Actions syntax, Go
-  formatting, module hygiene, shell syntax, shell lint, Go lint, reachable
-  vulnerabilities, `go vet`, `go test`, and `go build ./...`.
+- `CI` is the fast PR gate. It checks PR reviewability limits, YAML style,
+  GitHub Actions syntax, Go formatting, module hygiene, shell syntax, shell
+  lint, Go lint, reachable vulnerabilities, `go vet`, `go test`, and
+  `go build ./...`.
 - `Package Validation` builds the cross-platform release archives on pull
   requests and validates package/archive payloads on `main`.
 - `Nightly` runs the expensive repository-level quality gates, longer fuzzing,

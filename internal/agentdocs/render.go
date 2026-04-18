@@ -3,6 +3,7 @@ package agentdocs
 import (
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -93,12 +94,10 @@ func renderSkillTOML(source Source) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Generated from %s; do not edit directly.\n", source.Path)
 	fmt.Fprintf(&b, "description = %q\n\n", source.Summary)
-	b.WriteString("prompt = '''\n")
 	if body != "" {
-		b.WriteString(body)
-		b.WriteString("\n")
+		body += "\n"
 	}
-	b.WriteString("'''\n")
+	fmt.Fprintf(&b, "prompt = %s\n", strconv.Quote(body))
 	return b.String()
 }
 
@@ -136,6 +135,7 @@ func stripLeadingHeading(body string) string {
 
 	if idx := strings.Index(body, "\n"); idx >= 0 {
 		body = strings.TrimLeft(body[idx+1:], "\n")
+		return body
 	}
-	return body
+	return ""
 }

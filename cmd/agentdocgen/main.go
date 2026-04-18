@@ -28,18 +28,24 @@ func run(args []string, stderr io.Writer) int {
 	if *check {
 		mismatches, err := agentdocs.Check(*root)
 		if err != nil && err != agentdocs.ErrOutOfDate {
-			fmt.Fprintln(stderr, err)
+			if _, writeErr := fmt.Fprintln(stderr, err); writeErr != nil {
+				return 1
+			}
 			return 1
 		}
 		if len(mismatches) > 0 {
-			fmt.Fprintln(stderr, agentdocs.Summary(mismatches))
+			if _, writeErr := fmt.Fprintln(stderr, agentdocs.Summary(mismatches)); writeErr != nil {
+				return 1
+			}
 			return 1
 		}
 		return 0
 	}
 
 	if err := agentdocs.Write(*root); err != nil {
-		fmt.Fprintln(stderr, err)
+		if _, writeErr := fmt.Fprintln(stderr, err); writeErr != nil {
+			return 1
+		}
 		return 1
 	}
 	return 0

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -23,8 +24,27 @@ type pathRule struct {
 
 type contentRule struct {
 	message string
-	needle  string
+	match   func(content string) bool
 }
+
+var (
+	localUnixCheckoutPattern = regexp.MustCompile(joinFragments(
+		`/(Users|home)/`,
+		`[^/\s]+/`,
+		`(src|code|work|workspace|Downloads|Desktop|Documents|Projects|security-evidence)/`,
+		`|/home/runner/`,
+		`work/`,
+	))
+	localWindowsCheckoutPattern = regexp.MustCompile(joinFragments(
+		`(?i)[A-Z]:\\`,
+		`Users\\[^\\\r\n]+\\`,
+		`(src|code|work|workspace|Downloads|Desktop|Documents|Projects|security-evidence)\\`,
+		`|[A-Z]:\\Users\\[^\\\r\n]+\\AppData\\Local\\`,
+		`Temp\\`,
+		`|[A-Z]:\\`,
+		`a\\`,
+	))
+)
 
 var blockedPathRules = []pathRule{
 	{
@@ -52,32 +72,36 @@ var blockedPathRules = []pathRule{
 
 var blockedContentRules = []contentRule{
 	{
-		message: "absolute macOS home paths do not belong in public repository content",
-		needle:  joinFragments("/Us", "ers/"),
+		message: "local checkout, temp, or evidence paths do not belong in public repository content",
+		match: func(content string) bool {
+			return localUnixCheckoutPattern.MatchString(content)
+		},
 	},
 	{
-		message: "absolute Windows home paths do not belong in public repository content",
-		needle:  joinFragments(`:\`, "Us", `ers\`),
-	},
-	{
-		message: "private local usernames do not belong in public repository content",
-		needle:  joinFragments("omkhar", "anara", "saratnam"),
-	},
-	{
-		message: "non-public repository references do not belong in public repository content",
-		needle:  joinFragments("cloudflare-", "site-platform-", "ts"),
+		message: "local checkout, temp, or evidence paths do not belong in public repository content",
+		match: func(content string) bool {
+			return localWindowsCheckoutPattern.MatchString(content)
+		},
 	},
 	{
 		message: "non-public repository references do not belong in public repository content",
-		needle:  joinFragments("work", "cell"),
+		match: func(content string) bool {
+			return strings.Contains(content, joinFragments("cloudflare-", "site-platform-", "ts")) ||
+				strings.Contains(content, joinFragments("cloudflare-", "site-platforms-", "ts")) ||
+				strings.Contains(content, joinFragments("work", "cell"))
+		},
 	},
 	{
 		message: "non-public visibility markers do not belong in public repository content",
-		needle:  joinFragments("private", "-only"),
+		match: func(content string) bool {
+			return strings.Contains(content, joinFragments("private", "-only"))
+		},
 	},
 	{
 		message: "non-public visibility markers do not belong in public repository content",
-		needle:  joinFragments("internal", "-only"),
+		match: func(content string) bool {
+			return strings.Contains(content, joinFragments("internal", "-only"))
+		},
 	},
 }
 
@@ -112,7 +136,7 @@ func Check(root string) ([]Finding, error) {
 
 		content := normalizeNewlines(string(data))
 		for _, rule := range blockedContentRules {
-			if strings.Contains(content, rule.needle) {
+			if rule.match(content) {
 				findings = append(findings, Finding{
 					Path:    path,
 					Message: rule.message,

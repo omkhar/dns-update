@@ -9,6 +9,10 @@ import (
 
 // Load reads the canonical source tree under docs/agents.
 func Load(root string) ([]Source, error) {
+	if err := rejectSymlinkRoot(root); err != nil {
+		return nil, err
+	}
+
 	contractPath := filepath.Join(root, "docs", "agents", "contract.md")
 	skillPattern := filepath.Join(root, "docs", "agents", "skills", "*.md")
 

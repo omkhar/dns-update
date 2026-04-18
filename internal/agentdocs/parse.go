@@ -3,11 +3,16 @@ package agentdocs
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
+var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
 // ParseDocument parses one canonical source file.
 func ParseDocument(path string, data []byte) (Source, error) {
+	data = []byte(normalizeNewlines(string(data)))
+
 	if !bytes.HasPrefix(data, []byte("---\n")) {
 		return Source{}, fmt.Errorf("%s: missing front matter start marker", path)
 	}
@@ -44,6 +49,9 @@ func ParseDocument(path string, data []byte) (Source, error) {
 	}
 	if slug == "" {
 		return Source{}, fmt.Errorf("%s: missing slug", path)
+	}
+	if !slugPattern.MatchString(slug) {
+		return Source{}, fmt.Errorf("%s: invalid slug %q", path, slug)
 	}
 	if title == "" {
 		return Source{}, fmt.Errorf("%s: missing title", path)

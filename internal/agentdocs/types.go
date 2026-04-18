@@ -33,4 +33,5 @@ type Mismatch struct {
 	Observed string
 	Missing  bool
 	Stale    bool
+	Invalid  bool
 }

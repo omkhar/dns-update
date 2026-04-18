@@ -142,7 +142,7 @@ Use this playbook when a change is headed for release or merge.
 	if err != nil {
 		t.Fatalf("ReadFile(gemini) = %v", err)
 	}
-	if !strings.Contains(string(gemini), "prompt = '''") {
+	if !strings.Contains(string(gemini), "prompt = \"# dns-update change gate\\n") {
 		t.Fatalf("Gemini output = %q, want TOML prompt", string(gemini))
 	}
 	if !strings.Contains(string(gemini), "description = \"Validate a change for correctness, safety, and reviewability before merge.\"") {
