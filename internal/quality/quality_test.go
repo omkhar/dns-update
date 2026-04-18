@@ -62,6 +62,26 @@ func TestPublicRepoHygiene(t *testing.T) {
 	t.Fatalf("public repository hygiene failures:\n%s", strings.Join(lines, "\n"))
 }
 
+func TestAgentdocsIntegration(t *testing.T) {
+	t.Parallel()
+	clone := func(t *testing.T) string { t.Helper(); root := t.TempDir(); if err := copyTree(filepath.Join(repoRoot(t), "docs", "agents"), filepath.Join(root, "docs", "agents")); err != nil { t.Fatalf("copyTree(docs/agents) error = %v", err) }; return root }
+	write := func(t *testing.T, path, content string) { t.Helper(); if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { t.Fatalf("MkdirAll(%s) = %v", path, err) }; if err := os.WriteFile(path, []byte(content), 0o644); err != nil { t.Fatalf("WriteFile(%s) = %v", path, err) } }
+
+	root := clone(t)
+	if _, err := agentdocs.Check(t.TempDir()); err == nil || !strings.Contains(err.Error(), "contract.md") { t.Fatalf("agentdocs.Check(missing contract) error = %v, want contract path failure", err) }
+	if _, err := agentdocs.Check(root); !errors.Is(err, agentdocs.ErrOutOfDate) { t.Fatalf("agentdocs.Check(missing outputs) error = %v, want %v", err, agentdocs.ErrOutOfDate) }
+	stalePath := filepath.Join(root, ".gemini", "commands", "stale.toml")
+	write(t, stalePath, "stale\n")
+	if mismatches, err := agentdocs.Check(root); !errors.Is(err, agentdocs.ErrOutOfDate) || !strings.Contains(agentdocs.Summary(mismatches), ".gemini/commands/stale.toml is stale and should be removed") { t.Fatalf("agentdocs.Check(stale) = (%v, %v), want stale mismatch", mismatches, err) }
+	if err := agentdocs.Write(root); err != nil { t.Fatalf("agentdocs.Write() error = %v", err) }
+	write(t, filepath.Join(root, "AGENTS.md"), "drifted\n")
+	if mismatches, err := agentdocs.Check(root); !errors.Is(err, agentdocs.ErrOutOfDate) || !strings.Contains(agentdocs.Summary(mismatches), "AGENTS.md is out of date") { t.Fatalf("agentdocs.Check(drifted) = (%v, %v), want AGENTS.md drift", mismatches, err) }
+	root = clone(t)
+	write(t, filepath.Join(root, ".agents", "skills"), "file\n")
+	if _, err := agentdocs.Check(root); err == nil || !strings.Contains(err.Error(), ".agents/skills") { t.Fatalf("agentdocs.Check(managed root file) error = %v, want .agents/skills failure", err) }
+	if err := agentdocs.Write(root); err == nil || !strings.Contains(err.Error(), ".agents/skills") { t.Fatalf("agentdocs.Write(managed root file) error = %v, want .agents/skills failure", err) }
+}
+
 func TestCoverageThreshold(t *testing.T) {
 	t.Parallel()
 
