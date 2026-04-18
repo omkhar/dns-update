@@ -39,6 +39,8 @@ var (
 		`[^/\s]+/`,
 		localCheckoutDirs,
 		`/`,
+		joinFragments(`|/private`, `/tmp/`),
+		joinFragments(`|/var`, `/folders/`),
 		`|/home/runner/`,
 		`work/`,
 	))

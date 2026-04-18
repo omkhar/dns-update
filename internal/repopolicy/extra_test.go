@@ -214,6 +214,32 @@ func TestCheckFindsWindowsGitCheckoutPath(t *testing.T) {
 	}
 }
 
+func TestCheckFindsMacPrivateTempPath(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "README.md", joinFragments("/private", "/tmp/", "dns-update-proof.txt\n"))
+
+	findings, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("len(findings) = %d, want 1", len(findings))
+	}
+}
+
+func TestCheckFindsMacVarFoldersPath(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "README.md", joinFragments("/var", "/folders/", "ab/cdefghijklmnopqrstuvwxyz/T/dns-update-proof.txt\n"))
+
+	findings, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("len(findings) = %d, want 1", len(findings))
+	}
+}
+
 func TestProjectFilesFallbackSkipsGitDirectory(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, ".git/config", "ignored\n")
