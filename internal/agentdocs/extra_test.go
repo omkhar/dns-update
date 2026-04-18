@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -361,6 +362,9 @@ func TestCheckReadErrorAndHelpers(t *testing.T) {
 	if err := Write(root); err != nil {
 		t.Fatalf("Write() error = %v", err)
 	}
+	if mismatches, err := Check(root); err != nil || len(mismatches) != 0 {
+		t.Fatalf("Check() = (%#v, %v), want (empty, nil)", mismatches, err)
+	}
 	if err := os.Remove(filepath.Join(root, "AGENTS.md")); err != nil {
 		t.Fatalf("Remove(AGENTS.md) = %v", err)
 	}
@@ -497,62 +501,24 @@ func TestManagedPathsErrors(t *testing.T) {
 func TestCheckReportsStaleAndOutOfDateFiles(t *testing.T) {
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
-	if err := Write(root); err != nil {
-		t.Fatalf("Write() error = %v", err)
-	}
-	mustWriteFile(t, filepath.Join(root, ".gemini", "commands", "stale.toml"), "stale\n")
-	mustWriteFile(t, filepath.Join(root, "AGENTS.md"), "drifted\n")
-
-	mismatches, err := Check(root)
-	if err != ErrOutOfDate {
-		t.Fatalf("Check() error = %v, want %v", err, ErrOutOfDate)
-	}
-	if len(mismatches) < 2 {
-		t.Fatalf("len(mismatches) = %d, want at least 2", len(mismatches))
-	}
-}
-
-func TestCheckReturnsNilWhenGeneratedOutputsMatch(t *testing.T) {
-	root := t.TempDir()
-	writeCanonicalTree(t, root)
-	if err := Write(root); err != nil {
-		t.Fatalf("Write() error = %v", err)
-	}
-
-	mismatches, err := Check(root)
-	if err != nil {
-		t.Fatalf("Check() error = %v, want nil", err)
-	}
-	if len(mismatches) != 0 {
-		t.Fatalf("Check() mismatches = %#v, want empty", mismatches)
-	}
-}
-
-func TestWriteRemovesRegularStaleManagedFile(t *testing.T) {
-	root := t.TempDir()
-	writeCanonicalTree(t, root)
 	stalePath := filepath.Join(root, ".gemini", "commands", "stale.toml")
 	mustWriteFile(t, stalePath, "stale\n")
-
+	stale, err := staleManagedPaths(root, []Output{{Path: "AGENTS.md"}})
+	if err != nil || len(stale) != 1 || stale[0] != ".gemini/commands/stale.toml" {
+		t.Fatalf("staleManagedPaths() = %v, want [.gemini/commands/stale.toml]", stale)
+	}
 	if err := Write(root); err != nil {
 		t.Fatalf("Write() error = %v", err)
 	}
 	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
 		t.Fatalf("Stat(stalePath) error = %v, want not-exist", err)
 	}
-}
+	mustWriteFile(t, stalePath, "stale\n")
+	mustWriteFile(t, filepath.Join(root, "AGENTS.md"), "drifted\n")
 
-func TestStaleManagedPathsKeepsExpectedOutputs(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, "AGENTS.md"), "current\n")
-	mustWriteFile(t, filepath.Join(root, ".gemini", "commands", "stale.toml"), "stale\n")
-
-	stale, err := staleManagedPaths(root, []Output{{Path: "AGENTS.md"}})
-	if err != nil {
-		t.Fatalf("staleManagedPaths() error = %v", err)
-	}
-	if len(stale) != 1 || stale[0] != ".gemini/commands/stale.toml" {
-		t.Fatalf("staleManagedPaths() = %v, want [.gemini/commands/stale.toml]", stale)
+	mismatches, err := Check(root)
+	if err != ErrOutOfDate || len(mismatches) < 2 {
+		t.Fatalf("Check() = (%#v, %v), want out-of-date mismatches", mismatches, err)
 	}
 }
 
@@ -706,21 +672,18 @@ func TestManagedPathsReturnsManagedRootSymlink(t *testing.T) {
 	if len(paths) != 1 || paths[0] != ".agents" {
 		t.Fatalf("managedPaths() = %v, want [.agents]", paths)
 	}
-}
+	otherRoot := t.TempDir()
+	mustWriteFile(t, filepath.Join(otherRoot, ".claude", "skills", "dns-update-change-gate", "SKILL.md"), "skill\n")
+	mustWriteFile(t, filepath.Join(otherRoot, ".gemini", "commands", "dns-update", "change-gate.toml"), "prompt = \"x\"\n")
 
-func TestManagedPathsListsAllManagedRoots(t *testing.T) {
-	root := t.TempDir()
-	mustWriteFile(t, filepath.Join(root, ".claude", "skills", "dns-update-change-gate", "SKILL.md"), "skill\n")
-	mustWriteFile(t, filepath.Join(root, ".gemini", "commands", "dns-update", "change-gate.toml"), "prompt = \"x\"\n")
-
-	paths, err := managedPaths(root)
+	paths, err = managedPaths(otherRoot)
 	if err != nil {
 		t.Fatalf("managedPaths() error = %v", err)
 	}
-	if !containsString(paths, ".claude/skills/dns-update-change-gate/SKILL.md") {
+	if !slices.Contains(paths, ".claude/skills/dns-update-change-gate/SKILL.md") {
 		t.Fatalf("managedPaths() = %v, want claude skill", paths)
 	}
-	if !containsString(paths, ".gemini/commands/dns-update/change-gate.toml") {
+	if !slices.Contains(paths, ".gemini/commands/dns-update/change-gate.toml") {
 		t.Fatalf("managedPaths() = %v, want gemini command", paths)
 	}
 }
@@ -893,13 +856,4 @@ summary: Validate release-ready changes, generated docs, and package-impacting p
 
 Use this playbook when a change is headed for release or merge.
 	`, "\n"))
-}
-
-func containsString(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
 }

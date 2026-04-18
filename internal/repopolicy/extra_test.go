@@ -268,9 +268,9 @@ func TestProjectFilesReturnsTrackedFilesErrorForInvalidRoot(t *testing.T) {
 func TestProjectFilesFallbackReturnsWalkError(t *testing.T) {
 	root := t.TempDir()
 	injected := errors.New("walk blocked")
-	withWalkProjectDir(t, func(path string, fn fs.WalkDirFunc) error {
-		return fn(filepath.Join(path, "blocked"), nil, injected)
-	})
+	previous := walkProjectDir
+	walkProjectDir = func(path string, fn fs.WalkDirFunc) error { return fn(filepath.Join(path, "blocked"), nil, injected) }
+	t.Cleanup(func() { walkProjectDir = previous })
 
 	if _, err := projectFiles(root); !errors.Is(err, injected) {
 		t.Fatalf("projectFiles() error = %v, want %v", err, injected)
@@ -319,15 +319,5 @@ func withReadFile(t *testing.T, fn func(string) ([]byte, error)) {
 	readFile = fn
 	t.Cleanup(func() {
 		readFile = previous
-	})
-}
-
-func withWalkProjectDir(t *testing.T, fn func(string, fs.WalkDirFunc) error) {
-	t.Helper()
-
-	previous := walkProjectDir
-	walkProjectDir = fn
-	t.Cleanup(func() {
-		walkProjectDir = previous
 	})
 }
