@@ -535,6 +535,18 @@ func TestManagedPathsErrors(t *testing.T) {
 	if _, err := managedPaths(root); !errors.Is(err, injected) {
 		t.Fatalf("managedPaths() error = %v, want %v", err, injected)
 	}
+	walkDir = filepath.WalkDir
+	blockedPath := filepath.Join(root, ".agents")
+	injected = errors.New("lstat blocked")
+	withLstatPath(t, func(path string) (os.FileInfo, error) {
+		if samePath(path, blockedPath) {
+			return nil, injected
+		}
+		return os.Lstat(path)
+	})
+	if _, err := managedPaths(root); !errors.Is(err, injected) {
+		t.Fatalf("managedPaths() error = %v, want %v", err, injected)
+	}
 }
 
 func TestCheckReportsStaleAndOutOfDateFiles(t *testing.T) {
