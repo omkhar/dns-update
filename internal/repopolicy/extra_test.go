@@ -3,10 +3,10 @@ package repopolicy
 import (
 	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"testing"
 )
@@ -266,26 +266,14 @@ func TestProjectFilesReturnsTrackedFilesErrorForInvalidRoot(t *testing.T) {
 }
 
 func TestProjectFilesFallbackReturnsWalkError(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("permission-based walk errors are platform-specific")
-	}
-
 	root := t.TempDir()
-	blockedDir := filepath.Join(root, "blocked")
-	if err := os.MkdirAll(blockedDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(blockedDir) = %v", err)
-	}
-	if err := os.Chmod(blockedDir, 0); err != nil {
-		t.Fatalf("Chmod(blockedDir) = %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chmod(blockedDir, 0o755); err != nil {
-			t.Fatalf("Chmod(blockedDir) cleanup = %v", err)
-		}
+	injected := errors.New("walk blocked")
+	withWalkProjectDir(t, func(path string, fn fs.WalkDirFunc) error {
+		return fn(filepath.Join(path, "blocked"), nil, injected)
 	})
 
-	if _, err := projectFiles(root); err == nil {
-		t.Fatal("projectFiles() error = nil, want walk error")
+	if _, err := projectFiles(root); !errors.Is(err, injected) {
+		t.Fatalf("projectFiles() error = %v, want %v", err, injected)
 	}
 }
 
@@ -331,5 +319,15 @@ func withReadFile(t *testing.T, fn func(string) ([]byte, error)) {
 	readFile = fn
 	t.Cleanup(func() {
 		readFile = previous
+	})
+}
+
+func withWalkProjectDir(t *testing.T, fn func(string, fs.WalkDirFunc) error) {
+	t.Helper()
+
+	previous := walkProjectDir
+	walkProjectDir = fn
+	t.Cleanup(func() {
+		walkProjectDir = previous
 	})
 }

@@ -30,6 +30,7 @@ type contentRule struct {
 var (
 	lstatFile         = os.Lstat
 	readFile          = os.ReadFile
+	walkProjectDir    = filepath.WalkDir
 	localCheckoutDirs = joinFragments(
 		`(src|source|code|work|workspace|ws|git|repo|repos|`,
 		`Downloads|Desktop|Documents|Projects|security-evidence)`,
@@ -194,7 +195,7 @@ func projectFiles(root string) ([]string, error) {
 	}
 
 	files = make([]string, 0)
-	walkErr := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+	walkErr := walkProjectDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}

@@ -512,6 +512,50 @@ func TestCheckReportsStaleAndOutOfDateFiles(t *testing.T) {
 	}
 }
 
+func TestCheckReturnsNilWhenGeneratedOutputsMatch(t *testing.T) {
+	root := t.TempDir()
+	writeCanonicalTree(t, root)
+	if err := Write(root); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+
+	mismatches, err := Check(root)
+	if err != nil {
+		t.Fatalf("Check() error = %v, want nil", err)
+	}
+	if len(mismatches) != 0 {
+		t.Fatalf("Check() mismatches = %#v, want empty", mismatches)
+	}
+}
+
+func TestWriteRemovesRegularStaleManagedFile(t *testing.T) {
+	root := t.TempDir()
+	writeCanonicalTree(t, root)
+	stalePath := filepath.Join(root, ".gemini", "commands", "stale.toml")
+	mustWriteFile(t, stalePath, "stale\n")
+
+	if err := Write(root); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
+		t.Fatalf("Stat(stalePath) error = %v, want not-exist", err)
+	}
+}
+
+func TestStaleManagedPathsKeepsExpectedOutputs(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "AGENTS.md"), "current\n")
+	mustWriteFile(t, filepath.Join(root, ".gemini", "commands", "stale.toml"), "stale\n")
+
+	stale, err := staleManagedPaths(root, []Output{{Path: "AGENTS.md"}})
+	if err != nil {
+		t.Fatalf("staleManagedPaths() error = %v", err)
+	}
+	if len(stale) != 1 || stale[0] != ".gemini/commands/stale.toml" {
+		t.Fatalf("staleManagedPaths() = %v, want [.gemini/commands/stale.toml]", stale)
+	}
+}
+
 func TestCheckReportsStaleSymlink(t *testing.T) {
 	root := t.TempDir()
 	writeCanonicalTree(t, root)
@@ -661,6 +705,23 @@ func TestManagedPathsReturnsManagedRootSymlink(t *testing.T) {
 	}
 	if len(paths) != 1 || paths[0] != ".agents" {
 		t.Fatalf("managedPaths() = %v, want [.agents]", paths)
+	}
+}
+
+func TestManagedPathsListsAllManagedRoots(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, ".claude", "skills", "dns-update-change-gate", "SKILL.md"), "skill\n")
+	mustWriteFile(t, filepath.Join(root, ".gemini", "commands", "dns-update", "change-gate.toml"), "prompt = \"x\"\n")
+
+	paths, err := managedPaths(root)
+	if err != nil {
+		t.Fatalf("managedPaths() error = %v", err)
+	}
+	if !containsString(paths, ".claude/skills/dns-update-change-gate/SKILL.md") {
+		t.Fatalf("managedPaths() = %v, want claude skill", paths)
+	}
+	if !containsString(paths, ".gemini/commands/dns-update/change-gate.toml") {
+		t.Fatalf("managedPaths() = %v, want gemini command", paths)
 	}
 }
 
@@ -831,5 +892,14 @@ summary: Validate release-ready changes, generated docs, and package-impacting p
 # dns-update release gate
 
 Use this playbook when a change is headed for release or merge.
-`, "\n"))
+	`, "\n"))
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
