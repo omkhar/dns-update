@@ -4,7 +4,6 @@ slug: dns-update-change-gate
 title: dns-update change gate
 summary: Validate a change for correctness, safety, and reviewability before merge.
 ---
-
 1. Restate the behavior change, keep the edit in scope, and keep the PR reviewable.
 2. Regenerate the agent docs with `go run ./cmd/agentdocgen` whenever `docs/agents/**` changes.
 3. Run the smallest tests that prove the change; normal code changes still require `go test ./...`, `go vet ./...`, and `go build ./...`.

@@ -42,7 +42,6 @@ func renderRootMarkdown(source Source, skills []Source, target rootTarget) strin
 		b.WriteString("\n")
 	}
 	if len(skills) > 0 {
-		b.WriteString("\n")
 		renderRootHelpers(&b, skills, target)
 	}
 	return strings.TrimRight(b.String(), "\n") + "\n"
