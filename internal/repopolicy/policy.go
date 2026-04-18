@@ -28,32 +28,23 @@ type contentRule struct {
 }
 
 var (
-	lstatFile         = os.Lstat
-	readFile          = os.ReadFile
-	walkProjectDir    = filepath.WalkDir
-	localCheckoutDirs = joinFragments(
-		`(src|source|code|work|workspace|ws|git|repo|repos|`,
-		`Downloads|Desktop|Documents|Projects|security-evidence)`,
-	)
+	lstatFile                = os.Lstat
+	readFile                 = os.ReadFile
+	walkProjectDir           = filepath.WalkDir
 	localUnixCheckoutPattern = regexp.MustCompile(joinFragments(
-		`/(Users|home)/`,
-		`[^/\s]+/`,
-		localCheckoutDirs,
-		`/`,
-		joinFragments(`|/private`, `/tmp/`),
-		joinFragments(`|/var`, `/folders/`),
-		`|/home/runner/`,
-		`work/`,
+		`(?:`,
+		`/(Us`, `ers|home)/[A-Za-z0-9._~-]+/(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+/?`,
+		`|/private`, `/tmp/(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+/?`,
+		`|/var`, `/folders/(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+/?`,
+		`|/home/runner/wo`, `rk/(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+/?`,
+		`)(?:$|[\s<>()\[\]{}'".,:;!?])`,
 	))
 	localWindowsCheckoutPattern = regexp.MustCompile(joinFragments(
-		`(?i)[A-Z]:\\`,
-		`Users\\[^\\\r\n]+\\`,
-		localCheckoutDirs,
-		`\\`,
-		`|[A-Z]:\\Users\\[^\\\r\n]+\\AppData\\Local\\`,
-		`Temp\\`,
-		`|[A-Z]:\\`,
-		`a\\`,
+		`(?:`,
+		`(?i)[A-Z]:\\Us`, `ers\\[A-Za-z0-9._~-]+\\(?:[A-Za-z0-9._~-]+\\)*[A-Za-z0-9._~-]+\\?`,
+		`|[A-Z]:\\Us`, `ers\\[A-Za-z0-9._~-]+\\AppData\\Local\\Temp\\(?:[A-Za-z0-9._~-]+\\)*[A-Za-z0-9._~-]+\\?`,
+		`|[A-Z]:\\a\\(?:[A-Za-z0-9._~-]+\\)*[A-Za-z0-9._~-]+\\?`,
+		`)(?:$|[\s<>()\[\]{}'".,:;!?])`,
 	))
 )
 

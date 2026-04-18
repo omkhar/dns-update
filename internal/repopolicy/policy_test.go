@@ -24,7 +24,7 @@ func TestCheckFindsBlockedTrackedArtifactPath(t *testing.T) {
 
 func TestCheckFindsBlockedContent(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, root, "README.md", "See "+joinFragments("/Us", "ers/", "alice/", "src/", "private-repo/", "notes.\n"))
+	writeTestFile(t, root, "README.md", "See "+joinFragments("/Us", "ers/", "alice/", "dev/", "private-repo/", "notes.\n"))
 
 	findings, err := Check(root)
 	if err != nil {
