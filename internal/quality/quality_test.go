@@ -11,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"dns-update/internal/agentdocs"
+	"dns-update/internal/repopolicy"
 )
 
 const (
@@ -23,6 +26,86 @@ type mutant struct {
 	file string
 	old  string
 	new  string
+}
+
+func TestAgentArtifactsUpToDate(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	mismatches, err := agentdocs.Check(root)
+	if err != nil && !errors.Is(err, agentdocs.ErrOutOfDate) {
+		t.Fatalf("agentdocs.Check() error = %v", err)
+	}
+	if len(mismatches) == 0 {
+		return
+	}
+
+	t.Fatalf("generated agent artifacts are out of date:\n%s", agentdocs.Summary(mismatches))
+}
+
+func TestPublicRepoHygiene(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	findings, err := repopolicy.Check(root)
+	if err != nil {
+		t.Fatalf("repopolicy.Check() error = %v", err)
+	}
+	if len(findings) == 0 {
+		return
+	}
+
+	lines := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		lines = append(lines, fmt.Sprintf("%s: %s", finding.Path, finding.Message))
+	}
+	t.Fatalf("public repository hygiene failures:\n%s", strings.Join(lines, "\n"))
+}
+
+func TestAgentdocsIntegration(t *testing.T) {
+	source := filepath.Join(repoRoot(t), "docs", "agents")
+	if _, err := agentdocs.Check(t.TempDir()); err == nil || !strings.Contains(err.Error(), "contract.md") {
+		t.Fatalf("agentdocs.Check(missing contract) error = %v, want contract path failure", err)
+	}
+	root := t.TempDir()
+	if err := copyTree(source, filepath.Join(root, "docs", "agents")); err != nil {
+		t.Fatal(err)
+	}
+	stalePath := filepath.Join(root, ".gemini", "commands", "stale.toml")
+	mustWriteTestFile(t, stalePath, "stale\n")
+	if mismatches, err := agentdocs.Check(root); !errors.Is(err, agentdocs.ErrOutOfDate) || !strings.Contains(agentdocs.Summary(mismatches), ".gemini/commands/stale.toml is stale and should be removed") {
+		t.Fatalf("agentdocs.Check(stale) = (%v, %v), want stale mismatch", mismatches, err)
+	}
+	if err := agentdocs.Write(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, "AGENTS.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "AGENTS.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := agentdocs.Check(root); err == nil || !strings.Contains(err.Error(), "AGENTS.md") {
+		t.Fatalf("agentdocs.Check(read error) error = %v, want AGENTS.md read failure", err)
+	}
+	if err := os.Remove(filepath.Join(root, "AGENTS.md")); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteTestFile(t, filepath.Join(root, "AGENTS.md"), "drifted\n")
+	if mismatches, err := agentdocs.Check(root); !errors.Is(err, agentdocs.ErrOutOfDate) || !strings.Contains(agentdocs.Summary(mismatches), "AGENTS.md is out of date") {
+		t.Fatalf("agentdocs.Check(drifted) = (%v, %v), want AGENTS.md drift", mismatches, err)
+	}
+	root = t.TempDir()
+	if err := copyTree(source, filepath.Join(root, "docs", "agents")); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteTestFile(t, filepath.Join(root, ".agents", "skills"), "file\n")
+	if _, err := agentdocs.Check(root); err == nil || !strings.Contains(err.Error(), ".agents/skills") {
+		t.Fatalf("agentdocs.Check(managed root file) error = %v, want .agents/skills failure", err)
+	}
+	if err := agentdocs.Write(root); err == nil || !strings.Contains(err.Error(), ".agents/skills") {
+		t.Fatalf("agentdocs.Write(managed root file) error = %v, want .agents/skills failure", err)
+	}
 }
 
 func TestCoverageThreshold(t *testing.T) {
@@ -224,6 +307,16 @@ func copyFile(src string, dst string, mode os.FileMode) error {
 		return err
 	}
 	return destination.Close()
+}
+
+func mustWriteTestFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("MkdirAll(%s) = %v", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("WriteFile(%s) = %v", path, err)
+	}
 }
 
 func applyMutant(root string, tc mutant) error {

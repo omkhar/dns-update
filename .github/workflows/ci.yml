@@ -15,6 +15,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pr-reviewability:
+    name: Pull Request Reviewability
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Enforce reviewability limits
+        shell: bash
+        env:
+          PR_CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+          PR_ADDITIONS: ${{ github.event.pull_request.additions }}
+          PR_DELETIONS: ${{ github.event.pull_request.deletions }}
+          MAX_CHANGED_FILES: "35"
+          MAX_TOTAL_LINES: "3000"
+        run: |
+          changed_files="${PR_CHANGED_FILES:?}"
+          additions="${PR_ADDITIONS:?}"
+          deletions="${PR_DELETIONS:?}"
+          total_lines=$((additions + deletions))
+          if [ "$changed_files" -le "$MAX_CHANGED_FILES" ] &&
+            [ "$total_lines" -le "$MAX_TOTAL_LINES" ]; then
+            exit 0
+          fi
+          printf 'PR reviewability guard failed.\n' >&2
+          printf 'changed files: %s (max %s)\n' "$changed_files" "$MAX_CHANGED_FILES" >&2
+          printf 'total changed lines: %s (max %s)\n' "$total_lines" "$MAX_TOTAL_LINES" >&2
+          printf 'Split the change before merge.\n' >&2
+          exit 1
+
   lint-and-static:
     name: Lint and Static Analysis
     runs-on: ubuntu-latest

@@ -468,7 +468,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for public release history.
 
 ## Quality Checks
 
-`go test ./...` runs the normal unit and integration suite and also enforces two
+`go test ./...` runs the normal unit and integration suite and also enforces
 repository-level quality gates:
 
 - a coverage check that fails unless total statement coverage across `./...` is
@@ -476,6 +476,16 @@ repository-level quality gates:
 - a curated mutation suite that copies the repository into temporary workspaces,
   applies compile-preserving mutants, and requires the test suite to kill each
   mutant
+- a generated-agent parity check that fails unless the tracked Codex, Claude,
+  and Gemini projections match `docs/agents/**`
+- a public-repo hygiene check that rejects tracked detritus, local checkout,
+  temp, or evidence paths, and banned non-public references
+
+Regenerate the tracked agent projections with:
+
+```sh
+go run ./cmd/agentdocgen
+```
 
 The mutation and coverage skip environment variables are only for the nested
 subprocesses launched by those tests and normally should remain unset during
@@ -483,9 +493,10 @@ regular use.
 
 GitHub Actions is split into four lanes:
 
-- `CI` is the fast PR gate. It checks YAML style, GitHub Actions syntax, Go
-  formatting, module hygiene, shell syntax, shell lint, Go lint, reachable
-  vulnerabilities, `go vet`, `go test`, and `go build ./...`.
+- `CI` is the fast PR gate. It checks PR reviewability limits, YAML style,
+  GitHub Actions syntax, Go formatting, module hygiene, shell syntax, shell
+  lint, Go lint, reachable vulnerabilities, `go vet`, `go test`, and
+  `go build ./...`.
 - `Package Validation` builds the cross-platform release archives on pull
   requests and validates package/archive payloads on `main`.
 - `Nightly` runs the expensive repository-level quality gates, longer fuzzing,
