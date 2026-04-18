@@ -79,6 +79,18 @@ func TestAgentdocsIntegration(t *testing.T) {
 	if err := agentdocs.Write(root); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Remove(filepath.Join(root, "AGENTS.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "AGENTS.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := agentdocs.Check(root); err == nil || !strings.Contains(err.Error(), "AGENTS.md") {
+		t.Fatalf("agentdocs.Check(read error) error = %v, want AGENTS.md read failure", err)
+	}
+	if err := os.Remove(filepath.Join(root, "AGENTS.md")); err != nil {
+		t.Fatal(err)
+	}
 	mustWriteTestFile(t, filepath.Join(root, "AGENTS.md"), "drifted\n")
 	if mismatches, err := agentdocs.Check(root); !errors.Is(err, agentdocs.ErrOutOfDate) || !strings.Contains(agentdocs.Summary(mismatches), "AGENTS.md is out of date") {
 		t.Fatalf("agentdocs.Check(drifted) = (%v, %v), want AGENTS.md drift", mismatches, err)
@@ -88,6 +100,9 @@ func TestAgentdocsIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustWriteTestFile(t, filepath.Join(root, ".agents", "skills"), "file\n")
+	if _, err := agentdocs.Check(root); err == nil || !strings.Contains(err.Error(), ".agents/skills") {
+		t.Fatalf("agentdocs.Check(managed root file) error = %v, want .agents/skills failure", err)
+	}
 	if err := agentdocs.Write(root); err == nil || !strings.Contains(err.Error(), ".agents/skills") {
 		t.Fatalf("agentdocs.Write(managed root file) error = %v, want .agents/skills failure", err)
 	}

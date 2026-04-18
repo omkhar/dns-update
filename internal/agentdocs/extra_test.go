@@ -474,8 +474,8 @@ func TestCheckReadErrorAndHelpers(t *testing.T) {
 		t.Fatalf("renderRootHelpers(nil skills) = %q, want empty", b.String())
 	}
 	renderRootHelpers(&b, []Source{{Slug: "dns-update-change-gate", Summary: "summary"}}, rootTarget("bogus"))
-	if b.Len() != 0 {
-		t.Fatalf("renderRootHelpers(default target) = %q, want empty", b.String())
+	if got, want := b.String(), "- `dns-update-change-gate`: summary\n"; got != want {
+		t.Fatalf("renderRootHelpers(default target) = %q, want %q", got, want)
 	}
 }
 

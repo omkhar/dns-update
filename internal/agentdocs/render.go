@@ -51,18 +51,6 @@ func renderRootHelpers(b *strings.Builder, skills []Source, target rootTarget) {
 	if len(skills) == 0 {
 		return
 	}
-
-	switch target {
-	case rootTargetCodex:
-		b.WriteString("## Repo Skills\n")
-	case rootTargetClaude:
-		b.WriteString("## Project Skills\n")
-	case rootTargetGemini:
-		b.WriteString("## Project Commands\n")
-	default:
-		return
-	}
-
 	for _, skill := range skills {
 		fmt.Fprintf(b, "- `%s`: %s\n", skillInvocation(skill.Slug, target), skill.Summary)
 	}
