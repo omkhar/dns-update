@@ -31,19 +31,20 @@ var (
 	lstatFile                = os.Lstat
 	readFile                 = os.ReadFile
 	walkProjectDir           = filepath.WalkDir
+	localPathSegment         = joinFragments(`[A-Za-z0-9._~-]+(?: `, `[A-Za-z0-9._~-]+)*`)
 	localUnixCheckoutPattern = regexp.MustCompile(joinFragments(
 		`(?:`,
-		`/(Us`, `ers|home)/[A-Za-z0-9._~-]+/(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+/?`,
-		`|/private`, `/tmp/(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+/?`,
-		`|/var`, `/folders/(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+/?`,
-		`|/home/runner/wo`, `rk/(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]+/?`,
+		`/(Us`, `ers|home)/`, localPathSegment, `(?:/(?:(?:`, localPathSegment, `/)*`, localPathSegment, `/?`, `)?)?`,
+		`|/private`, `/tmp(?:/(?:(?:`, localPathSegment, `/)*`, localPathSegment, `/?`, `)?)?`,
+		`|/var`, `/folders(?:/(?:(?:`, localPathSegment, `/)*`, localPathSegment, `/?`, `)?)?`,
+		`|/home/runner/wo`, `rk(?:/(?:(?:`, localPathSegment, `/)*`, localPathSegment, `/?`, `)?)?`,
 		`)(?:$|[\s<>()\[\]{}'".,:;!?])`,
 	))
 	localWindowsCheckoutPattern = regexp.MustCompile(joinFragments(
 		`(?:`,
-		`(?i)[A-Z]:\\Us`, `ers\\[A-Za-z0-9._~-]+\\(?:[A-Za-z0-9._~-]+\\)*[A-Za-z0-9._~-]+\\?`,
-		`|[A-Z]:\\Us`, `ers\\[A-Za-z0-9._~-]+\\AppData\\Local\\Temp\\(?:[A-Za-z0-9._~-]+\\)*[A-Za-z0-9._~-]+\\?`,
-		`|[A-Z]:\\a\\(?:[A-Za-z0-9._~-]+\\)*[A-Za-z0-9._~-]+\\?`,
+		`(?i)[A-Z]:\\Us`, `ers\\`, localPathSegment, `(?:\\(?:(?:`, localPathSegment, `\\)*`, localPathSegment, `\\?`, `)?)?`,
+		`|[A-Z]:\\Us`, `ers\\`, localPathSegment, `\\AppData\\Local\\Temp(?:\\(?:(?:`, localPathSegment, `\\)*`, localPathSegment, `\\?`, `)?)?`,
+		`|[A-Z]:\\a(?:\\(?:(?:`, localPathSegment, `\\)*`, localPathSegment, `\\?`, `)?)?`,
 		`)(?:$|[\s<>()\[\]{}'".,:;!?])`,
 	))
 )

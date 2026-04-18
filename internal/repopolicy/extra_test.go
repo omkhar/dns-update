@@ -188,9 +188,9 @@ func TestCheckSortsFindingsByPathThenMessage(t *testing.T) {
 	}
 }
 
-func TestCheckFindsWindowsCheckoutPathAndKnownPrivateRepo(t *testing.T) {
+func TestCheckFindsWindowsHomePathAndKnownPrivateRepo(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, root, "README.md", joinFragments("C", ":\\", "Us", "ers\\", "alice\\", "Downloads\\", "note.txt\n", "cloudflare-", "site-platform-", "ts", "\n"))
+	writeTestFile(t, root, "README.md", joinFragments("C", ":\\", "Us", "ers\\", "Alice Smith\\", "My Projects\\", "repo\n", "cloudflare-", "site-platform-", "ts", "\n"))
 
 	findings, err := Check(root)
 	if err != nil {
@@ -201,9 +201,9 @@ func TestCheckFindsWindowsCheckoutPathAndKnownPrivateRepo(t *testing.T) {
 	}
 }
 
-func TestCheckFindsWindowsGitCheckoutPath(t *testing.T) {
+func TestCheckFindsWindowsTempRootPath(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, root, "README.md", joinFragments("C", ":\\", "Us", "ers\\", "alice\\", "git\\", "private-repo\\", "note.txt\n"))
+	writeTestFile(t, root, "README.md", joinFragments("C", ":\\", "a\n"))
 
 	findings, err := Check(root)
 	if err != nil {
@@ -216,7 +216,7 @@ func TestCheckFindsWindowsGitCheckoutPath(t *testing.T) {
 
 func TestCheckFindsMacPrivateTempPath(t *testing.T) {
 	root := t.TempDir()
-	writeTestFile(t, root, "README.md", joinFragments("/private", "/tmp/", "dns-update-proof.txt\n"))
+	writeTestFile(t, root, "README.md", joinFragments("/private", "/tmp\n"))
 
 	findings, err := Check(root)
 	if err != nil {
