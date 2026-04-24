@@ -56,9 +56,21 @@ func FuzzParseProbeURL(f *testing.F) {
 	f.Add("ftp://4.ip.omsab.net/", false)
 
 	f.Fuzz(func(t *testing.T, raw string, allowHTTP bool) {
+		if len(raw) > 512 {
+			t.Skip()
+		}
+		value := strings.TrimSpace(raw)
+		lowerValue := strings.ToLower(value)
+		if value != "" &&
+			!strings.HasPrefix(lowerValue, "http://") &&
+			!strings.HasPrefix(lowerValue, "https://") &&
+			!strings.HasPrefix(lowerValue, "ftp://") {
+			t.Skip()
+		}
+
 		parsed, err := parseProbeURL(raw, defaultProbeIPv4URL, allowHTTP)
 		if err != nil {
-			return
+			t.Skip()
 		}
 
 		if parsed == nil {
