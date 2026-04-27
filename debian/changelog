@@ -1,3 +1,13 @@
+dns-update (1.4.0-1) unstable; urgency=medium
+
+  * Add --version so operators can print the binary version and exit before
+    loading configuration or initializing providers.
+  * Stabilize the probe URL fuzz target and refresh repository-maintenance
+    automation, including pinned Fedora CI images and GitHub Actions updates.
+  * Refresh the runtime user-agent and package metadata to 1.4.0.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Mon, 27 Apr 2026 15:57:15 -0400
+
 dns-update (1.3.12-1) unstable; urgency=medium
 
   * Stop packaging/build-remote-container.sh from shell-sourcing the optional
