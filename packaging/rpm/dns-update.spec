@@ -10,7 +10,7 @@
 %global __brp_strip_comment_note %{nil}
 %global __brp_strip_static_archive %{nil}
 
-%global upstream_version 1.4.0
+%global upstream_version 1.4.1
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid= -X dns-update/internal/buildinfo.Version=%{version}}
@@ -114,6 +114,11 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Mon Apr 27 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.4.1-1
+- Continue reconciliation when only one egress probe family succeeds
+- Keep explicit ip=none deletion behavior unchanged
+- Refresh release metadata for the 1.4.1 release
+
 * Mon Apr 27 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.4.0-1
 - Add --version so operators can print the binary version before config loading
 - Stabilize the probe URL fuzz target and refresh CI maintenance

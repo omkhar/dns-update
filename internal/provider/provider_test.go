@@ -195,6 +195,71 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 	})
 }
 
+func TestBuildSelectedAddressPlan(t *testing.T) {
+	t.Parallel()
+
+	desiredIPv4 := mustAddr(t, "198.51.100.20")
+	desiredIPv6 := mustAddr(t, "2001:db8::20")
+	current := State{
+		Name: "host.example.com.",
+		Records: []Record{
+			{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: "198.51.100.10", TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
+			{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: "2001:db8::10", TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
+		},
+	}
+	desired := DesiredState{
+		Name:       "host.example.com.",
+		TTLSeconds: 300,
+		IPv4:       &desiredIPv4,
+		IPv6:       &desiredIPv6,
+		Options:    RecordOptions{Proxy: new(false)},
+	}
+
+	t.Run("a only", func(t *testing.T) {
+		t.Parallel()
+
+		plan, err := BuildSelectedAddressPlan(current, desired, RecordSelectionA)
+		if err != nil {
+			t.Fatalf("BuildSelectedAddressPlan() error = %v", err)
+		}
+		if got, want := len(plan.Operations), 1; got != want {
+			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
+		}
+		if got, want := plan.Operations[0].Desired.Type, RecordTypeA; got != want {
+			t.Fatalf("operation type = %q, want %q", got, want)
+		}
+		if got, want := plan.Operations[0].Desired.Content, desiredIPv4.String(); got != want {
+			t.Fatalf("operation content = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("aaaa only", func(t *testing.T) {
+		t.Parallel()
+
+		plan, err := BuildSelectedAddressPlan(current, desired, RecordSelectionAAAA)
+		if err != nil {
+			t.Fatalf("BuildSelectedAddressPlan() error = %v", err)
+		}
+		if got, want := len(plan.Operations), 1; got != want {
+			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
+		}
+		if got, want := plan.Operations[0].Desired.Type, RecordTypeAAAA; got != want {
+			t.Fatalf("operation type = %q, want %q", got, want)
+		}
+		if got, want := plan.Operations[0].Desired.Content, desiredIPv6.String(); got != want {
+			t.Fatalf("operation content = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("selection required", func(t *testing.T) {
+		t.Parallel()
+
+		if _, err := BuildSelectedAddressPlan(current, desired, RecordSelectionNone); err == nil {
+			t.Fatal("BuildSelectedAddressPlan() error = nil, want non-nil")
+		}
+	})
+}
+
 func TestBuildDeletePlan(t *testing.T) {
 	t.Parallel()
 
@@ -399,6 +464,37 @@ func TestVerifySingleAddressState(t *testing.T) {
 				t.Fatal("VerifySingleAddressState() error = nil, want non-nil")
 			}
 		})
+	}
+}
+
+func TestVerifySelectedAddressState(t *testing.T) {
+	t.Parallel()
+
+	ipv4 := mustAddr(t, "198.51.100.10")
+	ipv6 := mustAddr(t, "2001:db8::10")
+	state := State{
+		Name: "host.example.com.",
+		Records: []Record{
+			{ID: "a1", Name: "host.example.com.", Type: RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
+			{ID: "aaaa1", Name: "host.example.com.", Type: RecordTypeAAAA, Content: "2001:db8::20", TTLSeconds: 300, Options: RecordOptions{Proxy: new(false)}},
+		},
+	}
+	desired := DesiredState{
+		Name:       "host.example.com.",
+		TTLSeconds: 300,
+		IPv4:       &ipv4,
+		IPv6:       &ipv6,
+		Options:    RecordOptions{Proxy: new(false)},
+	}
+
+	if err := VerifySelectedAddressState(state, desired, RecordSelectionA); err != nil {
+		t.Fatalf("VerifySelectedAddressState(A) error = %v", err)
+	}
+	if err := VerifySelectedAddressState(state, desired, RecordSelectionAAAA); err == nil {
+		t.Fatal("VerifySelectedAddressState(AAAA) error = nil, want mismatch")
+	}
+	if err := VerifySelectedAddressState(state, desired, RecordSelectionNone); err == nil {
+		t.Fatal("VerifySelectedAddressState(None) error = nil, want non-nil")
 	}
 }
 

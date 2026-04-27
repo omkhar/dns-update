@@ -1,3 +1,15 @@
+dns-update (1.4.1-1) unstable; urgency=medium
+
+  * Continue reconciliation for the address family whose egress probe succeeds
+    when the other probe family fails, including force-push runs on IPv4-only
+    or IPv6-only networks.
+  * Keep explicit ip=none behavior unchanged: a successful ip=none probe still
+    removes that managed record family, while a failed probe leaves that family
+    untouched.
+  * Refresh the runtime user-agent and package metadata to 1.4.1.
+
+ -- dns-update Maintainers <opensource@dns-update.invalid>  Mon, 27 Apr 2026 17:08:12 -0400
+
 dns-update (1.4.0-1) unstable; urgency=medium
 
   * Add --version so operators can print the binary version and exit before

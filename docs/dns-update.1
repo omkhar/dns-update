@@ -47,7 +47,9 @@ Each probe response must parse as
 .B ip=<address>
 or
 .BR ip=none .
-Probe failures abort reconciliation; only explicit
+If one probe family fails, the run logs a warning and reconciles only the family
+that succeeded. If both probe families fail, reconciliation aborts. Only
+explicit
 .B ip=none
 suppresses a managed address family.
 .P
