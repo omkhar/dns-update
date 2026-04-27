@@ -2,6 +2,14 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.4.0 - 2026-04-27
+
+- Adds `--version`, which prints the binary version and exits before loading
+  configuration or initializing providers.
+- Stabilizes the probe URL fuzz target and refreshes repository-maintenance
+  automation, including pinned Fedora CI images and GitHub Actions updates.
+- Updates the runtime user-agent and package metadata to `1.4.0`.
+
 ## 1.3.12 - 2026-04-17
 
 - Stops `packaging/build-remote-container.sh` from shell-sourcing the optional
