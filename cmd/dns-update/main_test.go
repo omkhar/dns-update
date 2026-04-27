@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"dns-update/internal/app"
+	"dns-update/internal/buildinfo"
 	"dns-update/internal/config"
 	"dns-update/internal/provider"
 )
@@ -726,6 +727,58 @@ func TestRunHelp(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "-delete") {
 		t.Fatalf("stderr = %q, want delete help output", stderr.String())
+	}
+}
+
+func TestRunVersion(t *testing.T) {
+	originalVersion := buildinfo.Version
+	t.Cleanup(func() {
+		buildinfo.Version = originalVersion
+	})
+	buildinfo.Version = "1.2.3"
+
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	exitCode := run(
+		[]string{"--version"},
+		stdout,
+		stderr,
+		dependencies{
+			loadConfig: func(config.LoadOptions) (config.Config, error) {
+				t.Fatal("loadConfig should not be called")
+				return config.Config{}, nil
+			},
+			newRunner: func(config.Config, *slog.Logger) (runner, error) {
+				t.Fatal("newRunner should not be called")
+				return nil, nil
+			},
+			notifyContext: func(parent context.Context, _ ...os.Signal) (context.Context, context.CancelFunc) {
+				t.Fatal("notifyContext should not be called")
+				return parent, func() {}
+			},
+			lookupEnv: envLookup(nil),
+		},
+	)
+
+	if got, want := exitCode, 0; got != want {
+		t.Fatalf("run() exitCode = %d, want %d", got, want)
+	}
+	if got, want := stdout.String(), "dns-update 1.2.3\n"; got != want {
+		t.Fatalf("stdout = %q, want %q", got, want)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunVersionWriteError(t *testing.T) {
+	stderr := new(bytes.Buffer)
+	exitCode := run([]string{"--version"}, failingWriter{err: errors.New("boom")}, stderr, noOpDependencies())
+	if got, want := exitCode, 1; got != want {
+		t.Fatalf("run() exitCode = %d, want %d", got, want)
+	}
+	if got := stderr.String(); !strings.Contains(got, "failed to print version") {
+		t.Fatalf("stderr = %q, want version print error", got)
 	}
 }
 

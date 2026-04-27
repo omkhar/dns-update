@@ -4,7 +4,8 @@ export DH_VERBOSE = 1
 export CGO_ENABLED = 0
 
 RELEASE_GOFLAGS := $(if $(DNS_UPDATE_RELEASE_GOFLAGS),$(DNS_UPDATE_RELEASE_GOFLAGS),-mod=readonly -trimpath -buildvcs=false)
-RELEASE_LDFLAGS := $(if $(DNS_UPDATE_RELEASE_LDFLAGS),$(DNS_UPDATE_RELEASE_LDFLAGS),-s -w -buildid=)
+PACKAGE_VERSION := $(shell dpkg-parsechangelog -SVersion | sed 's/-[^-]*$$//')
+RELEASE_LDFLAGS := $(if $(DNS_UPDATE_RELEASE_LDFLAGS),$(DNS_UPDATE_RELEASE_LDFLAGS),-s -w -buildid= -X dns-update/internal/buildinfo.Version=$(PACKAGE_VERSION))
 
 # Release package builds bias for smaller binaries while keeping the normal Go
 # optimizer defaults intact. Dev and test builds do not use these flags.

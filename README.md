@@ -126,6 +126,7 @@ Runtime settings:
 
 CLI-only introspection settings:
 
+- `--version` prints the binary version and exits without loading config
 - `-validate-config` loads and validates the assembled configuration, prints
   `config is valid`, and exits without contacting Cloudflare
 - `-print-effective-config` loads and validates the assembled configuration,
@@ -213,6 +214,12 @@ Build the binary:
 
 ```sh
 go build ./cmd/dns-update
+```
+
+Print the binary version:
+
+```sh
+./dns-update --version
 ```
 
 Run one reconciliation cycle:
@@ -539,6 +546,7 @@ Google-style package comments live alongside the code in:
 
 - `cmd/dns-update`
 - `internal/app`
+- `internal/buildinfo`
 - `internal/config`
 - `internal/egress`
 - `internal/httpclient`

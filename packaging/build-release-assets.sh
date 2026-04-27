@@ -12,7 +12,7 @@ skip_archives=${RELEASE_SKIP_ARCHIVES:-0}
 skip_packages=${RELEASE_SKIP_PACKAGES:-0}
 write_checksums=${RELEASE_WRITE_CHECKSUMS:-1}
 release_goflags=${DNS_UPDATE_RELEASE_GOFLAGS:-$(release_goflags)}
-release_ldflags=${DNS_UPDATE_RELEASE_LDFLAGS:-$(release_ldflags)}
+release_ldflags=${DNS_UPDATE_RELEASE_LDFLAGS:-$(release_ldflags "$repo_root" "$version")}
 source_epoch=$(source_date_epoch "$repo_root")
 release_tar_cmd=$(release_tar)
 require_cmd "$release_tar_cmd"

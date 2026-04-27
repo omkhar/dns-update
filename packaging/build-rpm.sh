@@ -12,7 +12,7 @@ topdir_root=${RPM_TOPDIR_ROOT:-"$repo_root/out/rpm"}
 output_root=${RPM_OUTPUT_DIR:-"$repo_root/out/packages/rpm"}
 canonical_topdir_root=${RPM_CANONICAL_TOPDIR_ROOT:-/tmp/dns-update-rpmbuild}
 release_goflags=${DNS_UPDATE_RELEASE_GOFLAGS:-$(release_goflags)}
-release_ldflags=${DNS_UPDATE_RELEASE_LDFLAGS:-$(release_ldflags)}
+release_ldflags=${DNS_UPDATE_RELEASE_LDFLAGS:-$(release_ldflags "$repo_root" "$version")}
 source_epoch=$(source_date_epoch "$repo_root")
 
 if [ "${PACKAGING_SKIP_SIGN:-}" != 1 ]; then

@@ -1,8 +1,9 @@
-.TH DNS-UPDATE 1 "March 22, 2026" "dns-update" "User Commands"
+.TH DNS-UPDATE 1 "April 27, 2026" "dns-update" "User Commands"
 .SH NAME
 dns-update \- keep DNS A and AAAA records aligned with egress IP addresses
 .SH SYNOPSIS
 .B dns-update
+[\fB\--version\fR]
 [\fB\-config\fR \fIPATH\fR]
 [\fB\-delete\fR[=\fIa|aaaa|both\fR]]
 [\fB\-dry-run\fR]
@@ -72,6 +73,10 @@ Published releases also include macOS and Windows archives. Those platforms use
 native schedulers instead of systemd: launchd on macOS and Task Scheduler on
 Windows.
 .SH OPTIONS
+.TP
+.B \--version
+Print the binary version to standard output and exit without loading
+configuration or contacting a provider.
 .TP
 .B \-config
 Load configuration from the specified JSON file. If omitted and
