@@ -44,8 +44,10 @@ On each run, the service:
 3. Validates returned addresses by family:
    - IPv4 probe must yield a valid IPv4 or `ip=none`
    - IPv6 probe must yield a valid IPv6 or `ip=none`
-   - A probe failure aborts the run; only explicit `ip=none` means that record
-     family should be absent
+   - If one probe family fails, logs a warning and reconciles only the family
+     that succeeded
+   - If both probe families fail, aborts the run
+   - Only explicit `ip=none` means that record family should be absent
 4. Reads the current provider-side records for `record.name`.
 5. Compares desired vs current DNS state:
    - If already matching, exits without update unless `-force-push` is set.

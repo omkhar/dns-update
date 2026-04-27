@@ -172,6 +172,14 @@ func (p Plan) Summaries() []string {
 // BuildSingleAddressPlan reconciles A and AAAA records so that each family has
 // either exactly one desired record or no records.
 func BuildSingleAddressPlan(current State, desired DesiredState) (Plan, error) {
+	return BuildSelectedAddressPlan(current, desired, RecordSelectionBoth)
+}
+
+// BuildSelectedAddressPlan reconciles only the selected A/AAAA record families.
+func BuildSelectedAddressPlan(current State, desired DesiredState, selection RecordSelection) (Plan, error) {
+	if selection == RecordSelectionNone {
+		return Plan{}, fmt.Errorf("record selection must target at least one record family")
+	}
 	if targets := current.CNAMETargets(); len(targets) > 0 {
 		return Plan{}, fmt.Errorf(
 			"managed name %q has CNAME records: %s",
@@ -181,8 +189,12 @@ func BuildSingleAddressPlan(current State, desired DesiredState) (Plan, error) {
 	}
 
 	var operations []Operation
-	operations = append(operations, buildTypePlan(current.ByType(RecordTypeA), desired.Name, RecordTypeA, desired.IPv4, desired.TTLSeconds, desired.Options)...)
-	operations = append(operations, buildTypePlan(current.ByType(RecordTypeAAAA), desired.Name, RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options)...)
+	if selection.Includes(RecordTypeA) {
+		operations = append(operations, buildTypePlan(current.ByType(RecordTypeA), desired.Name, RecordTypeA, desired.IPv4, desired.TTLSeconds, desired.Options)...)
+	}
+	if selection.Includes(RecordTypeAAAA) {
+		operations = append(operations, buildTypePlan(current.ByType(RecordTypeAAAA), desired.Name, RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options)...)
+	}
 	return Plan{Operations: operations}, nil
 }
 
@@ -213,15 +225,27 @@ func BuildDeletePlan(current State, selection RecordSelection) (Plan, error) {
 // VerifySingleAddressState checks that the provider-side state exactly matches
 // the desired A/AAAA state and that no conflicting CNAME exists.
 func VerifySingleAddressState(state State, desired DesiredState) error {
+	return VerifySelectedAddressState(state, desired, RecordSelectionBoth)
+}
+
+// VerifySelectedAddressState verifies only the selected A/AAAA record families.
+func VerifySelectedAddressState(state State, desired DesiredState, selection RecordSelection) error {
+	if selection == RecordSelectionNone {
+		return fmt.Errorf("record selection must target at least one record family")
+	}
 	if targets := state.CNAMETargets(); len(targets) > 0 {
 		return fmt.Errorf("managed name %q still has CNAME records: %s", desired.Name, strings.Join(targets, ", "))
 	}
 
-	if err := verifyTypeState(state.ByType(RecordTypeA), RecordTypeA, desired.IPv4, desired.TTLSeconds, desired.Options); err != nil {
-		return err
+	if selection.Includes(RecordTypeA) {
+		if err := verifyTypeState(state.ByType(RecordTypeA), RecordTypeA, desired.IPv4, desired.TTLSeconds, desired.Options); err != nil {
+			return err
+		}
 	}
-	if err := verifyTypeState(state.ByType(RecordTypeAAAA), RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options); err != nil {
-		return err
+	if selection.Includes(RecordTypeAAAA) {
+		if err := verifyTypeState(state.ByType(RecordTypeAAAA), RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options); err != nil {
+			return err
+		}
 	}
 	return nil
 }

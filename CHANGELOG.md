@@ -2,6 +2,16 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.4.1 - 2026-04-27
+
+- Allows reconciliation to continue for the address family whose egress probe
+  succeeds when the other probe family fails, including `--force-push` runs on
+  IPv4-only or IPv6-only networks.
+- Keeps explicit `ip=none` behavior unchanged: a successful `ip=none` probe
+  still removes that managed record family, while a failed probe leaves that
+  family untouched.
+- Updates the runtime user-agent and package metadata to `1.4.1`.
+
 ## 1.4.0 - 2026-04-27
 
 - Adds `--version`, which prints the binary version and exits before loading
