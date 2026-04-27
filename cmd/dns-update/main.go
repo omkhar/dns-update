@@ -40,6 +40,13 @@ func run(args []string, stdout io.Writer, stderr io.Writer, deps dependencies) i
 		}
 		return 2
 	}
+	if values.version {
+		if err := printVersion(stdout); err != nil {
+			writeError(stderr, "failed to print version", err)
+			return 1
+		}
+		return 0
+	}
 
 	runtimeOptions, err := resolveRuntimeOptions(flags, *values, deps.lookupEnv)
 	if err != nil {

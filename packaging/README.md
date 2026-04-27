@@ -209,8 +209,8 @@ when `dh` is installed.
 
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus
-`-ldflags='-s -w -buildid='`. Native test and normal development builds keep
-their existing defaults.
+`-ldflags='-s -w -buildid= -X dns-update/internal/buildinfo.Version=<version>'`.
+Native test and normal development builds keep their existing defaults.
 
 ## RPM build
 
@@ -278,8 +278,8 @@ supports amd64 and arm64 hosts.
 
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus
-`-ldflags='-s -w -buildid='`. Native test and normal development builds keep
-their existing defaults.
+`-ldflags='-s -w -buildid= -X dns-update/internal/buildinfo.Version=<version>'`.
+Native test and normal development builds keep their existing defaults.
 
 ## Sigstore signing
 

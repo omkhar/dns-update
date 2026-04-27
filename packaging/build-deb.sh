@@ -10,7 +10,7 @@ release=${DEB_RELEASE:-$(package_release "$repo_root")}
 targets=$(resolve_targets "$@")
 output_root=${DEB_OUTPUT_DIR:-"$repo_root/out/packages/deb"}
 release_goflags=${DNS_UPDATE_RELEASE_GOFLAGS:-$(release_goflags)}
-release_ldflags=${DNS_UPDATE_RELEASE_LDFLAGS:-$(release_ldflags)}
+release_ldflags=${DNS_UPDATE_RELEASE_LDFLAGS:-$(release_ldflags "$repo_root" "$version")}
 source_epoch=$(source_date_epoch "$repo_root")
 
 build_with_debhelper() {

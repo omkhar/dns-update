@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"dns-update/internal/buildinfo"
 )
 
 const maxResponseHeaderBytes = 8 << 10
@@ -15,7 +17,7 @@ const maxResponseHeaderBytes = 8 << 10
 var ErrRedirectNotAllowed = errors.New("redirects are not allowed")
 
 // UserAgent is the product user-agent used for outbound HTTP requests.
-const UserAgent = "dns-update/1.3.12"
+var UserAgent = buildinfo.UserAgent()
 
 func dialContext(timeout time.Duration, forcedNetwork string) func(context.Context, string, string) (net.Conn, error) {
 	dialer := &net.Dialer{

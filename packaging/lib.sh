@@ -62,7 +62,15 @@ release_goflags() {
 }
 
 release_ldflags() {
-	printf '%s\n' "-s -w -buildid="
+	repo_root=${1:-}
+	version=${2:-}
+	if [ -z "$repo_root" ]; then
+		repo_root=$(repo_root "$0")
+	fi
+	if [ -z "$version" ]; then
+		version=$(package_version "$repo_root")
+	fi
+	printf '%s\n' "-s -w -buildid= -X dns-update/internal/buildinfo.Version=$version"
 }
 
 release_tar() {

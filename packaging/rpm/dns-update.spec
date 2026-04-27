@@ -13,7 +13,7 @@
 %global upstream_version 1.3.12
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
-%global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid=}
+%global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid= -X dns-update/internal/buildinfo.Version=%{version}}
 
 Name:           dns-update
 Version:        %{?pkg_version}%{!?pkg_version:%{upstream_version}}

@@ -26,6 +26,7 @@ type cliFlagValues struct {
 	validateConfig       bool
 	printEffectiveConfig bool
 	verbose              bool
+	version              bool
 	timeout              time.Duration
 }
 
@@ -60,6 +61,7 @@ func newFlagSet(stderr io.Writer) (*flag.FlagSet, *cliFlagValues) {
 	flags.BoolVar(&values.validateConfig, "validate-config", false, "Load and validate the assembled configuration, print a success message, and exit.")
 	flags.BoolVar(&values.printEffectiveConfig, "print-effective-config", false, "Load and validate the assembled configuration, print it as JSON, and exit.")
 	flags.BoolVar(&values.verbose, "verbose", false, "Enable debug logging.")
+	flags.BoolVar(&values.version, "version", false, "Print version information and exit.")
 	flags.DurationVar(&values.timeout, "timeout", 0, "Maximum total runtime for one reconciliation cycle. 0 disables the global timeout.")
 
 	return flags, values
