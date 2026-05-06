@@ -1109,6 +1109,53 @@ func TestCollectMultipleErrors(t *testing.T) {
 	}
 }
 
+func TestCollectReadStateErrorCancelsProbes(t *testing.T) {
+	t.Parallel()
+
+	prober := &blockingProber{
+		canceled: make(chan egress.Family, 2),
+	}
+	runner := &Runner{
+		cfg:    testConfig(t, "http://example.com/4", "http://example.com/6"),
+		prober: prober,
+		provider: &fakeProvider{
+			readErrors: []error{errors.New("boom")},
+		},
+		logger: testLogger(),
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := runner.collect(context.Background())
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("collect() error = nil, want read-state failure")
+		}
+		if !strings.Contains(err.Error(), "read current provider state") {
+			t.Fatalf("collect() error = %q, want read-state failure", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("collect() did not return after read-state failure")
+	}
+
+	observedCanceled := map[egress.Family]bool{}
+	for range 2 {
+		select {
+		case family := <-prober.canceled:
+			observedCanceled[family] = true
+		case <-time.After(time.Second):
+			t.Fatal("probe was not canceled after read-state failure")
+		}
+	}
+	if !observedCanceled[egress.IPv4] || !observedCanceled[egress.IPv6] {
+		t.Fatalf("canceled probe families = %v, want IPv4 and IPv6", observedCanceled)
+	}
+}
+
 func TestCollectProbeError(t *testing.T) {
 	t.Parallel()
 
@@ -1336,6 +1383,16 @@ func (p *cancelingProber) Lookup(ctx context.Context, _ *url.URL, family egress.
 	default:
 		return nil, errors.New("unsupported")
 	}
+}
+
+type blockingProber struct {
+	canceled chan egress.Family
+}
+
+func (p *blockingProber) Lookup(ctx context.Context, _ *url.URL, family egress.Family) (*netip.Addr, error) {
+	<-ctx.Done()
+	p.canceled <- family
+	return nil, ctx.Err()
 }
 
 type fakeProvider struct {

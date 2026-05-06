@@ -241,18 +241,19 @@ func (s observedState) Families() provider.ObservedFamilies {
 func (r *Runner) collect(ctx context.Context) (observedState, provider.State, error) {
 	var (
 		observed observedState
-		current  provider.State
 		wg       sync.WaitGroup
 		ipv4Err  error
 		ipv6Err  error
-		stateErr error
 	)
 
-	wg.Add(3)
+	probeCtx, cancelProbes := context.WithCancelCause(ctx)
+	defer cancelProbes(nil)
+
+	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
-		address, err := r.prober.Lookup(ctx, r.cfg.Probe.IPv4URL, egress.IPv4)
+		address, err := r.prober.Lookup(probeCtx, r.cfg.Probe.IPv4URL, egress.IPv4)
 		ipv4Err = err
 		if err == nil {
 			observed.IPv4 = address
@@ -262,7 +263,7 @@ func (r *Runner) collect(ctx context.Context) (observedState, provider.State, er
 
 	go func() {
 		defer wg.Done()
-		address, err := r.prober.Lookup(ctx, r.cfg.Probe.IPv6URL, egress.IPv6)
+		address, err := r.prober.Lookup(probeCtx, r.cfg.Probe.IPv6URL, egress.IPv6)
 		ipv6Err = err
 		if err == nil {
 			observed.IPv6 = address
@@ -270,22 +271,15 @@ func (r *Runner) collect(ctx context.Context) (observedState, provider.State, er
 		}
 	}()
 
-	go func() {
-		defer wg.Done()
-		state, err := r.provider.ReadState(ctx, r.cfg.Record.Name)
-		if err != nil {
-			stateErr = fmt.Errorf("read current provider state: %w", err)
-			return
-		}
-		current = state
-	}()
-
-	wg.Wait()
-
-	if stateErr != nil {
+	current, err := r.provider.ReadState(ctx, r.cfg.Record.Name)
+	if err != nil {
+		stateErr := fmt.Errorf("read current provider state: %w", err)
+		cancelProbes(stateErr)
 		return observedState{}, provider.State{}, stateErr
 	}
-	if err := collectProbeError(context.Cause(ctx), ipv4Err, ipv6Err, r.cfg.Probe.AllowPartialFailure); err != nil {
+
+	wg.Wait()
+	if err := collectProbeError(context.Cause(probeCtx), ipv4Err, ipv6Err, r.cfg.Probe.AllowPartialFailure); err != nil {
 		return observedState{}, provider.State{}, err
 	}
 	r.logSkippedProbes(ipv4Err, ipv6Err)
