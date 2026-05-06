@@ -66,13 +66,13 @@ func TestPlanHelpers(t *testing.T) {
 	}
 }
 
-func TestBuildSingleAddressPlanNoop(t *testing.T) {
+func TestBuildObservedAddressPlanNoop(t *testing.T) {
 	t.Parallel()
 
 	ipv4 := mustAddr(t, "198.51.100.10")
 	ipv6 := mustAddr(t, "2001:db8::10")
 
-	plan, err := BuildSingleAddressPlan(
+	plan, err := BuildObservedAddressPlan(
 		State{
 			Name: "host.example.com.",
 			Records: []Record{
@@ -87,16 +87,17 @@ func TestBuildSingleAddressPlanNoop(t *testing.T) {
 			IPv6:       &ipv6,
 			Options:    RecordOptions{Proxy: new(false)},
 		},
+		ObservedFamiliesBoth,
 	)
 	if err != nil {
-		t.Fatalf("BuildSingleAddressPlan() error = %v", err)
+		t.Fatalf("BuildObservedAddressPlan() error = %v", err)
 	}
 	if diff := cmp.Diff(Plan{}, plan); diff != "" {
-		t.Fatalf("BuildSingleAddressPlan() mismatch (-want +got):\n%s", diff)
+		t.Fatalf("BuildObservedAddressPlan() mismatch (-want +got):\n%s", diff)
 	}
 }
 
-func TestBuildSingleAddressPlanVariants(t *testing.T) {
+func TestBuildObservedAddressPlanVariants(t *testing.T) {
 	t.Parallel()
 
 	currentIPv4 := mustAddr(t, "198.51.100.10")
@@ -105,7 +106,7 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 	t.Run("delete duplicate and update", func(t *testing.T) {
 		t.Parallel()
 
-		plan, err := BuildSingleAddressPlan(
+		plan, err := BuildObservedAddressPlan(
 			State{
 				Name: "host.example.com.",
 				Records: []Record{
@@ -119,9 +120,10 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 				IPv4:       &desiredIPv4,
 				Options:    RecordOptions{Proxy: new(false)},
 			},
+			ObservedFamiliesIPv4,
 		)
 		if err != nil {
-			t.Fatalf("BuildSingleAddressPlan() error = %v", err)
+			t.Fatalf("BuildObservedAddressPlan() error = %v", err)
 		}
 		if got, want := len(plan.Operations), 2; got != want {
 			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
@@ -131,7 +133,7 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 	t.Run("create missing record", func(t *testing.T) {
 		t.Parallel()
 
-		plan, err := BuildSingleAddressPlan(
+		plan, err := BuildObservedAddressPlan(
 			State{Name: "host.example.com."},
 			DesiredState{
 				Name:       "host.example.com.",
@@ -139,9 +141,10 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 				IPv4:       &desiredIPv4,
 				Options:    RecordOptions{Proxy: new(false)},
 			},
+			ObservedFamiliesIPv4,
 		)
 		if err != nil {
-			t.Fatalf("BuildSingleAddressPlan() error = %v", err)
+			t.Fatalf("BuildObservedAddressPlan() error = %v", err)
 		}
 		if got, want := len(plan.Operations), 1; got != want {
 			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
@@ -154,7 +157,7 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 	t.Run("delete all when desired nil", func(t *testing.T) {
 		t.Parallel()
 
-		plan, err := BuildSingleAddressPlan(
+		plan, err := BuildObservedAddressPlan(
 			State{
 				Name: "host.example.com.",
 				Records: []Record{
@@ -165,9 +168,10 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 				Name:       "host.example.com.",
 				TTLSeconds: 300,
 			},
+			ObservedFamiliesIPv4,
 		)
 		if err != nil {
-			t.Fatalf("BuildSingleAddressPlan() error = %v", err)
+			t.Fatalf("BuildObservedAddressPlan() error = %v", err)
 		}
 		if got, want := len(plan.Operations), 1; got != want {
 			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
@@ -180,7 +184,7 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 	t.Run("cname rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := BuildSingleAddressPlan(
+		_, err := BuildObservedAddressPlan(
 			State{
 				Name: "host.example.com.",
 				Records: []Record{
@@ -188,14 +192,15 @@ func TestBuildSingleAddressPlanVariants(t *testing.T) {
 				},
 			},
 			DesiredState{Name: "host.example.com.", TTLSeconds: 300, IPv4: &desiredIPv4, Options: RecordOptions{Proxy: new(false)}},
+			ObservedFamiliesIPv4,
 		)
 		if err == nil {
-			t.Fatal("BuildSingleAddressPlan() error = nil, want CNAME rejection")
+			t.Fatal("BuildObservedAddressPlan() error = nil, want CNAME rejection")
 		}
 	})
 }
 
-func TestBuildSelectedAddressPlan(t *testing.T) {
+func TestBuildObservedAddressPlan(t *testing.T) {
 	t.Parallel()
 
 	desiredIPv4 := mustAddr(t, "198.51.100.20")
@@ -218,9 +223,9 @@ func TestBuildSelectedAddressPlan(t *testing.T) {
 	t.Run("a only", func(t *testing.T) {
 		t.Parallel()
 
-		plan, err := BuildSelectedAddressPlan(current, desired, RecordSelectionA)
+		plan, err := BuildObservedAddressPlan(current, desired, ObservedFamiliesIPv4)
 		if err != nil {
-			t.Fatalf("BuildSelectedAddressPlan() error = %v", err)
+			t.Fatalf("BuildObservedAddressPlan() error = %v", err)
 		}
 		if got, want := len(plan.Operations), 1; got != want {
 			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
@@ -236,9 +241,9 @@ func TestBuildSelectedAddressPlan(t *testing.T) {
 	t.Run("aaaa only", func(t *testing.T) {
 		t.Parallel()
 
-		plan, err := BuildSelectedAddressPlan(current, desired, RecordSelectionAAAA)
+		plan, err := BuildObservedAddressPlan(current, desired, ObservedFamiliesIPv6)
 		if err != nil {
-			t.Fatalf("BuildSelectedAddressPlan() error = %v", err)
+			t.Fatalf("BuildObservedAddressPlan() error = %v", err)
 		}
 		if got, want := len(plan.Operations), 1; got != want {
 			t.Fatalf("len(plan.Operations) = %d, want %d", got, want)
@@ -251,11 +256,11 @@ func TestBuildSelectedAddressPlan(t *testing.T) {
 		}
 	})
 
-	t.Run("selection required", func(t *testing.T) {
+	t.Run("observed family required", func(t *testing.T) {
 		t.Parallel()
 
-		if _, err := BuildSelectedAddressPlan(current, desired, RecordSelectionNone); err == nil {
-			t.Fatal("BuildSelectedAddressPlan() error = nil, want non-nil")
+		if _, err := BuildObservedAddressPlan(current, desired, ObservedFamiliesNone); err == nil {
+			t.Fatal("BuildObservedAddressPlan() error = nil, want non-nil")
 		}
 	})
 }
@@ -377,13 +382,49 @@ func TestRecordSelectionHelpers(t *testing.T) {
 	}
 }
 
-func TestVerifySingleAddressState(t *testing.T) {
+func TestObservedFamiliesHelpers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		observed   ObservedFamilies
+		recordA    bool
+		recordAAAA bool
+		want       string
+	}{
+		{name: "none", observed: ObservedFamiliesNone, want: ""},
+		{name: "ipv4", observed: ObservedFamiliesIPv4, recordA: true, want: "ipv4"},
+		{name: "ipv6", observed: ObservedFamiliesIPv6, recordAAAA: true, want: "ipv6"},
+		{name: "both", observed: ObservedFamiliesBoth, recordA: true, recordAAAA: true, want: "both"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got, want := test.observed.String(), test.want; got != want {
+				t.Fatalf("observed.String() = %q, want %q", got, want)
+			}
+			if got, want := test.observed.Includes(RecordTypeA), test.recordA; got != want {
+				t.Fatalf("observed.Includes(A) = %t, want %t", got, want)
+			}
+			if got, want := test.observed.Includes(RecordTypeAAAA), test.recordAAAA; got != want {
+				t.Fatalf("observed.Includes(AAAA) = %t, want %t", got, want)
+			}
+			if test.observed.Includes(RecordTypeCNAME) {
+				t.Fatal("observed.Includes(CNAME) = true, want false")
+			}
+		})
+	}
+}
+
+func TestVerifyObservedAddressState(t *testing.T) {
 	t.Parallel()
 
 	ipv4 := mustAddr(t, "198.51.100.10")
 	ipv6 := mustAddr(t, "2001:db8::10")
 
-	if err := VerifySingleAddressState(
+	if err := VerifyObservedAddressState(
 		State{
 			Name: "host.example.com.",
 			Records: []Record{
@@ -398,8 +439,9 @@ func TestVerifySingleAddressState(t *testing.T) {
 			IPv6:       &ipv6,
 			Options:    RecordOptions{Proxy: new(false)},
 		},
+		ObservedFamiliesBoth,
 	); err != nil {
-		t.Fatalf("VerifySingleAddressState() error = %v", err)
+		t.Fatalf("VerifyObservedAddressState() error = %v", err)
 	}
 
 	tests := []struct {
@@ -460,14 +502,14 @@ func TestVerifySingleAddressState(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if err := VerifySingleAddressState(test.state, test.desired); err == nil {
-				t.Fatal("VerifySingleAddressState() error = nil, want non-nil")
+			if err := VerifyObservedAddressState(test.state, test.desired, ObservedFamiliesBoth); err == nil {
+				t.Fatal("VerifyObservedAddressState() error = nil, want non-nil")
 			}
 		})
 	}
 }
 
-func TestVerifySelectedAddressState(t *testing.T) {
+func TestVerifyObservedAddressStateSelection(t *testing.T) {
 	t.Parallel()
 
 	ipv4 := mustAddr(t, "198.51.100.10")
@@ -487,14 +529,14 @@ func TestVerifySelectedAddressState(t *testing.T) {
 		Options:    RecordOptions{Proxy: new(false)},
 	}
 
-	if err := VerifySelectedAddressState(state, desired, RecordSelectionA); err != nil {
-		t.Fatalf("VerifySelectedAddressState(A) error = %v", err)
+	if err := VerifyObservedAddressState(state, desired, ObservedFamiliesIPv4); err != nil {
+		t.Fatalf("VerifyObservedAddressState(IPv4) error = %v", err)
 	}
-	if err := VerifySelectedAddressState(state, desired, RecordSelectionAAAA); err == nil {
-		t.Fatal("VerifySelectedAddressState(AAAA) error = nil, want mismatch")
+	if err := VerifyObservedAddressState(state, desired, ObservedFamiliesIPv6); err == nil {
+		t.Fatal("VerifyObservedAddressState(IPv6) error = nil, want mismatch")
 	}
-	if err := VerifySelectedAddressState(state, desired, RecordSelectionNone); err == nil {
-		t.Fatal("VerifySelectedAddressState(None) error = nil, want non-nil")
+	if err := VerifyObservedAddressState(state, desired, ObservedFamiliesNone); err == nil {
+		t.Fatal("VerifyObservedAddressState(None) error = nil, want non-nil")
 	}
 }
 

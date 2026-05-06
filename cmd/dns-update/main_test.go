@@ -922,10 +922,11 @@ func TestRunPrintEffectiveConfig(t *testing.T) {
 						TTLSeconds: 300,
 					},
 					Probe: config.ProbeConfig{
-						IPv4URL:           ipv4URL,
-						IPv6URL:           ipv6URL,
-						Timeout:           11 * time.Second,
-						AllowInsecureHTTP: false,
+						IPv4URL:             ipv4URL,
+						IPv6URL:             ipv6URL,
+						Timeout:             11 * time.Second,
+						AllowInsecureHTTP:   false,
+						AllowPartialFailure: true,
 					},
 					Provider: config.ProviderConfig{
 						Type:    "cloudflare",
@@ -962,6 +963,7 @@ func TestRunPrintEffectiveConfig(t *testing.T) {
 		`"force_push": false`,
 		`"verbose": true`,
 		`"timeout": "3s"`,
+		`"allow_partial_failure": true`,
 		`"name": "host.example.com."`,
 		`"api_token_file": "/tmp/cloudflare.token"`,
 		`"base_url": "https://api.cloudflare.com/client/v4/"`,

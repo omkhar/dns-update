@@ -56,13 +56,13 @@ type RecordSelection uint8
 
 const (
 	// RecordSelectionNone selects no address-record families.
-	RecordSelectionNone RecordSelection = iota
+	RecordSelectionNone RecordSelection = 0
 	// RecordSelectionA selects only A records.
-	RecordSelectionA
+	RecordSelectionA RecordSelection = 1 << 0
 	// RecordSelectionAAAA selects only AAAA records.
-	RecordSelectionAAAA
+	RecordSelectionAAAA RecordSelection = 1 << 1
 	// RecordSelectionBoth selects both A and AAAA records.
-	RecordSelectionBoth
+	RecordSelectionBoth = RecordSelectionA | RecordSelectionAAAA
 )
 
 // String returns the stable CLI-facing name for the selection.
@@ -81,15 +81,53 @@ func (s RecordSelection) String() string {
 
 // Includes reports whether the selection targets the given record type.
 func (s RecordSelection) Includes(recordType RecordType) bool {
-	switch s {
-	case RecordSelectionA:
-		return recordType == RecordTypeA
-	case RecordSelectionAAAA:
-		return recordType == RecordTypeAAAA
-	case RecordSelectionBoth:
-		return recordType == RecordTypeA || recordType == RecordTypeAAAA
+	switch recordType {
+	case RecordTypeA:
+		return s&RecordSelectionA != 0
+	case RecordTypeAAAA:
+		return s&RecordSelectionAAAA != 0
 	default:
 		return false
+	}
+}
+
+// ObservedFamilies identifies which egress probe families succeeded in a run.
+type ObservedFamilies uint8
+
+const (
+	// ObservedFamiliesNone means no egress probe family succeeded.
+	ObservedFamiliesNone ObservedFamilies = 0
+	// ObservedFamiliesIPv4 means the IPv4 egress probe succeeded.
+	ObservedFamiliesIPv4 ObservedFamilies = 1 << 0
+	// ObservedFamiliesIPv6 means the IPv6 egress probe succeeded.
+	ObservedFamiliesIPv6 ObservedFamilies = 1 << 1
+	// ObservedFamiliesBoth means both egress probe families succeeded.
+	ObservedFamiliesBoth = ObservedFamiliesIPv4 | ObservedFamiliesIPv6
+)
+
+// Includes reports whether the observed probe families cover the record type.
+func (f ObservedFamilies) Includes(recordType RecordType) bool {
+	switch recordType {
+	case RecordTypeA:
+		return f&ObservedFamiliesIPv4 != 0
+	case RecordTypeAAAA:
+		return f&ObservedFamiliesIPv6 != 0
+	default:
+		return false
+	}
+}
+
+// String returns a stable name for diagnostics.
+func (f ObservedFamilies) String() string {
+	switch f {
+	case ObservedFamiliesIPv4:
+		return "ipv4"
+	case ObservedFamiliesIPv6:
+		return "ipv6"
+	case ObservedFamiliesBoth:
+		return "both"
+	default:
+		return ""
 	}
 }
 
@@ -169,16 +207,12 @@ func (p Plan) Summaries() []string {
 	return summaries
 }
 
-// BuildSingleAddressPlan reconciles A and AAAA records so that each family has
-// either exactly one desired record or no records.
-func BuildSingleAddressPlan(current State, desired DesiredState) (Plan, error) {
-	return BuildSelectedAddressPlan(current, desired, RecordSelectionBoth)
-}
-
-// BuildSelectedAddressPlan reconciles only the selected A/AAAA record families.
-func BuildSelectedAddressPlan(current State, desired DesiredState, selection RecordSelection) (Plan, error) {
-	if selection == RecordSelectionNone {
-		return Plan{}, fmt.Errorf("record selection must target at least one record family")
+// BuildObservedAddressPlan reconciles only address families with successful
+// egress probes. At least one observed family is required, and CNAME records on
+// the managed name are rejected before planning A/AAAA changes.
+func BuildObservedAddressPlan(current State, desired DesiredState, observed ObservedFamilies) (Plan, error) {
+	if observed == ObservedFamiliesNone {
+		return Plan{}, fmt.Errorf("observed families must include at least one probe family")
 	}
 	if targets := current.CNAMETargets(); len(targets) > 0 {
 		return Plan{}, fmt.Errorf(
@@ -189,10 +223,10 @@ func BuildSelectedAddressPlan(current State, desired DesiredState, selection Rec
 	}
 
 	var operations []Operation
-	if selection.Includes(RecordTypeA) {
+	if observed.Includes(RecordTypeA) {
 		operations = append(operations, buildTypePlan(current.ByType(RecordTypeA), desired.Name, RecordTypeA, desired.IPv4, desired.TTLSeconds, desired.Options)...)
 	}
-	if selection.Includes(RecordTypeAAAA) {
+	if observed.Includes(RecordTypeAAAA) {
 		operations = append(operations, buildTypePlan(current.ByType(RecordTypeAAAA), desired.Name, RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options)...)
 	}
 	return Plan{Operations: operations}, nil
@@ -222,27 +256,23 @@ func BuildDeletePlan(current State, selection RecordSelection) (Plan, error) {
 	return Plan{Operations: operations}, nil
 }
 
-// VerifySingleAddressState checks that the provider-side state exactly matches
-// the desired A/AAAA state and that no conflicting CNAME exists.
-func VerifySingleAddressState(state State, desired DesiredState) error {
-	return VerifySelectedAddressState(state, desired, RecordSelectionBoth)
-}
-
-// VerifySelectedAddressState verifies only the selected A/AAAA record families.
-func VerifySelectedAddressState(state State, desired DesiredState, selection RecordSelection) error {
-	if selection == RecordSelectionNone {
-		return fmt.Errorf("record selection must target at least one record family")
+// VerifyObservedAddressState verifies only address families with successful
+// egress probes. At least one observed family is required, and any CNAME record
+// on the managed name is rejected.
+func VerifyObservedAddressState(state State, desired DesiredState, observed ObservedFamilies) error {
+	if observed == ObservedFamiliesNone {
+		return fmt.Errorf("observed families must include at least one probe family")
 	}
 	if targets := state.CNAMETargets(); len(targets) > 0 {
 		return fmt.Errorf("managed name %q still has CNAME records: %s", desired.Name, strings.Join(targets, ", "))
 	}
 
-	if selection.Includes(RecordTypeA) {
+	if observed.Includes(RecordTypeA) {
 		if err := verifyTypeState(state.ByType(RecordTypeA), RecordTypeA, desired.IPv4, desired.TTLSeconds, desired.Options); err != nil {
 			return err
 		}
 	}
-	if selection.Includes(RecordTypeAAAA) {
+	if observed.Includes(RecordTypeAAAA) {
 		if err := verifyTypeState(state.ByType(RecordTypeAAAA), RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options); err != nil {
 			return err
 		}

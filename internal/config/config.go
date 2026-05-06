@@ -153,10 +153,11 @@ func normalizeProbeConfig(raw fileProbeConfig) (ProbeConfig, error) {
 	}
 
 	return ProbeConfig{
-		IPv4URL:           ipv4URL,
-		IPv6URL:           ipv6URL,
-		Timeout:           timeout,
-		AllowInsecureHTTP: raw.AllowInsecureHTTP,
+		IPv4URL:             ipv4URL,
+		IPv6URL:             ipv6URL,
+		Timeout:             timeout,
+		AllowInsecureHTTP:   raw.AllowInsecureHTTP,
+		AllowPartialFailure: raw.AllowPartialFailure,
 	}, nil
 }
 

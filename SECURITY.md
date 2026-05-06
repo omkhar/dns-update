@@ -28,6 +28,18 @@ If neither private path is available yet, open a minimal public issue asking for
 a private reporting route and do not include sensitive details, proof-of-concept
 code, tokens, or reproduction steps.
 
+## Probe Failure Posture
+
+`dns-update` treats single-family probe failures as reconciliation failures by
+default. That fail-closed behavior keeps a failed IPv4 or IPv6 probe from
+suppressing updates for the corresponding managed record family.
+
+Operators can set `probe.allow_partial_failure` to `true` when availability on
+single-stack or intermittently single-family hosts is more important than that
+default posture. In that mode, the successful family is reconciled and the
+failed family is left unchanged until a later successful probe or an explicit
+`ip=none` response changes it.
+
 ## What to Include
 
 When reporting a vulnerability, include:

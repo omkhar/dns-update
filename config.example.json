@@ -8,7 +8,8 @@
     "ipv4_url": "https://4.ip.omsab.net/",
     "ipv6_url": "https://6.ip.omsab.net/",
     "timeout": "10s",
-    "allow_insecure_http": false
+    "allow_insecure_http": false,
+    "allow_partial_failure": false
   },
   "provider": {
     "type": "cloudflare",

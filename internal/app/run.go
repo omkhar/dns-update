@@ -8,12 +8,12 @@ import (
 	"net/netip"
 	"net/url"
 	"strings"
+	"sync"
 
 	"dns-update/internal/config"
 	"dns-update/internal/egress"
 	"dns-update/internal/provider"
 	"dns-update/internal/retry"
-	"golang.org/x/sync/errgroup"
 )
 
 // Runner coordinates probes, DNS reads, comparisons, and updates.
@@ -106,7 +106,8 @@ func (r *Runner) runReconcileOnce(ctx context.Context, options RunOptions) error
 		Options:    r.desiredOptions,
 	}
 
-	plan, err := provider.BuildSelectedAddressPlan(current, desired, observed.Families)
+	observedFamilies := observed.Families()
+	plan, err := provider.BuildObservedAddressPlan(current, desired, observedFamilies)
 	if err != nil {
 		return err
 	}
@@ -116,7 +117,7 @@ func (r *Runner) runReconcileOnce(ctx context.Context, options RunOptions) error
 
 	if plan.IsNoop() {
 		if options.ForcePush {
-			plan = forcePushPlan(current, desired, observed.Families)
+			plan = forcePushPlan(current, desired, observedFamilies)
 			if plan.IsNoop() {
 				r.logger.Debug("records already match current egress IPs")
 				return nil
@@ -142,7 +143,7 @@ func (r *Runner) runReconcileOnce(ctx context.Context, options RunOptions) error
 	if err != nil {
 		return fmt.Errorf("verify updated records: %w", err)
 	}
-	if err := provider.VerifySelectedAddressState(verified, desired, observed.Families); err != nil {
+	if err := provider.VerifyObservedAddressState(verified, desired, observedFamilies); err != nil {
 		return err
 	}
 
@@ -190,12 +191,12 @@ func (r *Runner) runDeleteOnce(ctx context.Context, options RunOptions) error {
 	return nil
 }
 
-func forcePushPlan(current provider.State, desired provider.DesiredState, selection provider.RecordSelection) provider.Plan {
+func forcePushPlan(current provider.State, desired provider.DesiredState, observed provider.ObservedFamilies) provider.Plan {
 	operations := make([]provider.Operation, 0, 2)
-	if selection.Includes(provider.RecordTypeA) {
+	if observed.Includes(provider.RecordTypeA) {
 		operations = append(operations, forcePushOperation(current.ByType(provider.RecordTypeA), desired.Name, provider.RecordTypeA, desired.IPv4, desired.TTLSeconds, desired.Options)...)
 	}
-	if selection.Includes(provider.RecordTypeAAAA) {
+	if observed.Includes(provider.RecordTypeAAAA) {
 		operations = append(operations, forcePushOperation(current.ByType(provider.RecordTypeAAAA), desired.Name, provider.RecordTypeAAAA, desired.IPv6, desired.TTLSeconds, desired.Options)...)
 	}
 	return provider.Plan{Operations: operations}
@@ -220,104 +221,124 @@ func forcePushOperation(current []provider.Record, name string, recordType provi
 }
 
 type observedState struct {
-	IPv4     *netip.Addr
-	IPv6     *netip.Addr
-	Families provider.RecordSelection
+	IPv4         *netip.Addr
+	IPv6         *netip.Addr
+	IPv4Observed bool
+	IPv6Observed bool
+}
+
+func (s observedState) Families() provider.ObservedFamilies {
+	var observed provider.ObservedFamilies
+	if s.IPv4Observed {
+		observed |= provider.ObservedFamiliesIPv4
+	}
+	if s.IPv6Observed {
+		observed |= provider.ObservedFamiliesIPv6
+	}
+	return observed
 }
 
 func (r *Runner) collect(ctx context.Context) (observedState, provider.State, error) {
-	group, groupCtx := errgroup.WithContext(ctx)
-
 	var (
 		observed observedState
-		current  provider.State
+		wg       sync.WaitGroup
 		ipv4Err  error
 		ipv6Err  error
 	)
 
-	group.Go(func() error {
-		address, err := r.prober.Lookup(groupCtx, r.cfg.Probe.IPv4URL, egress.IPv4)
+	probeCtx, cancelProbes := context.WithCancelCause(ctx)
+	defer cancelProbes(nil)
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		address, err := r.prober.Lookup(probeCtx, r.cfg.Probe.IPv4URL, egress.IPv4)
 		ipv4Err = err
 		if err == nil {
 			observed.IPv4 = address
+			observed.IPv4Observed = true
 		}
-		return nil
-	})
+	}()
 
-	group.Go(func() error {
-		address, err := r.prober.Lookup(groupCtx, r.cfg.Probe.IPv6URL, egress.IPv6)
+	go func() {
+		defer wg.Done()
+		address, err := r.prober.Lookup(probeCtx, r.cfg.Probe.IPv6URL, egress.IPv6)
 		ipv6Err = err
 		if err == nil {
 			observed.IPv6 = address
+			observed.IPv6Observed = true
 		}
-		return nil
-	})
+	}()
 
-	group.Go(func() error {
-		state, err := r.provider.ReadState(groupCtx, r.cfg.Record.Name)
-		if err != nil {
-			return fmt.Errorf("read current provider state: %w", err)
-		}
-		current = state
-		return nil
-	})
+	current, err := r.provider.ReadState(ctx, r.cfg.Record.Name)
+	if err != nil {
+		stateErr := fmt.Errorf("read current provider state: %w", err)
+		cancelProbes(stateErr)
+		return observedState{}, provider.State{}, stateErr
+	}
 
-	if err := group.Wait(); err != nil {
+	wg.Wait()
+	if err := collectProbeError(context.Cause(probeCtx), ipv4Err, ipv6Err, r.cfg.Probe.AllowPartialFailure); err != nil {
 		return observedState{}, provider.State{}, err
 	}
-
-	if err := collectProbeError(ctx, ipv4Err, ipv6Err); err != nil {
-		return observedState{}, provider.State{}, err
-	}
-	if ipv4Err == nil {
-		observed.Families = includeRecordFamily(observed.Families, provider.RecordSelectionA)
-	}
-	if ipv6Err == nil {
-		observed.Families = includeRecordFamily(observed.Families, provider.RecordSelectionAAAA)
-	}
-	r.logSkippedProbeFamilies(ipv4Err, ipv6Err)
+	r.logSkippedProbes(ipv4Err, ipv6Err)
 
 	return observed, current, nil
 }
 
-func includeRecordFamily(current provider.RecordSelection, add provider.RecordSelection) provider.RecordSelection {
-	if current == provider.RecordSelectionNone {
-		return add
-	}
-	if current == add {
-		return current
-	}
-	return provider.RecordSelectionBoth
-}
-
-func collectProbeError(ctx context.Context, ipv4Err error, ipv6Err error) error {
-	if err := context.Cause(ctx); err != nil {
-		return fmt.Errorf("probe context canceled: %w", err)
+func collectProbeError(cause error, ipv4Err error, ipv6Err error, allowPartialFailure bool) error {
+	if err := probeContextError(cause); err != nil {
+		return err
 	}
 	if ipv4Err == nil && ipv6Err == nil {
 		return nil
 	}
 	if ipv4Err != nil && ipv6Err != nil {
-		combined := fmt.Errorf(
-			"all egress probes failed: %w",
-			errors.Join(
-				fmt.Errorf("IPv4 probe: %w", ipv4Err),
-				fmt.Errorf("IPv6 probe: %w", ipv6Err),
-			),
-		)
-
-		ipv4RetryAfter, ipv4Retryable := retry.After(ipv4Err)
-		ipv6RetryAfter, ipv6Retryable := retry.After(ipv6Err)
-		if ipv4Retryable && ipv6Retryable {
-			retryAfter := max(ipv6RetryAfter, ipv4RetryAfter)
-			return retry.Mark(combined, retryAfter)
-		}
-		return combined
+		return bothProbesError(ipv4Err, ipv6Err)
 	}
-	return nil
+	if allowPartialFailure {
+		return nil
+	}
+	if ipv4Err != nil {
+		return singleProbeError("IPv4", ipv4Err)
+	}
+	return singleProbeError("IPv6", ipv6Err)
 }
 
-func (r *Runner) logSkippedProbeFamilies(ipv4Err error, ipv6Err error) {
+func probeContextError(cause error) error {
+	if cause == nil {
+		return nil
+	}
+	return fmt.Errorf("probe context canceled: %w", cause)
+}
+
+func singleProbeError(family string, err error) error {
+	wrapped := fmt.Errorf("%s probe failed: %w", family, err)
+	if retryAfter, ok := retry.After(err); ok {
+		return retry.Mark(wrapped, retryAfter)
+	}
+	return wrapped
+}
+
+func bothProbesError(ipv4Err error, ipv6Err error) error {
+	combined := fmt.Errorf(
+		"all egress probes failed: %w",
+		errors.Join(
+			fmt.Errorf("IPv4 probe: %w", ipv4Err),
+			fmt.Errorf("IPv6 probe: %w", ipv6Err),
+		),
+	)
+
+	ipv4RetryAfter, ipv4Retryable := retry.After(ipv4Err)
+	ipv6RetryAfter, ipv6Retryable := retry.After(ipv6Err)
+	if ipv4Retryable && ipv6Retryable {
+		return retry.Mark(combined, max(ipv6RetryAfter, ipv4RetryAfter))
+	}
+	return combined
+}
+
+func (r *Runner) logSkippedProbes(ipv4Err error, ipv6Err error) {
 	if ipv4Err != nil {
 		r.logger.Warn("skipping IPv4 DNS update because egress probe failed", "error", ipv4Err)
 	}

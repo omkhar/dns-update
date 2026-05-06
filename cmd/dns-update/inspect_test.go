@@ -35,9 +35,10 @@ func TestHandleIntrospection(t *testing.T) {
 			TTLSeconds: 300,
 		},
 		Probe: config.ProbeConfig{
-			IPv4URL: ipv4URL,
-			IPv6URL: ipv6URL,
-			Timeout: 5 * time.Second,
+			IPv4URL:             ipv4URL,
+			IPv6URL:             ipv6URL,
+			Timeout:             5 * time.Second,
+			AllowPartialFailure: true,
 		},
 		Provider: config.ProviderConfig{
 			Type:    "cloudflare",
@@ -78,6 +79,9 @@ func TestHandleIntrospection(t *testing.T) {
 		}
 		if got := stdout.String(); !strings.Contains(got, `"delete": "both"`) {
 			t.Fatalf("handleIntrospection() output = %q, want delete field", got)
+		}
+		if got := stdout.String(); !strings.Contains(got, `"allow_partial_failure": true`) {
+			t.Fatalf("handleIntrospection() output = %q, want allow_partial_failure field", got)
 		}
 	})
 

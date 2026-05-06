@@ -115,8 +115,8 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 
 %changelog
 * Mon Apr 27 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.4.1-1
-- Continue reconciliation when only one egress probe family succeeds
-- Keep explicit ip=none deletion behavior unchanged
+- Keep single-family probe failures fail-closed unless probe.allow_partial_failure is enabled
+- Keep explicit ip=none behavior unchanged for successful vs failed probes
 - Refresh release metadata for the 1.4.1 release
 
 * Mon Apr 27 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.4.0-1
