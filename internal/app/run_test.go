@@ -145,16 +145,18 @@ func TestRunForcePushSkipsFailedProbeFamily(t *testing.T) {
 				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
 			),
 			providerState(
-				record("a1", provider.RecordTypeA, "198.51.100.10"),
+				record("a1", provider.RecordTypeA, "198.51.100.20"),
 				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
 			),
 		},
 	}
 	runner := &Runner{
-		cfg: testConfig(t, "http://example.com/4", "http://example.com/6"),
+		cfg: testConfigWithPartialFailure(t, "http://example.com/4", "http://example.com/6"),
 		prober: &fakeProber{
-			ipv4:    mustAddr(t, "198.51.100.10"),
-			ipv6Err: errors.New("bad-response"),
+			ipv4: mustAddr(t, "198.51.100.20"),
+			ipv6Err: errors.New(
+				`perform request: Get "https://6.ip.omsab.net/": dial tcp6 [2606:4700:3031::ac43:dd65]:443: connect: network is unreachable`,
+			),
 		},
 		provider:       fake,
 		desiredOptions: provider.RecordOptions{Proxy: new(false)},
@@ -178,9 +180,12 @@ func TestRunForcePushSkipsFailedProbeFamily(t *testing.T) {
 	if got, want := operations[0].Desired.Type, provider.RecordTypeA; got != want {
 		t.Fatalf("operation type = %q, want %q", got, want)
 	}
+	if got, want := operations[0].Desired.Content, "198.51.100.20"; got != want {
+		t.Fatalf("operation content = %q, want %q", got, want)
+	}
 }
 
-func TestRunForcePushIPv6NetworkUnreachableUpdatesIPv4(t *testing.T) {
+func TestRunSingleProbeFailureFailsClosedByDefault(t *testing.T) {
 	t.Parallel()
 
 	fake := &fakeProvider{
@@ -189,19 +194,13 @@ func TestRunForcePushIPv6NetworkUnreachableUpdatesIPv4(t *testing.T) {
 				record("a1", provider.RecordTypeA, "198.51.100.10"),
 				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
 			),
-			providerState(
-				record("a1", provider.RecordTypeA, "198.51.100.20"),
-				record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"),
-			),
 		},
 	}
 	runner := &Runner{
 		cfg: testConfig(t, "http://example.com/4", "http://example.com/6"),
 		prober: &fakeProber{
-			ipv4: mustAddr(t, "198.51.100.20"),
-			ipv6Err: errors.New(
-				`perform request: Get "https://6.ip.omsab.net/": dial tcp6 [2606:4700:3031::ac43:dd65]:443: connect: network is unreachable`,
-			),
+			ipv4:    mustAddr(t, "198.51.100.20"),
+			ipv6Err: errors.New("bad-response"),
 		},
 		provider:       fake,
 		desiredOptions: provider.RecordOptions{Proxy: new(false)},
@@ -209,22 +208,15 @@ func TestRunForcePushIPv6NetworkUnreachableUpdatesIPv4(t *testing.T) {
 		retries:        testRetryPolicy(),
 	}
 
-	if err := runner.Run(context.Background(), testRunOptions(false, true)); err != nil {
-		t.Fatalf("Run() error = %v", err)
+	err := runner.Run(context.Background(), testRunOptions(false, false))
+	if err == nil {
+		t.Fatal("Run() error = nil, want single-probe failure")
 	}
-	if got, want := fake.applyCalls, 1; got != want {
+	if !strings.Contains(err.Error(), "IPv6 probe failed") {
+		t.Fatalf("Run() error = %q, want IPv6 probe failure", err)
+	}
+	if got, want := fake.applyCalls, 0; got != want {
 		t.Fatalf("Apply() calls = %d, want %d", got, want)
-	}
-	operations := fake.applyPlans[0].Operations
-	if got, want := len(operations), 1; got != want {
-		t.Fatalf("len(operations) = %d, want %d", got, want)
-	}
-	operation := operations[0]
-	if got, want := operation.Desired.Type, provider.RecordTypeA; got != want {
-		t.Fatalf("operation type = %q, want %q", got, want)
-	}
-	if got, want := operation.Desired.Content, "198.51.100.20"; got != want {
-		t.Fatalf("operation content = %q, want %q", got, want)
 	}
 }
 
@@ -714,7 +706,7 @@ func TestCollectIPv4ProbeErrorSkipsIPv4(t *testing.T) {
 
 	current := providerState(record("aaaa1", provider.RecordTypeAAAA, "2001:db8::10"))
 	runner := &Runner{
-		cfg: testConfig(t, "http://example.com/4", "http://example.com/6"),
+		cfg: testConfigWithPartialFailure(t, "http://example.com/4", "http://example.com/6"),
 		prober: &fakeProber{
 			ipv4Err: errors.New("bad-response"),
 			ipv6:    mustAddr(t, "2001:db8::10"),
@@ -725,21 +717,18 @@ func TestCollectIPv4ProbeErrorSkipsIPv4(t *testing.T) {
 		logger: testLogger(),
 	}
 
-	observed, state, err := runner.collect(context.Background())
+	observed, _, err := runner.collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect() error = %v", err)
 	}
-	if observed.Families != provider.RecordSelectionAAAA {
-		t.Fatalf("observed.Families = %v, want AAAA", observed.Families)
+	if observed.Families() != provider.ObservedFamiliesIPv6 {
+		t.Fatalf("observed.Families() = %v, want IPv6", observed.Families())
 	}
 	if observed.IPv4 != nil {
 		t.Fatalf("observed.IPv4 = %v, want nil", observed.IPv4)
 	}
 	if observed.IPv6 == nil {
 		t.Fatal("observed.IPv6 = nil, want IPv6 address")
-	}
-	if diff := cmp.Diff(current, state); diff != "" {
-		t.Fatalf("provider state mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -748,7 +737,7 @@ func TestCollectIPv6ProbeErrorSkipsIPv6(t *testing.T) {
 
 	current := providerState(record("a1", provider.RecordTypeA, "198.51.100.10"))
 	runner := &Runner{
-		cfg: testConfig(t, "http://example.com/4", "http://example.com/6"),
+		cfg: testConfigWithPartialFailure(t, "http://example.com/4", "http://example.com/6"),
 		prober: &fakeProber{
 			ipv4:    mustAddr(t, "198.51.100.10"),
 			ipv6Err: errors.New("bad-response"),
@@ -759,12 +748,12 @@ func TestCollectIPv6ProbeErrorSkipsIPv6(t *testing.T) {
 		logger: testLogger(),
 	}
 
-	observed, state, err := runner.collect(context.Background())
+	observed, _, err := runner.collect(context.Background())
 	if err != nil {
 		t.Fatalf("collect() error = %v", err)
 	}
-	if observed.Families != provider.RecordSelectionA {
-		t.Fatalf("observed.Families = %v, want A", observed.Families)
+	if observed.Families() != provider.ObservedFamiliesIPv4 {
+		t.Fatalf("observed.Families() = %v, want IPv4", observed.Families())
 	}
 	if observed.IPv4 == nil {
 		t.Fatal("observed.IPv4 = nil, want IPv4 address")
@@ -772,8 +761,31 @@ func TestCollectIPv6ProbeErrorSkipsIPv6(t *testing.T) {
 	if observed.IPv6 != nil {
 		t.Fatalf("observed.IPv6 = %v, want nil", observed.IPv6)
 	}
-	if diff := cmp.Diff(current, state); diff != "" {
-		t.Fatalf("provider state mismatch (-want +got):\n%s", diff)
+}
+
+func TestCollectExplicitNoneMarksFamilyObserved(t *testing.T) {
+	t.Parallel()
+
+	runner := &Runner{
+		cfg: testConfigWithPartialFailure(t, "http://example.com/4", "http://example.com/6"),
+		prober: &fakeProber{
+			ipv6Err: errors.New("bad-response"),
+		},
+		provider: &fakeProvider{
+			readStates: []provider.State{providerState(record("a1", provider.RecordTypeA, "198.51.100.10"))},
+		},
+		logger: testLogger(),
+	}
+
+	observed, _, err := runner.collect(context.Background())
+	if err != nil {
+		t.Fatalf("collect() error = %v", err)
+	}
+	if got, want := observed.Families(), provider.ObservedFamiliesIPv4; got != want {
+		t.Fatalf("observed.Families() = %v, want %v", got, want)
+	}
+	if observed.IPv4 != nil {
+		t.Fatalf("observed.IPv4 = %v, want nil for explicit none", observed.IPv4)
 	}
 }
 
@@ -832,7 +844,7 @@ func TestRunPartialProbeFailureAppliesSuccessfulFamily(t *testing.T) {
 				readStates: []provider.State{test.initialState, test.verifiedState},
 			}
 			runner := &Runner{
-				cfg:            testConfig(t, "http://example.com/4", "http://example.com/6"),
+				cfg:            testConfigWithPartialFailure(t, "http://example.com/4", "http://example.com/6"),
 				prober:         test.prober,
 				provider:       fake,
 				desiredOptions: provider.RecordOptions{Proxy: new(false)},
@@ -869,6 +881,11 @@ func TestRunPartialProbeFailureAppliesSuccessfulFamily(t *testing.T) {
 func TestRunSingleProbeDeadlineErrorPropagates(t *testing.T) {
 	t.Parallel()
 
+	ctx, cancel := context.WithCancelCause(context.Background())
+	t.Cleanup(func() {
+		cancel(context.Canceled)
+	})
+
 	fake := &fakeProvider{
 		readStates: []provider.State{
 			providerState(record("a1", provider.RecordTypeA, "198.51.100.20")),
@@ -876,16 +893,16 @@ func TestRunSingleProbeDeadlineErrorPropagates(t *testing.T) {
 	}
 	runner := &Runner{
 		cfg: testConfig(t, "http://example.com/4", "http://example.com/6"),
-		prober: &fakeProber{
-			ipv4:    mustAddr(t, "198.51.100.20"),
-			ipv6Err: retry.Mark(errors.New("ipv6-timeout"), time.Second),
+		prober: &cancelingProber{
+			ipv4:   mustAddr(t, "198.51.100.20"),
+			cancel: cancel,
 		},
 		provider: fake,
 		logger:   testLogger(),
 		retries:  testRetryPolicy(),
 	}
 
-	err := runner.Run(canceledContext(t, context.DeadlineExceeded), testRunOptions(false, false))
+	err := runner.Run(ctx, testRunOptions(false, false))
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Run() error = %v, want context deadline exceeded", err)
 	}
@@ -1095,14 +1112,14 @@ func TestCollectMultipleErrors(t *testing.T) {
 func TestCollectProbeError(t *testing.T) {
 	t.Parallel()
 
-	if err := collectProbeError(context.Background(), nil, nil); err != nil {
+	if err := collectProbeError(nil, nil, nil, false); err != nil {
 		t.Fatalf("collectProbeError(nil, nil) = %v, want nil", err)
 	}
 
 	ipv4Err := retry.Mark(errors.New("ipv4-timeout"), time.Second)
 	ipv6Err := retry.Mark(errors.New("ipv6-timeout"), 2*time.Second)
 
-	err := collectProbeError(context.Background(), ipv4Err, ipv6Err)
+	err := collectProbeError(nil, ipv4Err, ipv6Err, false)
 	if err == nil {
 		t.Fatal("collectProbeError(retryable, retryable) = nil, want error")
 	}
@@ -1117,34 +1134,39 @@ func TestCollectProbeError(t *testing.T) {
 	if got, want := retryAfter, 2*time.Second; got != want {
 		t.Fatalf("retry.After(collectProbeError()) = %v, want %v", got, want)
 	}
-}
-
-func TestCollectProbeErrorSingleFailureIgnored(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		ipv4Err error
-		ipv6Err error
-	}{
-		{
-			name:    "ipv4",
-			ipv4Err: retry.Mark(errors.New("ipv4-timeout"), time.Second),
-		},
-		{
-			name:    "ipv6",
-			ipv6Err: retry.Mark(errors.New("ipv6-timeout"), 2*time.Second),
-		},
+	singleErr := retry.Mark(errors.New("ipv6-timeout"), time.Second)
+	err = collectProbeError(nil, nil, singleErr, false)
+	if err == nil {
+		t.Fatal("collectProbeError(single failure) = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "IPv6 probe failed") {
+		t.Fatalf("collectProbeError(single failure) = %q, want IPv6 probe message", err)
+	}
+	retryAfter, ok = retry.After(err)
+	if !ok {
+		t.Fatal("collectProbeError(single failure) is not retryable, want retryable")
+	}
+	if got, want := retryAfter, time.Second; got != want {
+		t.Fatalf("retry.After(single failure) = %v, want %v", got, want)
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+	err = collectProbeError(nil, errors.New("bad-response"), nil, false)
+	if err == nil {
+		t.Fatal("collectProbeError(IPv4 single failure) = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "IPv4 probe failed") {
+		t.Fatalf("collectProbeError(IPv4 single failure) = %q, want IPv4 probe message", err)
+	}
+}
 
-			if err := collectProbeError(context.Background(), test.ipv4Err, test.ipv6Err); err != nil {
-				t.Fatalf("collectProbeError(single failure) = %v, want nil", err)
-			}
-		})
+func TestCollectProbeErrorAllowsPartialFailure(t *testing.T) {
+	t.Parallel()
+
+	if err := collectProbeError(nil, retry.Mark(errors.New("ipv4-timeout"), time.Second), nil, true); err != nil {
+		t.Fatalf("collectProbeError(IPv4 partial failure) = %v, want nil", err)
+	}
+	if err := collectProbeError(nil, nil, retry.Mark(errors.New("ipv6-timeout"), 2*time.Second), true); err != nil {
+		t.Fatalf("collectProbeError(IPv6 partial failure) = %v, want nil", err)
 	}
 }
 
@@ -1153,20 +1175,20 @@ func TestCollectProbeErrorSingleContextFailurePropagates(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		ctx     context.Context
+		cause   error
 		ipv4Err error
 		ipv6Err error
 		want    error
 	}{
 		{
 			name:    "deadline context with IPv4 failure",
-			ctx:     canceledContext(t, context.DeadlineExceeded),
+			cause:   context.DeadlineExceeded,
 			ipv4Err: retry.Mark(errors.New("ipv4-timeout"), time.Second),
 			want:    context.DeadlineExceeded,
 		},
 		{
 			name:    "canceled context with IPv6 failure",
-			ctx:     canceledContext(t, context.Canceled),
+			cause:   context.Canceled,
 			ipv6Err: errors.New("bad-response"),
 			want:    context.Canceled,
 		},
@@ -1176,7 +1198,7 @@ func TestCollectProbeErrorSingleContextFailurePropagates(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := collectProbeError(test.ctx, test.ipv4Err, test.ipv6Err)
+			err := collectProbeError(test.cause, test.ipv4Err, test.ipv6Err, true)
 			if !errors.Is(err, test.want) {
 				t.Fatalf("collectProbeError() error = %v, want %v", err, test.want)
 			}
@@ -1192,31 +1214,6 @@ func TestFormatHelpers(t *testing.T) {
 	}
 	if got, want := formatRecords(nil), "none"; got != want {
 		t.Fatalf("formatRecords(nil) = %q, want %q", got, want)
-	}
-}
-
-func TestIncludeRecordFamily(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		current provider.RecordSelection
-		add     provider.RecordSelection
-		want    provider.RecordSelection
-	}{
-		{name: "none to a", add: provider.RecordSelectionA, want: provider.RecordSelectionA},
-		{name: "same", current: provider.RecordSelectionA, add: provider.RecordSelectionA, want: provider.RecordSelectionA},
-		{name: "combine", current: provider.RecordSelectionA, add: provider.RecordSelectionAAAA, want: provider.RecordSelectionBoth},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := includeRecordFamily(test.current, test.add); got != test.want {
-				t.Fatalf("includeRecordFamily(%v, %v) = %v, want %v", test.current, test.add, got, test.want)
-			}
-		})
 	}
 }
 
@@ -1291,16 +1288,16 @@ func testConfig(t *testing.T, ipv4URL string, ipv6URL string) config.Config {
 	}
 }
 
-func testLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
-}
-
-func canceledContext(t *testing.T, cause error) context.Context {
+func testConfigWithPartialFailure(t *testing.T, ipv4URL string, ipv6URL string) config.Config {
 	t.Helper()
 
-	ctx, cancel := context.WithCancelCause(context.Background())
-	cancel(cause)
-	return ctx
+	cfg := testConfig(t, ipv4URL, ipv6URL)
+	cfg.Probe.AllowPartialFailure = true
+	return cfg
+}
+
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 type fakeProber struct {
@@ -1318,6 +1315,24 @@ func (f *fakeProber) Lookup(_ context.Context, _ *url.URL, family egress.Family)
 		return f.ipv4, f.ipv4Err
 	case egress.IPv6:
 		return f.ipv6, f.ipv6Err
+	default:
+		return nil, errors.New("unsupported")
+	}
+}
+
+type cancelingProber struct {
+	ipv4   *netip.Addr
+	cancel context.CancelCauseFunc
+}
+
+func (p *cancelingProber) Lookup(ctx context.Context, _ *url.URL, family egress.Family) (*netip.Addr, error) {
+	switch family {
+	case egress.IPv4:
+		return p.ipv4, nil
+	case egress.IPv6:
+		p.cancel(context.DeadlineExceeded)
+		<-ctx.Done()
+		return nil, retry.Mark(errors.New("ipv6-timeout"), time.Second)
 	default:
 		return nil, errors.New("unsupported")
 	}

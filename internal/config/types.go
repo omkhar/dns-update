@@ -39,10 +39,11 @@ type RecordConfig struct {
 
 // ProbeConfig defines how the egress detection endpoints are queried.
 type ProbeConfig struct {
-	IPv4URL           *url.URL
-	IPv6URL           *url.URL
-	Timeout           time.Duration
-	AllowInsecureHTTP bool
+	IPv4URL             *url.URL
+	IPv6URL             *url.URL
+	Timeout             time.Duration
+	AllowInsecureHTTP   bool
+	AllowPartialFailure bool
 }
 
 // ProviderConfig defines the DNS backend integration.
@@ -81,10 +82,11 @@ type fileRecordConfig struct {
 }
 
 type fileProbeConfig struct {
-	IPv4URL           string `json:"ipv4_url"`
-	IPv6URL           string `json:"ipv6_url"`
-	Timeout           string `json:"timeout"`
-	AllowInsecureHTTP bool   `json:"allow_insecure_http"`
+	IPv4URL             string `json:"ipv4_url"`
+	IPv6URL             string `json:"ipv6_url"`
+	Timeout             string `json:"timeout"`
+	AllowInsecureHTTP   bool   `json:"allow_insecure_http"`
+	AllowPartialFailure bool   `json:"allow_partial_failure"`
 }
 
 type fileProviderConfig struct {

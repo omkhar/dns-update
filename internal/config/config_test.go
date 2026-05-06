@@ -308,19 +308,20 @@ func TestLoadAppliesDefaults(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 	want := configView{
-		RecordName:        "host.example.com.",
-		RecordZone:        "example.com.",
-		RecordTTLSeconds:  300,
-		ProbeIPv4URL:      mustURLString(t, defaultProbeIPv4URL),
-		ProbeIPv6URL:      mustURLString(t, defaultProbeIPv6URL),
-		ProbeTimeout:      defaultTimeout,
-		AllowInsecureHTTP: false,
-		ProviderType:      "cloudflare",
-		ProviderTimeout:   defaultTimeout,
-		CloudflareZoneID:  "023e105f4ecef8ad9ca31a8372d0c353",
-		CloudflareToken:   tokenFile,
-		CloudflareBaseURL: mustURLString(t, defaultCloudflareBaseURL),
-		CloudflareProxied: false,
+		RecordName:          "host.example.com.",
+		RecordZone:          "example.com.",
+		RecordTTLSeconds:    300,
+		ProbeIPv4URL:        mustURLString(t, defaultProbeIPv4URL),
+		ProbeIPv6URL:        mustURLString(t, defaultProbeIPv6URL),
+		ProbeTimeout:        defaultTimeout,
+		AllowInsecureHTTP:   false,
+		AllowPartialFailure: false,
+		ProviderType:        "cloudflare",
+		ProviderTimeout:     defaultTimeout,
+		CloudflareZoneID:    "023e105f4ecef8ad9ca31a8372d0c353",
+		CloudflareToken:     tokenFile,
+		CloudflareBaseURL:   mustURLString(t, defaultCloudflareBaseURL),
+		CloudflareProxied:   false,
 	}
 	if diff := cmp.Diff(want, viewConfig(cfg)); diff != "" {
 		t.Fatalf("Load() mismatch (-want +got):\n%s", diff)
@@ -987,32 +988,34 @@ func mustURLString(t *testing.T, raw string) string {
 }
 
 type configView struct {
-	RecordName        string
-	RecordZone        string
-	RecordTTLSeconds  uint32
-	ProbeIPv4URL      string
-	ProbeIPv6URL      string
-	ProbeTimeout      time.Duration
-	AllowInsecureHTTP bool
-	ProviderType      string
-	ProviderTimeout   time.Duration
-	CloudflareZoneID  string
-	CloudflareToken   string
-	CloudflareBaseURL string
-	CloudflareProxied bool
+	RecordName          string
+	RecordZone          string
+	RecordTTLSeconds    uint32
+	ProbeIPv4URL        string
+	ProbeIPv6URL        string
+	ProbeTimeout        time.Duration
+	AllowInsecureHTTP   bool
+	AllowPartialFailure bool
+	ProviderType        string
+	ProviderTimeout     time.Duration
+	CloudflareZoneID    string
+	CloudflareToken     string
+	CloudflareBaseURL   string
+	CloudflareProxied   bool
 }
 
 func viewConfig(cfg Config) configView {
 	view := configView{
-		RecordName:        cfg.Record.Name,
-		RecordZone:        cfg.Record.Zone,
-		RecordTTLSeconds:  cfg.Record.TTLSeconds,
-		ProbeIPv4URL:      cfg.Probe.IPv4URL.String(),
-		ProbeIPv6URL:      cfg.Probe.IPv6URL.String(),
-		ProbeTimeout:      cfg.Probe.Timeout,
-		AllowInsecureHTTP: cfg.Probe.AllowInsecureHTTP,
-		ProviderType:      cfg.Provider.Type,
-		ProviderTimeout:   cfg.Provider.Timeout,
+		RecordName:          cfg.Record.Name,
+		RecordZone:          cfg.Record.Zone,
+		RecordTTLSeconds:    cfg.Record.TTLSeconds,
+		ProbeIPv4URL:        cfg.Probe.IPv4URL.String(),
+		ProbeIPv6URL:        cfg.Probe.IPv6URL.String(),
+		ProbeTimeout:        cfg.Probe.Timeout,
+		AllowInsecureHTTP:   cfg.Probe.AllowInsecureHTTP,
+		AllowPartialFailure: cfg.Probe.AllowPartialFailure,
+		ProviderType:        cfg.Provider.Type,
+		ProviderTimeout:     cfg.Provider.Timeout,
 	}
 	if cfg.Provider.Cloudflare != nil {
 		view.CloudflareZoneID = cfg.Provider.Cloudflare.ZoneID

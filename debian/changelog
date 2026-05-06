@@ -1,11 +1,11 @@
 dns-update (1.4.1-1) unstable; urgency=medium
 
-  * Continue reconciliation for the address family whose egress probe succeeds
-    when the other probe family fails, including force-push runs on IPv4-only
-    or IPv6-only networks.
+  * Keep single-family probe failures fail-closed by default and add
+    probe.allow_partial_failure for operators who explicitly want reconciliation
+    to continue for the address family whose probe succeeds.
   * Keep explicit ip=none behavior unchanged: a successful ip=none probe still
-    removes that managed record family, while a failed probe leaves that family
-    untouched.
+    removes that managed record family, while a failed probe cannot remove it
+    and leaves it untouched when partial failure is enabled.
   * Refresh the runtime user-agent and package metadata to 1.4.1.
 
  -- dns-update Maintainers <opensource@dns-update.invalid>  Mon, 27 Apr 2026 17:08:12 -0400

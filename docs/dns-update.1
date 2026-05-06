@@ -47,9 +47,13 @@ Each probe response must parse as
 .B ip=<address>
 or
 .BR ip=none .
-If one probe family fails, the run logs a warning and reconciles only the family
-that succeeded. If both probe families fail, reconciliation aborts. Only
-explicit
+If one probe family fails, reconciliation aborts by default. If
+.B probe.allow_partial_failure
+is set to
+.B true
+in the JSON configuration, the run logs a warning and reconciles only the
+family that succeeded; the failed family is left as-is. If both probe families
+fail, reconciliation aborts. Only explicit
 .B ip=none
 suppresses a managed address family.
 .P

@@ -44,8 +44,9 @@ On each run, the service:
 3. Validates returned addresses by family:
    - IPv4 probe must yield a valid IPv4 or `ip=none`
    - IPv6 probe must yield a valid IPv6 or `ip=none`
-   - If one probe family fails, logs a warning and reconciles only the family
-     that succeeded
+   - If one probe family fails, aborts the run by default
+   - If `probe.allow_partial_failure` is `true`, logs a warning and reconciles
+     only the family that succeeded; the failed family is left as-is
    - If both probe families fail, aborts the run
    - Only explicit `ip=none` means that record family should be absent
 4. Reads the current provider-side records for `record.name`.
@@ -90,6 +91,9 @@ The app reads JSON config with this schema:
 - `probe.timeout` (optional): Go duration string, defaults to `10s`.
 - `probe.allow_insecure_http` (optional): defaults to `false`. HTTP probe URLs
   are only accepted for loopback or `localhost` test endpoints.
+- `probe.allow_partial_failure` (optional): defaults to `false`. When enabled,
+  a failed single-family probe leaves that record family untouched while the
+  successful family is reconciled.
 - `provider.type` (required): currently `cloudflare`.
 - `provider.timeout` (optional): Go duration string, defaults to `10s`.
 - `provider.cloudflare.zone_id` (required): Cloudflare zone ID for the managed
@@ -178,6 +182,10 @@ Behavior notes:
 - Enabling `probe.allow_insecure_http` expands that risk further by allowing
   on-path tampering of probe responses, so HTTP is restricted to loopback or
   `localhost` test endpoints.
+- By default, any single-family probe failure aborts reconciliation so a failed
+  probe cannot suppress updates for that family. Enabling
+  `probe.allow_partial_failure` trades that fail-closed posture for
+  availability on hosts where only one address family is expected to work.
 - Scope the Cloudflare token to the single zone being managed.
 - Cloudflare record reads are filtered to the managed hostname instead of
   listing the full zone.
@@ -197,7 +205,6 @@ Build and test with a patched Go toolchain. The module now requires Go `1.26.2`.
 Runtime dependencies are deliberately narrow:
 
 - `github.com/cloudflare/cloudflare-go/v6` for the Cloudflare DNS API
-- `golang.org/x/sync/errgroup` for structured concurrency
 - `github.com/google/go-cmp/cmp` is used in tests only
 
 There is no separate `golang.org/x/time/rate` dependency in the current build;

@@ -53,10 +53,11 @@ func printEffectiveConfig(stdout io.Writer, cfg config.Config, options runtimeOp
 			TTLSeconds: cfg.Record.TTLSeconds,
 		},
 		Probe: effectiveProbeConfig{
-			IPv4URL:           urlString(cfg.Probe.IPv4URL),
-			IPv6URL:           urlString(cfg.Probe.IPv6URL),
-			Timeout:           cfg.Probe.Timeout.String(),
-			AllowInsecureHTTP: cfg.Probe.AllowInsecureHTTP,
+			IPv4URL:             urlString(cfg.Probe.IPv4URL),
+			IPv6URL:             urlString(cfg.Probe.IPv6URL),
+			Timeout:             cfg.Probe.Timeout.String(),
+			AllowInsecureHTTP:   cfg.Probe.AllowInsecureHTTP,
+			AllowPartialFailure: cfg.Probe.AllowPartialFailure,
 		},
 		Provider: effectiveProviderConfig{
 			Type:       cfg.Provider.Type,
@@ -96,10 +97,11 @@ type effectiveRecordConfig struct {
 }
 
 type effectiveProbeConfig struct {
-	IPv4URL           string `json:"ipv4_url"`
-	IPv6URL           string `json:"ipv6_url"`
-	Timeout           string `json:"timeout"`
-	AllowInsecureHTTP bool   `json:"allow_insecure_http"`
+	IPv4URL             string `json:"ipv4_url"`
+	IPv6URL             string `json:"ipv6_url"`
+	Timeout             string `json:"timeout"`
+	AllowInsecureHTTP   bool   `json:"allow_insecure_http"`
+	AllowPartialFailure bool   `json:"allow_partial_failure"`
 }
 
 type effectiveProviderConfig struct {

@@ -734,15 +734,15 @@ func TestSharedPlanAndVerify(t *testing.T) {
 			{ID: "a1", Name: "host.example.com.", Type: provider.RecordTypeA, Content: ipv4.String(), TTLSeconds: 300, Options: provider.RecordOptions{Proxy: new(false)}},
 		},
 	}
-	plan, err := provider.BuildSingleAddressPlan(current, desired)
+	plan, err := provider.BuildObservedAddressPlan(current, desired, provider.ObservedFamiliesIPv4)
 	if err != nil {
-		t.Fatalf("BuildSingleAddressPlan() error = %v", err)
+		t.Fatalf("BuildObservedAddressPlan() error = %v", err)
 	}
 	if !plan.IsNoop() {
-		t.Fatalf("BuildSingleAddressPlan() = %+v, want noop", plan)
+		t.Fatalf("BuildObservedAddressPlan() = %+v, want noop", plan)
 	}
-	if err := provider.VerifySingleAddressState(current, desired); err != nil {
-		t.Fatalf("VerifySingleAddressState() error = %v", err)
+	if err := provider.VerifyObservedAddressState(current, desired, provider.ObservedFamiliesIPv4); err != nil {
+		t.Fatalf("VerifyObservedAddressState() error = %v", err)
 	}
 }
 
