@@ -3,9 +3,9 @@ module dns-update
 go 1.26.3
 
 require (
-	github.com/cloudflare/cloudflare-go/v6 v6.9.0
+	github.com/cloudflare/cloudflare-go/v6 v6.10.0
 	github.com/google/go-cmp v0.7.0
-	golang.org/x/sys v0.43.0
+	golang.org/x/sys v0.44.0
 )
 
 require (
