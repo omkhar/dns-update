@@ -55,13 +55,13 @@ jobs:
             label: fedora-stable
             floating_image: "quay.io/fedora/fedora:43"
             pinned_image: "quay.io/fedora/fedora:43@sha256:\
-              bf42f7ebc38f2c53dc5f4c0fa1457e47aff35cdf1cffe1bcc8383d1a372f2857"
+              a76c7fa6987f56b52a66ff71f48d9481fd02b24f98b6e69fb91482a3d8870e38"
             family: fedora
           - name: Fedora Unstable
             label: fedora-unstable
             floating_image: "quay.io/fedora/fedora:rawhide"
             pinned_image: "quay.io/fedora/fedora:rawhide@sha256:\
-              8f1657badb35ef59c32dd371973d37624d7443bb7e14674e3b2cb9ed1c288eab"
+              ae1185eb767fb2afe37499616c1af3e8269c88a80b40cdbaaa4d719710cb5296"
             family: fedora
     steps:
       - name: Checkout
