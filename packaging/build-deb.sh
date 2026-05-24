@@ -165,7 +165,7 @@ Version: $version-$release
 Section: net
 Priority: optional
 Architecture: $deb_arch
-Maintainer: dns-update Maintainers <opensource@dns-update.invalid>
+Maintainer: dns-update Maintainers <dns-update@omkhar.net>
 Depends: systemd
 Installed-Size: $installed_size
 Description: Keep DNS A and AAAA records aligned with egress IP addresses

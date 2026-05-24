@@ -1,7 +1,7 @@
 Source: dns-update
 Section: net
 Priority: optional
-Maintainer: dns-update Maintainers <opensource@dns-update.invalid>
+Maintainer: dns-update Maintainers <dns-update@omkhar.net>
 Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),

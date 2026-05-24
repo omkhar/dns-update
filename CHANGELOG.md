@@ -2,6 +2,15 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.4.2 - 2026-05-24
+
+- Keeps partial probe reconciliation gated behind the explicit
+  `probe.allow_partial_failure` opt-in so default probe failures remain
+  fail-closed.
+- Refreshes the Go dependencies, GitHub Actions pins, and Fedora CI images used
+  by the repository maintenance and validation workflows.
+- Updates the runtime user-agent and package metadata to `1.4.2`.
+
 ## 1.4.1 - 2026-04-27
 
 - Keeps single-family probe failures fail-closed by default and adds
