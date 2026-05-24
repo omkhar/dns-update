@@ -370,7 +370,7 @@ func TestNewErrors(t *testing.T) {
 		{name: "missing token", config: Config{ZoneID: "zone", BaseURL: baseURL, Timeout: time.Second}},
 		{name: "missing base URL", config: Config{ZoneID: "zone", APIToken: "token", Timeout: time.Second}},
 		{name: "missing base URL host", config: Config{ZoneID: "zone", APIToken: "token", BaseURL: mustURL(t, "https:///client/v4/"), Timeout: time.Second}},
-		{name: "base URL userinfo", config: Config{ZoneID: "zone", APIToken: "token", BaseURL: mustURL(t, "https://user:pass@api.cloudflare.com/client/v4/"), Timeout: time.Second}},
+		{name: "base URL userinfo", config: Config{ZoneID: "zone", APIToken: "token", BaseURL: mustURL(t, "https://user:@api.cloudflare.com/client/v4/"), Timeout: time.Second}},
 		{name: "base URL query", config: Config{ZoneID: "zone", APIToken: "token", BaseURL: mustURL(t, "https://api.cloudflare.com/client/v4/?x=1"), Timeout: time.Second}},
 		{name: "base URL fragment", config: Config{ZoneID: "zone", APIToken: "token", BaseURL: mustURL(t, "https://api.cloudflare.com/client/v4/#frag"), Timeout: time.Second}},
 		{name: "base URL non-Cloudflare host", config: Config{ZoneID: "zone", APIToken: "token", BaseURL: mustURL(t, "https://example.com/client/v4/"), Timeout: time.Second}},

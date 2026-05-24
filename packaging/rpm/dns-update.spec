@@ -10,7 +10,7 @@
 %global __brp_strip_comment_note %{nil}
 %global __brp_strip_static_archive %{nil}
 
-%global upstream_version 1.4.1
+%global upstream_version 1.4.2
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid= -X dns-update/internal/buildinfo.Version=%{version}}
@@ -114,24 +114,29 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
-* Mon Apr 27 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.4.1-1
+* Sun May 24 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.4.2-1
+- Keep partial probe reconciliation gated behind probe.allow_partial_failure
+- Refresh Go dependencies, GitHub Actions pins, and Fedora CI images
+- Refresh release metadata for the 1.4.2 release
+
+* Mon Apr 27 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.4.1-1
 - Keep single-family probe failures fail-closed unless probe.allow_partial_failure is enabled
 - Keep explicit ip=none behavior unchanged for successful vs failed probes
 - Refresh release metadata for the 1.4.1 release
 
-* Mon Apr 27 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.4.0-1
+* Mon Apr 27 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.4.0-1
 - Add --version so operators can print the binary version before config loading
 - Stabilize the probe URL fuzz target and refresh CI maintenance
 - Refresh release metadata for the 1.4.0 release
 
-* Fri Apr 17 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.12-1
+* Fri Apr 17 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.12-1
 - Stop packaging/build-remote-container.sh from shell-sourcing the optional
   local override file and accept only literal REMOTE_BUILD_* key/value entries
 - Enforce Windows token-file privacy with NTFS ACL checks in securefile
 - Add regression coverage for the local config parser and Windows ACL validation
 - Refresh release metadata for the 1.3.12 release
 
-* Sun Apr 12 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.11-1
+* Sun Apr 12 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.11-1
 - Escape interpolated launchd plist values so hostile installer arguments
   cannot inject extra XML nodes or scheduler arguments into the generated
   LaunchDaemon
@@ -139,13 +144,13 @@ systemctl daemon-reload >/dev/null 2>&1 || :
   stays well-formed under adversarial input
 - Refresh release metadata for the 1.3.11 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.10-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.10-1
 - Fix the Windows Task Scheduler validation-preflight race by waiting on
   the task's previous LastRunTime instead of a wall-clock timestamp
 - Improve the Windows scheduler integration test trap output
 - Refresh release metadata for the 1.3.10 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.9-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.9-1
 - Make the published .deb and .rpm assets reproducible by normalizing
   package timestamps and RPM metadata to a stable source date
 - Align the reproducibility checker and nightly workflow with the real
@@ -155,74 +160,74 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 - Pin GitHub Actions to the exact Go toolchain declared in go.mod and
   refresh release metadata for the 1.3.9 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.8-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.8-1
 - Fix the RPM packaging script so builders that expose GNU tar only as gtar still pass the tar prerequisite check
 - Refresh release metadata for the 1.3.8 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.7-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.7-1
 - Treat any single-family probe failure as a hard reconciliation error so only explicit ip=none removes a managed address family
 - Reject token-file paths that traverse symlinked ancestor directories
 - Prevent manual rebuilds of older tags from relabeling GitHub's latest release
 - Refresh release metadata for the 1.3.7 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.6-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.6-1
 - Refresh the README, packaged docs, and dns-update(1) man page for current CLI behavior
 - Clarify that introspection modes still load and validate the assembled configuration
 - Restore the missing 1.3.4 release notes and refresh metadata for the 1.3.6 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.5-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.5-1
 - Harden GitHub release publishing to stage assets on a draft release before publication
 - Add an explicit GitHub-hosted rebuild path for an existing tag
 - Roll the release line forward to 1.3.5
 - Refresh release metadata for the 1.3.5 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.4-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.4-1
 - Revalidate the repository against the current stable Go 1.26.1 toolchain
 - Roll the release line forward to 1.3.4
 - Refresh release metadata for the 1.3.4 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.3-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.3-1
 - Fix GitHub CLI authentication in release attestation verification
 - Reissue the 1.3.2 release line as 1.3.3 after the failed tag publish
 - Refresh release metadata for the 1.3.3 release
 
-* Sun Mar 22 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.2-1
+* Sun Mar 22 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.2-1
 - Rework GitHub Actions into fast PR, nightly, and release lanes
 - Add release SBOM generation, artifact attestations, and reproducibility checks
 - Refresh release metadata for the 1.3.2 release
 
-* Sat Mar 21 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.1-1
+* Sat Mar 21 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.1-1
 - Fix the OSV scanner workflow YAML so the release pipeline passes its lint gate again
 - Reissue the 1.3 release line as 1.3.1 after the failed 1.3.0 asset publish
 - Refresh release metadata for the 1.3.1 release
 
-* Sat Mar 21 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.3.0-1
+* Sat Mar 21 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.3.0-1
 - Add a CLI-only delete mode for removing managed A, AAAA, or both record families
 - Keep single-family deletion targeted with dedicated provider delete planning and verification
 - Refresh release metadata and operator documentation for the 1.3.0 release
 
-* Sat Mar 21 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.2.0-1
+* Sat Mar 21 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.2.0-1
 - Add a CLI-only force-push flag that refreshes matching DNS records even when the observed egress IPs have not changed
 - Refresh release, packaging, and deployment documentation for the 1.2.0 release
 
-* Fri Mar 20 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.1.0-1
+* Fri Mar 20 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.1.0-1
 - Remove dead runtime plumbing in config loading, flag parsing, and effective config printing
 - Add repository-wide CODEOWNERS ownership for omkhar
 - Require code-owner review on main while allowing the single repository owner to merge self-authored pull requests
 
-* Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.3-1
+* Thu Mar 19 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.0.3-1
 - Stop UPX-packing packaged binaries so the hardened systemd service remains compatible with MemoryDenyWriteExecute=yes
 - Extend the multi-distro systemd integration test to install and exercise the actual built .deb and .rpm packages
 
-* Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.2-1
+* Thu Mar 19 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.0.2-1
 - Fix the packaged systemd timer so future runs stay scheduled after an initial condition-check skip
 - Extend the multi-distro systemd timer integration test to cover that skipped-first-activation regression
 
-* Thu Mar 19 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0.1-1
+* Thu Mar 19 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.0.1-1
 - Accept systemd-managed credential files with read-only 0440-style modes
 - Fall back to /etc/dns-update/config.json for implicit CLI runs when a local config.json is absent
 - Add multi-distro systemd timer integration coverage
 - Refresh systemd and packaging documentation for the release
 
-* Wed Mar 18 2026 dns-update Maintainers <opensource@dns-update.invalid> - 1.0-1
+* Wed Mar 18 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.0-1
 - Initial public release
