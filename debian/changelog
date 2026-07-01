@@ -1,3 +1,11 @@
+dns-update (1.4.4-1) unstable; urgency=medium
+
+  * Refresh Go dependency metadata and GitHub Actions tool pins for the
+    repository maintenance and validation workflows.
+  * Refresh the runtime user-agent and package metadata to 1.4.4.
+
+ -- dns-update Maintainers <dns-update@omkhar.net>  Wed, 01 Jul 2026 16:14:25 -0400
+
 dns-update (1.4.3-1) unstable; urgency=medium
 
   * Simplify the remote container build workspace layout so each run uses a
