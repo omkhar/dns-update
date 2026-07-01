@@ -2,6 +2,12 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.4.4 - 2026-07-01
+
+- Refreshes Go dependency metadata and GitHub Actions tool pins for repository
+  maintenance and validation workflows.
+- Refreshes the runtime user-agent and package metadata to `1.4.4`.
+
 ## 1.4.3 - 2026-07-01
 
 - Simplifies the remote container build workspace layout so each run uses a
