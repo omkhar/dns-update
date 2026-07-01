@@ -10,7 +10,7 @@
 %global __brp_strip_comment_note %{nil}
 %global __brp_strip_static_archive %{nil}
 
-%global upstream_version 1.4.2
+%global upstream_version 1.4.3
 %global upstream_release 1
 %global release_goflags %{?release_goflags}%{!?release_goflags:-mod=readonly -trimpath -buildvcs=false}
 %global release_ldflags %{?release_ldflags}%{!?release_ldflags:-s -w -buildid= -X dns-update/internal/buildinfo.Version=%{version}}
@@ -114,6 +114,10 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_mandir}/man1/dns-update.1*
 
 %changelog
+* Wed Jul 01 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.4.3-1
+- Simplify the remote container build workspace layout
+- Refresh release metadata for the 1.4.3 release
+
 * Sun May 24 2026 dns-update Maintainers <dns-update@omkhar.net> - 1.4.2-1
 - Keep partial probe reconciliation gated behind probe.allow_partial_failure
 - Refresh Go dependencies, GitHub Actions pins, and Fedora CI images
