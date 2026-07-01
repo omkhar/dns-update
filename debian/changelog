@@ -1,3 +1,11 @@
+dns-update (1.4.3-1) unstable; urgency=medium
+
+  * Simplify the remote container build workspace layout so each run uses a
+    direct per-run directory under the configured build root.
+  * Refresh the runtime user-agent and package metadata to 1.4.3.
+
+ -- dns-update Maintainers <dns-update@omkhar.net>  Wed, 01 Jul 2026 12:47:00 -0400
+
 dns-update (1.4.2-1) unstable; urgency=medium
 
   * Keep partial probe reconciliation gated behind the explicit

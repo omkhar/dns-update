@@ -2,6 +2,12 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## 1.4.3 - 2026-07-01
+
+- Simplifies the remote container build workspace layout so each run uses a
+  direct per-run directory under the configured build root.
+- Refreshes the runtime user-agent and package metadata to `1.4.3`.
+
 ## 1.4.2 - 2026-05-24
 
 - Keeps partial probe reconciliation gated behind the explicit
