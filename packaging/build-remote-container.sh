@@ -246,8 +246,8 @@ remote_root=$(
 			echo 'missing required command: tar' >&2
 			exit 1
 		}
-		mkdir -p \"\$HOME/.codex-builds/dns-update\"
-		mktemp -d \"\$HOME/.codex-builds/dns-update/$run_id.XXXXXX\""
+			mkdir -p \"\$HOME/.dns-update-builds\"
+			mktemp -d \"\$HOME/.dns-update-builds/$run_id.XXXXXX\""
 )
 
 if [ -n "$bootstrap_image" ]; then
