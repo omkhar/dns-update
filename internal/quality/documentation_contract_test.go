@@ -116,6 +116,22 @@ func TestWorkflowRunnersAcceptDocumentedFixedRunners(t *testing.T) {
 	}
 }
 
+func TestWorkflowRunnersRejectMatrixInclude(t *testing.T) {
+	workflow := `jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+        include:
+          - os: ubuntu-22.04
+`
+	if err := validateWorkflowRunners("test.yml", workflow, map[string]bool{"ubuntu-24.04": true}); err == nil {
+		t.Fatal("validateWorkflowRunners accepted an unmodeled matrix.include runner")
+	}
+}
+
 func TestWorkflowActionsRejectUnpinnedReference(t *testing.T) {
 	workflow := `jobs:
   test:
@@ -267,6 +283,183 @@ func TestWorkflowToolsRejectNonCommandDecoys(t *testing.T) {
 	}
 }
 
+func TestWorkflowToolReferencesRejectDeadCompliantInstall(t *testing.T) {
+	workflows := `if false; then
+  go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+fi
+go_subcommand=install
+go "${go_subcommand}" github.com/rhysd/actionlint/cmd/actionlint@v1.7.11
+`
+	tools := map[string]string{"github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12"}
+	if err := validateWorkflowToolReferences(tools, workflows); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted a dead compliant install and an older executable install")
+	}
+}
+
+func TestWorkflowToolReferencesRejectSplitDynamicInstall(t *testing.T) {
+	workflows := `if false; then
+  go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+fi
+go_subcommand=install
+tool_root=github.com/rhysd/actionlint/cmd
+tool_name=actionlint
+go "${go_subcommand}" "${tool_root}/${tool_name}@v1.7.11"
+`
+	tools := map[string]string{"github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12"}
+	if err := validateWorkflowToolReferences(tools, workflows); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted a dead compliant install and a split dynamic executable install")
+	}
+}
+
+func TestWorkflowToolReferencesRejectFunctionDecoyAndCommandIndirection(t *testing.T) {
+	workflows := `jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          install_manifest_actionlint() {
+            GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          }
+          go_subcommand=install
+          tool_root=github.com/rhysd/actionlint/cmd
+          tool_name=actionlint
+          GOBIN="$RUNNER_TEMP/bin" command go "${go_subcommand}" "${tool_root}/${tool_name}@v1.7.11"
+`
+	tools := map[string]string{"github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12"}
+	if err := validateWorkflowToolReferences(tools, workflows); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted an uncalled function decoy and command indirection")
+	}
+}
+
+func TestWorkflowToolReferencesRejectDynamicExecutableIndirection(t *testing.T) {
+	workflows := `jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          go_binary=go
+          go_subcommand=install
+          tool_root=github.com/rhysd/actionlint/cmd
+          tool_name=actionlint
+          GOBIN="$RUNNER_TEMP/bin" "${go_binary}" "${go_subcommand}" "${tool_root}/${tool_name}@v1.7.11"
+`
+	tools := map[string]string{"github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12"}
+	if err := validateWorkflowToolReferences(tools, workflows); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted a dynamically selected Go executable")
+	}
+}
+
+func TestWorkflowToolReferencesRejectCommandWrappedDynamicExecutable(t *testing.T) {
+	workflows := `jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          go_binary=go
+          go_subcommand=install
+          tool_root=github.com/rhysd/actionlint/cmd
+          tool_name=actionlint
+          command "${go_binary}" "${go_subcommand}" "${tool_root}/${tool_name}@v1.7.11"
+`
+	tools := map[string]string{"github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12"}
+	if err := validateWorkflowToolReferences(tools, workflows); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted command-wrapped dynamic executable selection")
+	}
+}
+
+func TestWorkflowToolReferencesRejectTimeWrappedDynamicExecutable(t *testing.T) {
+	workflows := `jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          go_binary=go
+          go_subcommand=install
+          tool_root=github.com/rhysd/actionlint/cmd
+          tool_name=actionlint
+          time "${go_binary}" "${go_subcommand}" "${tool_root}/${tool_name}@v1.7.11"
+`
+	tools := map[string]string{"github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12"}
+	if err := validateWorkflowToolReferences(tools, workflows); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted time-wrapped dynamic executable selection")
+	}
+}
+
+func TestWorkflowToolReferencesRejectHyphenatedFunctionDecoy(t *testing.T) {
+	workflows := `jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          function install-manifest-actionlint-v1 {
+            GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          }
+          go_binary=go
+          go_subcommand=install
+          tool_root=github.com/rhysd/actionlint/cmd
+          tool_name=actionlint
+          command "${go_binary}" "${go_subcommand}" "${tool_root}/${tool_name}@v1.7.11"
+`
+	tools := map[string]string{"github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12"}
+	if err := validateWorkflowToolReferences(tools, workflows); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted a hyphenated function decoy")
+	}
+}
+
+func TestWorkflowToolReferencesRejectNestedCommandSubstitution(t *testing.T) {
+	workflows := `jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          echo "$(go_binary=go; go_subcommand=install; tool_root=github.com/rhysd/actionlint/cmd; tool_name=actionlint; command "${go_binary}" "${go_subcommand}" "${tool_root}/${tool_name}@v1.7.11")" >> "$GITHUB_PATH"
+`
+	tools := map[string]string{"github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12"}
+	if err := validateWorkflowToolReferences(tools, workflows); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted an older install in nested command substitution")
+	}
+}
+
+func TestWorkflowToolReferencesRejectNonexecutingRunDecoy(t *testing.T) {
+	workflow := `name: runtime decoy replay
+
+on:
+  workflow_dispatch:
+
+env:
+  run: |
+    GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+    GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+    GOBIN="$RUNNER_TEMP/bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+    echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+    sudo apt-get update
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends shellcheck
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          go_binary=go
+          go_subcommand=install
+          tool_root=github.com/rhysd/actionlint/cmd
+          tool_name=actionlint
+          GOBIN="$RUNNER_TEMP/bin" "${go_binary}" "${go_subcommand}" "${tool_root}/${tool_name}@v1.7.11"
+`
+	tools := map[string]string{
+		"github.com/rhysd/actionlint/cmd/actionlint":             "v1.7.12",
+		"golang.org/x/vuln/cmd/govulncheck":                      "v1.1.4",
+		"github.com/golangci/golangci-lint/v2/cmd/golangci-lint": "v2.12.2",
+	}
+	if err := validateWorkflowToolReferences(tools, workflow); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted a non-executing env.run decoy")
+	}
+}
+
 func TestNormalizeWorkflowContinuationsHandlesLineEndings(t *testing.T) {
 	for _, test := range []struct {
 		name    string
@@ -295,6 +488,47 @@ func TestWorkflowContainersRejectMismatchedFloatingImage(t *testing.T) {
 `
 	if _, err := workflowContainers(workflow); err == nil {
 		t.Fatal("workflowContainers accepted a floating image that does not match its pinned image")
+	}
+}
+
+func TestWorkflowRuntimeLimitationsDocumented(t *testing.T) {
+	limitations := mustReadContractFile(t, repoRoot(t), "docs/LIMITATIONS.md")
+	for _, statement := range []string{
+		"The workflow runtime check reads a restricted YAML form.",
+		"It reads external actions only from jobs and steps that GitHub Actions can run.",
+		"It reads integration container pins only from the systemd matrix entries.",
+		"Each tracked tool installation must use its exact canonical run block.",
+		"It cannot detect a tracked tool name that a workflow builds from separate string fragments.",
+	} {
+		if !strings.Contains(limitations, statement) {
+			t.Errorf("docs/LIMITATIONS.md does not contain %q", statement)
+		}
+	}
+}
+
+func TestMaintainerNotesMatchRepository(t *testing.T) {
+	root := repoRoot(t)
+	maintainers := mustReadContractFile(t, root, "MAINTAINERS.md")
+	for _, check := range []string{
+		"CI / Pull Request Reviewability",
+		"CI / Lint and Static Analysis",
+		"CI / Test (ubuntu-24.04)",
+		"CI / Test (macos-26)",
+		"CI / Test (windows-2025)",
+		"CodeQL / CodeQL",
+		"Dependency Review / Dependency Review",
+		"zizmor / Analyze workflows",
+	} {
+		if strings.Count(maintainers, "`"+check+"`") != 1 {
+			t.Errorf("MAINTAINERS.md must contain required check %q exactly once", check)
+		}
+	}
+	codeowners := mustReadContractFile(t, root, ".github/CODEOWNERS")
+	if !strings.Contains(codeowners, "* @omkhar") {
+		t.Error(".github/CODEOWNERS does not contain the documented wildcard owner rule")
+	}
+	if !strings.Contains(maintainers, "The wildcard rule in `.github/CODEOWNERS` assigns every repository path") {
+		t.Error("MAINTAINERS.md does not describe the wildcard owner rule")
 	}
 }
 
@@ -333,6 +567,7 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 	workflowRoot := filepath.Join(root, ".github", "workflows")
 	seenActions := make(map[string]bool)
 	seenTools := make(map[string]bool)
+	var workflowContent strings.Builder
 	allowedRunners := make(map[string]bool, len(manifest.Runners))
 	for _, runner := range manifest.Runners {
 		allowedRunners[runner] = true
@@ -343,6 +578,8 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 			return walkErr
 		}
 		content := mustReadContractPath(t, path)
+		workflowContent.WriteString(content)
+		workflowContent.WriteByte('\n')
 		actions, actionErr := workflowActions(content)
 		if actionErr != nil {
 			t.Errorf("%s: %v", filepath.Base(path), actionErr)
@@ -398,6 +635,9 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 		if !seenTools[tool] {
 			t.Errorf("runtime manifest tool %s is not installed", tool)
 		}
+	}
+	if err := validateWorkflowToolReferences(manifest.Tools, workflowContent.String()); err != nil {
+		t.Error(err)
 	}
 
 	for _, runner := range manifest.Runners {
@@ -492,8 +732,9 @@ func validateRuntimeManifest(manifest runtimeManifest) error {
 			return fmt.Errorf("runtime manifest container %q has an invalid digest", container)
 		}
 	}
+	toolVersionPattern := regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
 	for tool, version := range manifest.Tools {
-		if tool == "" || version == "" {
+		if tool == "" || !toolVersionPattern.MatchString(version) {
 			return fmt.Errorf("runtime manifest tool %q has an invalid version", tool)
 		}
 	}
@@ -582,41 +823,96 @@ func normalizeWorkflowContinuations(content string) string {
 	return strings.ReplaceAll(content, "\\\n", "")
 }
 
+type workflowMapping struct {
+	number   int
+	indent   int
+	content  string
+	key      string
+	value    string
+	path     []string
+	sequence bool
+}
+
+func workflowMappings(content string) ([]workflowMapping, error) {
+	lines, err := workflowStructuralLines(content)
+	if err != nil {
+		return nil, err
+	}
+	type mappingFrame struct {
+		indent int
+		key    string
+	}
+	var stack []mappingFrame
+	var mappings []workflowMapping
+	for _, line := range lines {
+		for len(stack) > 0 && stack[len(stack)-1].indent >= line.indent {
+			stack = stack[:len(stack)-1]
+		}
+		key, value, ok := canonicalWorkflowMapping(line.content)
+		if !ok {
+			continue
+		}
+		path := make([]string, 0, len(stack)+1)
+		for _, frame := range stack {
+			path = append(path, frame.key)
+		}
+		path = append(path, key)
+		mappings = append(mappings, workflowMapping{
+			number:   line.number,
+			indent:   line.indent,
+			content:  line.content,
+			key:      key,
+			value:    value,
+			path:     path,
+			sequence: strings.HasPrefix(line.content, "- "),
+		})
+		trimmedValue := strings.TrimSpace(value)
+		if trimmedValue == "" || strings.HasPrefix(trimmedValue, "#") {
+			stack = append(stack, mappingFrame{indent: line.indent, key: key})
+		}
+	}
+	return mappings, nil
+}
+
 type workflowContainer struct {
 	name   string
 	digest string
 }
 
 func workflowContainers(content string) ([]workflowContainer, error) {
-	lines, err := workflowStructuralLines(normalizeWorkflowContinuations(content))
+	mappings, err := workflowMappings(normalizeWorkflowContinuations(content))
 	if err != nil {
 		return nil, err
 	}
 	pendingFloating := ""
 	seen := make(map[string]bool)
 	var containers []workflowContainer
-	for _, line := range lines {
-		key, value, ok := canonicalWorkflowMapping(line.content)
-		if !ok {
+	for _, mapping := range mappings {
+		if len(mapping.path) != 6 || mapping.path[0] != "jobs" ||
+			mapping.path[2] != "strategy" || mapping.path[3] != "matrix" ||
+			mapping.path[4] != "include" {
 			continue
 		}
-		value = workflowScalar(value)
-		switch key {
+		if mapping.sequence && pendingFloating != "" {
+			return nil, fmt.Errorf("line %d starts a new container entry before its pinned image", mapping.number)
+		}
+		value := workflowScalar(mapping.value)
+		switch mapping.key {
 		case "floating_image":
 			if pendingFloating != "" {
-				return nil, fmt.Errorf("line %d starts a new floating image before its pinned image", line.number)
+				return nil, fmt.Errorf("line %d starts a new floating image before its pinned image", mapping.number)
 			}
 			if value == "" || strings.ContainsAny(value, `\@`) {
-				return nil, fmt.Errorf("line %d has an invalid floating image", line.number)
+				return nil, fmt.Errorf("line %d has an invalid floating image", mapping.number)
 			}
 			pendingFloating = value
 		case "pinned_image":
 			if pendingFloating == "" {
-				return nil, fmt.Errorf("line %d has a pinned image without a floating image", line.number)
+				return nil, fmt.Errorf("line %d has a pinned image without a floating image", mapping.number)
 			}
 			match := regexp.MustCompile(`^([^@]+)@sha256:[ \t]*([0-9a-f]{64})$`).FindStringSubmatch(value)
 			if len(match) != 3 {
-				return nil, fmt.Errorf("line %d has an invalid pinned image", line.number)
+				return nil, fmt.Errorf("line %d has an invalid pinned image", mapping.number)
 			}
 			if match[1] != pendingFloating {
 				return nil, fmt.Errorf("floating image %s does not match pinned image %s", pendingFloating, match[1])
@@ -641,19 +937,22 @@ type workflowAction struct {
 }
 
 func workflowActions(content string) ([]workflowAction, error) {
-	lines, err := workflowStructuralLines(content)
+	mappings, err := workflowMappings(content)
 	if err != nil {
 		return nil, err
 	}
 	var actions []workflowAction
-	for _, line := range lines {
-		key, value, ok := canonicalWorkflowMapping(line.content)
-		if !ok || key != "uses" {
+	for _, mapping := range mappings {
+		isStep := len(mapping.path) == 4 && mapping.path[0] == "jobs" &&
+			mapping.path[2] == "steps" && mapping.key == "uses"
+		isReusableJob := len(mapping.path) == 3 && mapping.path[0] == "jobs" &&
+			mapping.key == "uses"
+		if !isStep && !isReusableJob {
 			continue
 		}
-		reference := workflowScalar(value)
+		reference := workflowScalar(mapping.value)
 		if strings.Contains(reference, `\`) {
-			return nil, fmt.Errorf("line %d uses an escaped action reference", line.number)
+			return nil, fmt.Errorf("line %d uses an escaped action reference", mapping.number)
 		}
 		if strings.HasPrefix(reference, "./") {
 			continue
@@ -671,38 +970,172 @@ func workflowActions(content string) ([]workflowAction, error) {
 	return actions, nil
 }
 
+func workflowShellBlocks(content string) ([]string, error) {
+	mappings, err := workflowMappings(content)
+	if err != nil {
+		return nil, err
+	}
+	rawLines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	var blocks []string
+	for _, mapping := range mappings {
+		if len(mapping.path) != 4 || mapping.path[0] != "jobs" ||
+			mapping.path[2] != "steps" || mapping.key != "run" {
+			continue
+		}
+		if !workflowBlockScalarHeader(mapping.content) {
+			blocks = append(blocks, workflowScalar(mapping.value))
+			continue
+		}
+		index := mapping.number - 1
+		bodyIndent := -1
+		var body []string
+		for index++; index < len(rawLines); index++ {
+			bodyLine := rawLines[index]
+			if strings.TrimSpace(bodyLine) == "" {
+				body = append(body, "")
+				continue
+			}
+			lineIndent := len(bodyLine) - len(strings.TrimLeft(bodyLine, " "))
+			if lineIndent <= mapping.indent {
+				break
+			}
+			if bodyIndent < 0 {
+				bodyIndent = lineIndent
+			}
+			if lineIndent < bodyIndent {
+				bodyIndent = lineIndent
+			}
+			body = append(body, bodyLine)
+		}
+		if bodyIndent < 0 {
+			blocks = append(blocks, "")
+			continue
+		}
+		for bodyIndex, bodyLine := range body {
+			if len(bodyLine) >= bodyIndent {
+				body[bodyIndex] = bodyLine[bodyIndent:]
+			}
+		}
+		block := strings.Join(body, "\n")
+		if strings.HasPrefix(strings.TrimSpace(mapping.value), ">") {
+			block = "folded run block\n" + block
+		}
+		blocks = append(blocks, block)
+	}
+	return blocks, nil
+}
+
 func workflowTools(content string) (map[string]string, error) {
-	content = normalizeWorkflowContinuations(content)
 	tools := make(map[string]string)
-	goInstallPattern := regexp.MustCompile(`^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^ \t]+)[ \t]+)*go[ \t]+install[ \t]+([A-Za-z0-9._/-]+)@([A-Za-z0-9.+_-]+)$`)
-	yamllintPattern := regexp.MustCompile(`^(?:"[^"]*pip"|[^ \t]*pip)[ \t]+install(?:[ \t]+--[A-Za-z0-9-]+(?:=[^ \t]+)?)*[ \t]+yamllint==([A-Za-z0-9.+_-]+)$`)
-	for lineNumber, rawLine := range strings.Split(content, "\n") {
-		line := strings.TrimSpace(rawLine)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
+	record := func(name, version string) error {
+		if oldVersion, exists := tools[name]; exists {
+			return fmt.Errorf("tool %s occurs more than once at versions %s and %s", name, oldVersion, version)
 		}
-		if match := goInstallPattern.FindStringSubmatch(line); len(match) == 3 {
-			if oldVersion, exists := tools[match[1]]; exists && oldVersion != match[2] {
-				return nil, fmt.Errorf("tool %s has conflicting versions %s and %s", match[1], oldVersion, match[2])
+		tools[name] = version
+		return nil
+	}
+	blocks, err := workflowShellBlocks(content)
+	if err != nil {
+		return nil, err
+	}
+	for blockNumber, block := range blocks {
+		lines := strings.Split(normalizeWorkflowContinuations(block), "\n")
+		for index, line := range lines {
+			lines[index] = strings.Join(strings.Fields(line), " ")
+		}
+		block = strings.Trim(strings.Join(lines, "\n"), "\n")
+		installed, canonical := canonicalWorkflowToolBlock(block)
+		if canonical {
+			for name, version := range installed {
+				if err := record(name, version); err != nil {
+					return nil, err
+				}
 			}
-			tools[match[1]] = match[2]
 			continue
 		}
-		if strings.Contains(line, "go install") {
-			return nil, fmt.Errorf("line %d has an unsupported go install command", lineNumber+1)
-		}
-		if match := yamllintPattern.FindStringSubmatch(line); len(match) == 2 {
-			if oldVersion, exists := tools["yamllint"]; exists && oldVersion != match[1] {
-				return nil, fmt.Errorf("tool yamllint has conflicting versions %s and %s", oldVersion, match[1])
-			}
-			tools["yamllint"] = match[1]
-			continue
-		}
-		if strings.Contains(line, "yamllint==") {
-			return nil, fmt.Errorf("line %d has an unsupported yamllint install command", lineNumber+1)
+		if workflowBlockReferencesTrackedTool(block) {
+			return nil, fmt.Errorf("run block %d references a tracked tool outside a canonical install block", blockNumber+1)
 		}
 	}
 	return tools, nil
+}
+
+func canonicalWorkflowToolBlock(block string) (map[string]string, bool) {
+	lines := strings.Split(block, "\n")
+	if len(lines) == 6 &&
+		lines[3] == `echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"` &&
+		lines[4] == "sudo apt-get update" &&
+		lines[5] == "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends shellcheck" {
+		names := []string{
+			"github.com/rhysd/actionlint/cmd/actionlint",
+			"golang.org/x/vuln/cmd/govulncheck",
+			"github.com/golangci/golangci-lint/v2/cmd/golangci-lint",
+		}
+		installed := make(map[string]string, len(names))
+		for index, name := range names {
+			version, ok := workflowGoInstallVersion(lines[index], name)
+			if !ok {
+				return nil, false
+			}
+			installed[name] = version
+		}
+		return installed, true
+	}
+	if len(lines) == 3 &&
+		lines[0] == `python3 -m venv "$RUNNER_TEMP/yamllint-venv"` &&
+		lines[2] == `echo "$RUNNER_TEMP/yamllint-venv/bin" >> "$GITHUB_PATH"` {
+		const prefix = `"$RUNNER_TEMP/yamllint-venv/bin/pip" install --disable-pip-version-check yamllint==`
+		if version, ok := strings.CutPrefix(lines[1], prefix); ok && workflowToolVersionToken(version) {
+			return map[string]string{"yamllint": version}, true
+		}
+	}
+	if len(lines) == 2 && lines[1] == `echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"` {
+		const name = "github.com/sigstore/cosign/v3/cmd/cosign"
+		if version, ok := workflowGoInstallVersion(lines[0], name); ok {
+			return map[string]string{name: version}, true
+		}
+	}
+	return nil, false
+}
+
+func workflowGoInstallVersion(line, name string) (string, bool) {
+	prefix := `GOBIN="$RUNNER_TEMP/bin" go install ` + name + "@"
+	version, ok := strings.CutPrefix(line, prefix)
+	return version, ok && workflowToolVersionToken(version)
+}
+
+func workflowToolVersionToken(version string) bool {
+	return version != "" && !strings.ContainsAny(version, " \t\r\n;&|()<>$`\\\"'")
+}
+
+func workflowBlockReferencesTrackedTool(block string) bool {
+	for _, name := range []string{
+		"github.com/rhysd/actionlint/cmd/actionlint",
+		"golang.org/x/vuln/cmd/govulncheck",
+		"github.com/golangci/golangci-lint/v2/cmd/golangci-lint",
+		"github.com/sigstore/cosign/v3/cmd/cosign",
+	} {
+		if strings.Contains(block, name) {
+			return true
+		}
+	}
+	return strings.Contains(block, "yamllint==")
+}
+
+func validateWorkflowToolReferences(tools map[string]string, workflows string) error {
+	installed, err := workflowTools(workflows)
+	if err != nil {
+		return err
+	}
+	if len(installed) != len(tools) {
+		return fmt.Errorf("workflows install %d tracked tools, manifest declares %d", len(installed), len(tools))
+	}
+	for tool, version := range tools {
+		if installed[tool] != version {
+			return fmt.Errorf("workflow tool %s must have exactly one reference at version %s", tool, version)
+		}
+	}
+	return nil
 }
 
 type workflowStructuralLine struct {
@@ -842,11 +1275,12 @@ func workflowRunners(content string) ([]string, error) {
 		key    string
 	}
 	type jobRuntime struct {
-		name        string
-		runsOn      string
-		matrixOS    []string
-		sawMatrix   bool
-		sawMatrixOS bool
+		name             string
+		runsOn           string
+		matrixOS         []string
+		sawMatrix        bool
+		sawMatrixOS      bool
+		sawMatrixInclude bool
 	}
 
 	var stack []mappingFrame
@@ -910,6 +1344,9 @@ func workflowRunners(content string) ([]string, error) {
 				return nil, fmt.Errorf("job %s matrix.os must use a fixed block list", job.name)
 			}
 			job.sawMatrixOS = true
+		case len(path) == 5 && path[0] == "jobs" && path[2] == "strategy" &&
+			path[3] == "matrix" && key == "include":
+			jobs[jobIndexes[path[1]]].sawMatrixInclude = true
 		}
 
 		trimmedValue := strings.TrimSpace(rawValue)
@@ -932,6 +1369,9 @@ func workflowRunners(content string) ([]string, error) {
 		}
 		if !job.sawMatrix || !job.sawMatrixOS || len(job.matrixOS) == 0 {
 			return nil, fmt.Errorf("job %s uses matrix.os, but matrix.os has no fixed block values", job.name)
+		}
+		if job.sawMatrixInclude {
+			return nil, fmt.Errorf("job %s uses matrix.os with an unsupported matrix.include", job.name)
 		}
 		runners = append(runners, job.matrixOS...)
 	}
