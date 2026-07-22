@@ -25,7 +25,8 @@ An HTTP probe is valid only for a loopback or `localhost` test endpoint.
 
 The tool stops reconciliation when a required probe fails.
 Optional partial-failure mode changes this rule for one successful address family.
-The tool does not delete a record after a failed probe.
+During normal reconciliation, the tool does not delete a record after a failed probe.
+The explicit `-delete` mode skips probes and deletes the selected managed record families.
 
 `-force-push` does not bypass probe validation.
 It only replaces matching managed records when the selected probe has valid evidence.
