@@ -1,6 +1,7 @@
 # launchd deployment
 
 Use `launchd` for native scheduled execution on macOS.
+This document uses ASD-STE100 Simplified Technical English.
 
 The helper script in this directory writes and loads a `LaunchDaemon` that:
 
@@ -50,6 +51,18 @@ sudo ./deploy/launchd/install-launchd-job.sh \
 
 To replace an existing job, rerun the helper with the same label. It bootstraps
 the updated plist after booting out any existing job with that label.
+
+## Health check
+
+Run these commands after installation or an update:
+
+```sh
+sudo launchctl print system/com.dns-update
+sudo tail -n 50 /var/log/dns-update.log
+```
+
+The first command must show a loaded job and its next scheduled state.
+The log must show a completed run and no new configuration, credential, probe, or provider error.
 
 To remove the default job:
 

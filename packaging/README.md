@@ -266,8 +266,8 @@ activation must succeed automatically.
 
 Separate native scheduler integration jobs validate:
 
-- `deploy/launchd/install-launchd-job.sh` on `macos-latest`
-- `deploy/windows/register-scheduled-task.ps1` on `windows-latest`
+- `deploy/launchd/install-launchd-job.sh` on `macos-26`
+- `deploy/windows/register-scheduled-task.ps1` on `windows-2025`
 
 Those macOS and Windows jobs run an install-time config-validation preflight
 and then prove a later scheduler-fired invocation uses the installed

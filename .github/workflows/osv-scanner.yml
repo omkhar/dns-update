@@ -22,7 +22,7 @@ permissions: {}
 jobs:
   osv-scanner:
     name: osv-scanner
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       actions: read  # Read workflow metadata required for OSV scanner reporting.

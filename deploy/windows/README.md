@@ -1,6 +1,7 @@
 # Windows scheduled task deployment
 
 Use Task Scheduler for native scheduled execution on Windows.
+This document uses ASD-STE100 Simplified Technical English.
 
 Windows deployments rely on NTFS ACLs for token-file privacy. The registration
 helper now disables inherited access on the token file and its dedicated

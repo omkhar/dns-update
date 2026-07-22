@@ -27,7 +27,7 @@ concurrency:
 jobs:
   release:
     name: Build and publish release assets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       attestations: write  # Publish GitHub attestations for the generated release assets.

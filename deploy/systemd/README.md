@@ -1,5 +1,7 @@
 # systemd deployment
 
+This document uses ASD-STE100 Simplified Technical English.
+
 These units run `dns-update` as a locked-down `Type=oneshot` service behind a
 timer. They are the Linux-specific scheduler integration; macOS and Windows use
 the native helpers under `deploy/launchd` and `deploy/windows`.
@@ -80,6 +82,22 @@ the native helpers under `deploy/launchd` and `deploy/windows`.
    ```sh
    systemctl start dns-update.service
    ```
+
+## Health check
+
+Run these commands after installation or an update:
+
+```sh
+systemctl is-active --quiet dns-update.timer
+test "$(systemctl show dns-update.service -p Result --value)" = success
+systemctl list-timers dns-update.timer --all --no-pager
+journalctl -u dns-update.service -n 50 --no-pager
+```
+
+The first command must exit with status 0.
+The service result must be `success` after a completed run.
+The timer list must show a future activation.
+The journal must not show a new configuration, credential, probe, or provider error.
 
 ## Security model
 
