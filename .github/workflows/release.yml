@@ -100,7 +100,7 @@ jobs:
       - name: Install cosign
         shell: bash
         run: |
-          GOBIN="$RUNNER_TEMP/bin" go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.2
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/sigstore/cosign/v3/cmd/cosign@v3.1.2
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       - name: Install packaging tools

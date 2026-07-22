@@ -1,7 +1,6 @@
 # Maintainer Notes
 
 This repository is published as `dns-update`.
-This document uses ASD-STE100 Simplified Technical English.
 
 ## Recommended GitHub Repository Settings
 
@@ -22,12 +21,9 @@ Apply these settings in GitHub before accepting outside contributions:
 
 If you protect `main`, require these checks:
 
-- `CI / Lint and Static Analysis`
-- `CI / Test (ubuntu-24.04)`
-- `CI / Test (macos-26)`
-- `CI / Test (windows-2025)`
-- `CodeQL / CodeQL`
-- `Dependency Review / Dependency Review`
+- `CI / Go`
+- `CodeQL / Analyze`
+- `Dependency Review / dependency-review`
 - `zizmor / Analyze workflows`
 
 ## Releases
@@ -47,13 +43,13 @@ If you protect `main`, require these checks:
 
 ## Ownership
 
-The `.github/CODEOWNERS` file assigns repository ownership to `@omkhar`.
-It also identifies these security-sensitive paths:
+This repository intentionally does not ship `CODEOWNERS` yet because there is no
+stable maintainer map in the repo. Add `CODEOWNERS` as soon as the maintainer
+set is known and keep the ownership narrow around security-sensitive paths such
+as:
 
 - `.github/`
 - `internal/config/`
 - `internal/provider/`
 - `internal/securefile/`
 - `internal/httpclient/`
-
-Update `.github/CODEOWNERS` when the maintainer set changes.
