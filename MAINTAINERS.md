@@ -22,13 +22,13 @@ Apply these settings in GitHub before accepting outside contributions:
 
 If you protect `main`, require these checks:
 
-- `Lint and Static Analysis`
-- `Test (ubuntu-24.04)`
-- `Test (macos-26)`
-- `Test (windows-2025)`
-- `CodeQL`
-- `Dependency Review`
-- `Analyze workflows`
+- `CI / Lint and Static Analysis`
+- `CI / Test (ubuntu-24.04)`
+- `CI / Test (macos-26)`
+- `CI / Test (windows-2025)`
+- `CodeQL / CodeQL`
+- `Dependency Review / Dependency Review`
+- `zizmor / Analyze workflows`
 
 ## Releases
 

@@ -115,6 +115,35 @@ func TestWorkflowRunnersAcceptDocumentedFixedRunners(t *testing.T) {
 	}
 }
 
+func TestWorkflowActionsRejectUnpinnedReference(t *testing.T) {
+	workflow := `jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+`
+	if _, err := workflowActions(workflow); err == nil {
+		t.Fatal("workflowActions accepted a tag-based action reference")
+	}
+}
+
+func TestNormalizeWorkflowContinuationsHandlesLineEndings(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		content string
+	}{
+		{name: "LF", content: "pinned_image: image@sha256:\\\n  abc"},
+		{name: "CRLF", content: "pinned_image: image@sha256:\\\r\n  abc"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := normalizeWorkflowContinuations(test.content)
+			if got != "pinned_image: image@sha256:  abc" {
+				t.Fatalf("normalizeWorkflowContinuations() = %q", got)
+			}
+		})
+	}
+}
+
 func TestRuntimeManifestMatchesRepository(t *testing.T) {
 	root := repoRoot(t)
 	manifestData, err := os.ReadFile(filepath.Join(root, "docs", "runtime-versions.json"))
@@ -133,7 +162,6 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 	}
 
 	workflowRoot := filepath.Join(root, ".github", "workflows")
-	actionPattern := regexp.MustCompile(`uses:\s*([^\s@]+)@([0-9a-f]{40})`)
 	seenActions := make(map[string]bool)
 	allowedRunners := make(map[string]bool, len(manifest.Runners))
 	for _, runner := range manifest.Runners {
@@ -145,18 +173,19 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 			return walkErr
 		}
 		content := mustReadContractPath(t, path)
-		for _, match := range actionPattern.FindAllStringSubmatch(content, -1) {
-			if strings.HasPrefix(match[1], "./") {
-				continue
-			}
-			pin, ok := manifest.Actions[match[1]]
+		actions, actionErr := workflowActions(content)
+		if actionErr != nil {
+			t.Errorf("%s: %v", filepath.Base(path), actionErr)
+		}
+		for _, action := range actions {
+			pin, ok := manifest.Actions[action.name]
 			if !ok {
-				t.Errorf("%s uses undocumented action %s", filepath.Base(path), match[1])
+				t.Errorf("%s uses undocumented action %s", filepath.Base(path), action.name)
 				continue
 			}
-			seenActions[match[1]] = true
-			if match[2] != pin.SHA {
-				t.Errorf("%s uses %s@%s, want %s", filepath.Base(path), match[1], match[2], pin.SHA)
+			seenActions[action.name] = true
+			if action.sha != pin.SHA {
+				t.Errorf("%s uses %s@%s, want %s", filepath.Base(path), action.name, action.sha, pin.SHA)
 			}
 		}
 		runners, runnerErr := workflowRunners(content)
@@ -187,9 +216,8 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 		}
 	}
 
-	systemdWorkflow := strings.ReplaceAll(
+	systemdWorkflow := normalizeWorkflowContinuations(
 		mustReadContractFile(t, root, ".github/workflows/systemd-integration.yml"),
-		"\\\n", "",
 	)
 	containerPattern := regexp.MustCompile(`pinned_image:\s*"([^"@]+)@sha256:\s*([0-9a-f]{64})"`)
 	seenContainers := make(map[string]bool)
@@ -217,6 +245,38 @@ func goDirectiveVersion(goMod string) string {
 		return ""
 	}
 	return match[1]
+}
+
+func normalizeWorkflowContinuations(content string) string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	return strings.ReplaceAll(content, "\\\n", "")
+}
+
+type workflowAction struct {
+	name string
+	sha  string
+}
+
+func workflowActions(content string) ([]workflowAction, error) {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	pattern := regexp.MustCompile(`(?m)^[ \t]*(?:-[ \t]+)?uses:[ \t]*([^\r\n]+)$`)
+	var actions []workflowAction
+	for _, match := range pattern.FindAllStringSubmatch(content, -1) {
+		reference := workflowScalar(match[1])
+		if strings.HasPrefix(reference, "./") {
+			continue
+		}
+		separator := strings.LastIndexByte(reference, '@')
+		if separator < 1 {
+			return nil, fmt.Errorf("external action reference %q has no commit revision", reference)
+		}
+		name, sha := reference[:separator], reference[separator+1:]
+		if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(sha) {
+			return nil, fmt.Errorf("external action %s uses non-immutable revision %q", name, sha)
+		}
+		actions = append(actions, workflowAction{name: name, sha: sha})
+	}
+	return actions, nil
 }
 
 func validateWorkflowRunners(path, content string, allowed map[string]bool) error {
@@ -383,7 +443,15 @@ func TestMaintainerAndDeploymentDocsMatchRepository(t *testing.T) {
 	if strings.Contains(maintainers, "does not ship `CODEOWNERS`") {
 		t.Fatal("MAINTAINERS.md says that the existing CODEOWNERS file does not exist")
 	}
-	for _, check := range []string{"Lint and Static Analysis", "Test (ubuntu-24.04)", "CodeQL", "Dependency Review", "Analyze workflows"} {
+	for _, check := range []string{
+		"CI / Lint and Static Analysis",
+		"CI / Test (ubuntu-24.04)",
+		"CI / Test (macos-26)",
+		"CI / Test (windows-2025)",
+		"CodeQL / CodeQL",
+		"Dependency Review / Dependency Review",
+		"zizmor / Analyze workflows",
+	} {
 		if !strings.Contains(maintainers, check) {
 			t.Errorf("MAINTAINERS.md does not name check %q", check)
 		}
