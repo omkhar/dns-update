@@ -2,6 +2,7 @@ package quality_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,6 +27,94 @@ type runtimeManifest struct {
 	Containers map[string]pinnedContainer `json:"containers"`
 }
 
+func TestGoDirectiveVersionHandlesWindowsLineEndings(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		content string
+	}{
+		{name: "LF", content: "module example.com/test\n\ngo 1.26.5\n"},
+		{name: "CRLF", content: "module example.com/test\r\n\r\ngo 1.26.5\r\n"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := goDirectiveVersion(test.content); got != "1.26.5" {
+				t.Fatalf("goDirectiveVersion() = %q, want 1.26.5", got)
+			}
+		})
+	}
+}
+
+func TestWorkflowRunnersRejectUndocumentedFixedRunner(t *testing.T) {
+	allowed := map[string]bool{
+		"ubuntu-24.04": true,
+		"windows-2025": true,
+	}
+	for _, test := range []struct {
+		name     string
+		workflow string
+	}{
+		{
+			name: "direct runner",
+			workflow: `jobs:
+  test:
+    runs-on: ubuntu-22.04
+`,
+		},
+		{
+			name: "matrix runner",
+			workflow: `jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-15
+`,
+		},
+		{
+			name: "inline matrix with fake run block values",
+			workflow: `jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-15]
+    steps:
+      - run: |
+          os:
+            - ubuntu-24.04
+`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := validateWorkflowRunners("test.yml", test.workflow, allowed); err == nil {
+				t.Fatal("validateWorkflowRunners accepted an undocumented runner")
+			}
+		})
+	}
+}
+
+func TestWorkflowRunnersAcceptDocumentedFixedRunners(t *testing.T) {
+	workflow := `jobs:
+  direct:
+    runs-on: ubuntu-24.04
+  matrix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+          - windows-2025
+`
+	allowed := map[string]bool{
+		"ubuntu-24.04": true,
+		"windows-2025": true,
+	}
+	if err := validateWorkflowRunners("test.yml", workflow, allowed); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRuntimeManifestMatchesRepository(t *testing.T) {
 	root := repoRoot(t)
 	manifestData, err := os.ReadFile(filepath.Join(root, "docs", "runtime-versions.json"))
@@ -38,14 +127,19 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 	}
 
 	goMod := mustReadContractFile(t, root, "go.mod")
-	goVersion := regexp.MustCompile(`(?m)^go (\S+)$`).FindStringSubmatch(goMod)
-	if len(goVersion) != 2 || goVersion[1] != manifest.Go {
-		t.Fatalf("go.mod version = %v, manifest version = %q", goVersion, manifest.Go)
+	goVersion := goDirectiveVersion(goMod)
+	if goVersion != manifest.Go {
+		t.Fatalf("go.mod version = %q, manifest version = %q", goVersion, manifest.Go)
 	}
 
 	workflowRoot := filepath.Join(root, ".github", "workflows")
 	actionPattern := regexp.MustCompile(`uses:\s*([^\s@]+)@([0-9a-f]{40})`)
 	seenActions := make(map[string]bool)
+	allowedRunners := make(map[string]bool, len(manifest.Runners))
+	for _, runner := range manifest.Runners {
+		allowedRunners[runner] = true
+	}
+	seenRunners := make(map[string]bool)
 	err = filepath.WalkDir(workflowRoot, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil || entry.IsDir() {
 			return walkErr
@@ -65,6 +159,17 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 				t.Errorf("%s uses %s@%s, want %s", filepath.Base(path), match[1], match[2], pin.SHA)
 			}
 		}
+		runners, runnerErr := workflowRunners(content)
+		if runnerErr != nil {
+			t.Errorf("%s: %v", filepath.Base(path), runnerErr)
+		}
+		for _, runner := range runners {
+			if !allowedRunners[runner] {
+				t.Errorf("%s uses undocumented runner %s", filepath.Base(path), runner)
+				continue
+			}
+			seenRunners[runner] = true
+		}
 		return nil
 	})
 	if err != nil {
@@ -76,14 +181,8 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 		}
 	}
 
-	allWorkflows := mustReadWorkflowTree(t, workflowRoot)
-	for _, floating := range []string{"ubuntu-latest", "macos-latest", "windows-latest"} {
-		if strings.Contains(allWorkflows, floating) {
-			t.Errorf("workflow still uses floating runner %s", floating)
-		}
-	}
 	for _, runner := range manifest.Runners {
-		if !strings.Contains(allWorkflows, runner) {
+		if !seenRunners[runner] {
 			t.Errorf("documented runner %s is not used", runner)
 		}
 	}
@@ -110,6 +209,168 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 			t.Errorf("runtime manifest container %s is not used", container)
 		}
 	}
+}
+
+func goDirectiveVersion(goMod string) string {
+	match := regexp.MustCompile(`(?m)^go[ \t]+([^ \t\r\n]+)[ \t]*\r?$`).FindStringSubmatch(goMod)
+	if len(match) != 2 {
+		return ""
+	}
+	return match[1]
+}
+
+func validateWorkflowRunners(path, content string, allowed map[string]bool) error {
+	runners, err := workflowRunners(content)
+	if err != nil {
+		return err
+	}
+	for _, runner := range runners {
+		if !allowed[runner] {
+			return fmt.Errorf("%s uses undocumented runner %s", path, runner)
+		}
+	}
+	return nil
+}
+
+func workflowRunners(content string) ([]string, error) {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	type jobRuntime struct {
+		name        string
+		runsOn      string
+		matrixOS    []string
+		sawMatrix   bool
+		sawMatrixOS bool
+	}
+
+	lines := strings.Split(content, "\n")
+	jobPattern := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_-]*):[ \t]*(?:#.*)?$`)
+	jobs := make([]jobRuntime, 0)
+	inJobs := false
+	currentJob := -1
+	inStrategy := false
+	inMatrix := false
+	inMatrixOS := false
+
+	for lineNumber, line := range lines {
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		leading := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+		if strings.Contains(leading, "\t") {
+			return nil, fmt.Errorf("line %d uses a tab for indentation", lineNumber+1)
+		}
+		indent := len(leading)
+		trimmed := strings.TrimSpace(line)
+
+		if inMatrixOS && indent <= 8 {
+			inMatrixOS = false
+		}
+		if inMatrix && indent <= 6 {
+			inMatrix = false
+		}
+		if inStrategy && indent <= 4 {
+			inStrategy = false
+		}
+
+		if indent == 0 {
+			inJobs = trimmed == "jobs:"
+			currentJob = -1
+			continue
+		}
+		if !inJobs {
+			continue
+		}
+		if indent == 2 {
+			match := jobPattern.FindStringSubmatch(trimmed)
+			if len(match) != 2 {
+				return nil, fmt.Errorf("line %d has an unsupported job declaration", lineNumber+1)
+			}
+			jobs = append(jobs, jobRuntime{name: match[1]})
+			currentJob = len(jobs) - 1
+			continue
+		}
+		if currentJob < 0 {
+			continue
+		}
+
+		if indent == 4 {
+			if strings.HasPrefix(trimmed, "runs-on:") {
+				if jobs[currentJob].runsOn != "" {
+					return nil, fmt.Errorf("job %s has more than one runs-on value", jobs[currentJob].name)
+				}
+				jobs[currentJob].runsOn = workflowScalar(strings.TrimPrefix(trimmed, "runs-on:"))
+				if jobs[currentJob].runsOn == "" {
+					return nil, fmt.Errorf("job %s has an empty runs-on value", jobs[currentJob].name)
+				}
+				continue
+			}
+			if trimmed == "strategy:" {
+				inStrategy = true
+			}
+			continue
+		}
+		if indent == 6 && inStrategy && trimmed == "matrix:" {
+			inMatrix = true
+			jobs[currentJob].sawMatrix = true
+			continue
+		}
+		if indent == 8 && inMatrix && strings.HasPrefix(trimmed, "os:") {
+			if jobs[currentJob].sawMatrixOS {
+				return nil, fmt.Errorf("job %s has more than one matrix.os definition", jobs[currentJob].name)
+			}
+			if workflowScalar(strings.TrimPrefix(trimmed, "os:")) != "" {
+				return nil, fmt.Errorf("job %s matrix.os must use a fixed block list", jobs[currentJob].name)
+			}
+			jobs[currentJob].sawMatrixOS = true
+			inMatrixOS = true
+			continue
+		}
+		if inMatrixOS {
+			if indent != 10 || !strings.HasPrefix(trimmed, "- ") {
+				return nil, fmt.Errorf("job %s matrix.os contains an unsupported value on line %d", jobs[currentJob].name, lineNumber+1)
+			}
+			value := workflowScalar(strings.TrimPrefix(trimmed, "- "))
+			if value == "" || strings.Contains(value, "${{") {
+				return nil, fmt.Errorf("job %s matrix.os contains non-fixed runner %q", jobs[currentJob].name, value)
+			}
+			jobs[currentJob].matrixOS = append(jobs[currentJob].matrixOS, value)
+		}
+	}
+
+	var runners []string
+	for _, job := range jobs {
+		if job.runsOn == "" {
+			continue
+		}
+		if !strings.Contains(job.runsOn, "${{") {
+			runners = append(runners, job.runsOn)
+			continue
+		}
+		if job.runsOn != "${{ matrix.os }}" {
+			return nil, fmt.Errorf("job %s has unsupported runs-on expression %q", job.name, job.runsOn)
+		}
+		if !job.sawMatrix || !job.sawMatrixOS || len(job.matrixOS) == 0 {
+			return nil, fmt.Errorf("job %s uses matrix.os, but matrix.os has no fixed block values", job.name)
+		}
+		runners = append(runners, job.matrixOS...)
+	}
+	return runners, nil
+}
+
+func workflowScalar(value string) string {
+	value = strings.TrimSpace(value)
+	comment := strings.Index(value, " #")
+	if tabComment := strings.Index(value, "\t#"); tabComment >= 0 && (comment < 0 || tabComment < comment) {
+		comment = tabComment
+	}
+	if comment >= 0 {
+		value = strings.TrimSpace(value[:comment])
+	}
+	if len(value) >= 2 && ((value[0] == '"' && value[len(value)-1] == '"') ||
+		(value[0] == '\'' && value[len(value)-1] == '\'')) {
+		value = value[1 : len(value)-1]
+	}
+	return value
 }
 
 func TestMaintainerAndDeploymentDocsMatchRepository(t *testing.T) {
@@ -176,21 +437,6 @@ func TestLimitationsReferenceCoversImplementedBoundaries(t *testing.T) {
 			t.Errorf("docs/LIMITATIONS.md does not contain %q", required)
 		}
 	}
-}
-
-func mustReadWorkflowTree(t *testing.T, root string) string {
-	t.Helper()
-	var combined strings.Builder
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil || entry.IsDir() {
-			return walkErr
-		}
-		combined.WriteString(mustReadContractPath(t, path))
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	return combined.String()
 }
 
 func mustReadContractFile(t *testing.T, root, relative string) string {
