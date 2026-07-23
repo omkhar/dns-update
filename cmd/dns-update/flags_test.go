@@ -1,10 +1,39 @@
 package main
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"dns-update/internal/provider"
 )
+
+func TestFlagHelpUsesSimplifiedEnglish(t *testing.T) {
+	t.Parallel()
+	var output bytes.Buffer
+	flags, _ := newFlagSet(&output)
+	flags.PrintDefaults()
+
+	help := output.String()
+	if strings.Contains(help, ";") {
+		t.Fatalf("flag help contains a semicolon:\n%s", help)
+	}
+	for _, text := range []string{
+		"Set the JSON config file path.",
+		"Delete managed DNS records instead of reconciliation. Use a, aaaa, or both. Bare -delete deletes both.",
+		"Print planned changes without applying them.",
+		"Refresh matching existing address records only after normal reconciliation has no operations.",
+		"Load and validate the assembled config. Print it as JSON. Exit.",
+		"Set the maximum runtime for one reconciliation or delete cycle. Use 0 to disable the limit.",
+		"Load and validate the assembled config. Print a success message. Exit.",
+		"Enable debug logging.",
+		"Print version information. Exit.",
+	} {
+		if !strings.Contains(help, text) {
+			t.Errorf("flag help does not contain %q:\n%s", text, help)
+		}
+	}
+}
 
 func TestParseBoolValue(t *testing.T) {
 	t.Parallel()

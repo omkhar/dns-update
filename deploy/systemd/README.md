@@ -1,8 +1,10 @@
 # systemd deployment
 
-These units run `dns-update` as a locked-down `Type=oneshot` service behind a
-timer. They are the Linux-specific scheduler integration; macOS and Windows use
-the native helpers under `deploy/launchd` and `deploy/windows`.
+This document uses ASD-STE100 Simplified Technical English.
+
+These units run `dns-update` as a locked-down `Type=oneshot` service.
+A systemd timer starts the service.
+macOS and Windows use the native helpers in `deploy/launchd` and `deploy/windows`.
 
 ## Files
 
@@ -34,13 +36,13 @@ the native helpers under `deploy/launchd` and `deploy/windows`.
    install -o root -g root -m 0600 /etc/dns-update/cloudflare.token.example /etc/dns-update/cloudflare.token
    ```
 
-   Keep the source token at `0600`. Do not manually create or chmod files under
-   `/run/credentials/`; `LoadCredential=` materializes that runtime file for the
-   service on each start.
+   Keep the source token at `0600`.
+   Do not manually create or change files under `/run/credentials/`.
+   `LoadCredential=` creates the runtime file when the service starts.
 
-   A config copied from `config.example.json` can keep its sample
-   `api_token_file` value for the packaged timer because the unit overrides only
-   that field at runtime. If you plan to run `/usr/bin/dns-update` directly
+   A config copied from `config.example.json` can keep the sample
+   `api_token_file` value. The packaged timer overrides only that field
+   at runtime. If you plan to run `/usr/bin/dns-update` directly
    outside the unit, either change `provider.cloudflare.api_token_file` to
    `/etc/dns-update/cloudflare.token` or export
    `DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`
@@ -56,10 +58,11 @@ the native helpers under `deploy/launchd` and `deploy/windows`.
 4. Optionally install `/etc/dns-update/dns-update.env` from
    `deploy/systemd/dns-update.env`. Use it for runtime flags such as
    `DNS_UPDATE_TIMEOUT`, `DNS_UPDATE_VERBOSE`, `DNS_UPDATE_DRY_RUN`, or
-   `DNS_UPDATE_CONFIG`; keep record and provider settings in the JSON config.
-   `-force-push` stays CLI-only, so use it on an explicit command line or a
-   custom unit override for ad hoc refreshes instead of treating it as a
-   persistent scheduler default.
+   `DNS_UPDATE_CONFIG`.
+   Keep record and provider settings in the JSON config.
+   `-force-push` stays CLI-only.
+   Use it on an explicit command line or in a custom unit override.
+   Do not make it a persistent scheduler default.
 
 5. Reload systemd and enable the timer:
 
@@ -68,11 +71,10 @@ the native helpers under `deploy/launchd` and `deploy/windows`.
    systemctl enable --now dns-update.timer
    ```
 
-   The first timer run happens immediately at boot or immediately after the
-   timer is enabled, then repeats on five-minute clock boundaries. The
-   `OnCalendar=` schedule keeps future runs queued even if an early service
-   start is skipped, and `Persistent=yes` triggers one catch-up run after
-   downtime.
+   The first timer run happens immediately at boot or after you enable the
+   timer. It then repeats on five-minute clock boundaries. The `OnCalendar=`
+   schedule keeps future runs queued even if systemd skips an early service
+   start. `Persistent=yes` triggers one catch-up run after downtime.
 
 6. Run one immediate reconciliation if you want to validate the setup before the
    next scheduled timer event:
@@ -86,8 +88,8 @@ the native helpers under `deploy/launchd` and `deploy/windows`.
 The service uses:
 
 - `DynamicUser=yes` so the process runs without a persistent account
-- `LoadCredential=` so the Cloudflare token is exposed through a private
-  credential path instead of a world-readable environment variable
+- `LoadCredential=` gives the process a private credential path for the
+  Cloudflare token instead of a world-readable environment variable
 - `ProtectSystem=strict`, `ProtectHome=yes`, and related isolation knobs so the
   filesystem stays read-only to the service
 - an empty capability set and `NoNewPrivileges=yes`
@@ -100,6 +102,6 @@ host filesystem.
 Published packages also avoid self-unpacking binary compression so the shipped
 `/usr/bin/dns-update` remains compatible with `MemoryDenyWriteExecute=yes`.
 
-Depending on the distro/systemd combination, the runtime credential presented in
-`$CREDENTIALS_DIRECTORY` may show up as `0400` or `0440`. That is still treated
-as a private systemd-managed credential by `dns-update`.
+The distro and systemd versions can change the runtime credential mode in
+`$CREDENTIALS_DIRECTORY` to `0400` or `0440`. `dns-update` treats both modes
+as private systemd-managed credentials.

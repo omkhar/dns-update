@@ -1,4 +1,5 @@
 ---
+# This form uses ASD-STE100 Simplified Technical English.
 name: Feature request
 description: Suggest a focused improvement to dns-update.
 title: "[Feature]: "
@@ -10,7 +11,7 @@ body:
     attributes:
       label: Problem
       description: >-
-        What operator or contributor problem are you trying to solve?
+        What operator or contributor problem do you want to solve?
     validations:
       required: true
   - type: textarea

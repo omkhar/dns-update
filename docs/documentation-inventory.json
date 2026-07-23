@@ -1,0 +1,116 @@
+{
+  "ste": [
+    ".github/ISSUE_TEMPLATE/bug_report.yml",
+    ".github/ISSUE_TEMPLATE/feature_request.yml",
+    ".github/pull_request_template.md",
+    "CONTRIBUTING.md",
+    "MAINTAINERS.md",
+    "README.md",
+    "SECURITY.md",
+    "deploy/launchd/README.md",
+    "deploy/systemd/README.md",
+    "deploy/windows/README.md",
+    "docs/DOCUMENTATION.md",
+    "docs/FUNCTIONS.md",
+    "docs/LIMITATIONS.md",
+    "docs/RUNTIME.md",
+    "docs/agents/contract.md",
+    "docs/agents/skills/dns-update-change-gate.md",
+    "docs/agents/skills/dns-update-release-gate.md",
+    "docs/dns-update.1",
+    "packaging/README.md"
+  ],
+  "generated": [
+    {
+      "path": ".agents/skills/dns-update-change-gate/SKILL.md",
+      "source": "docs/agents/skills/dns-update-change-gate.md"
+    },
+    {
+      "path": ".agents/skills/dns-update-release-gate/SKILL.md",
+      "source": "docs/agents/skills/dns-update-release-gate.md"
+    },
+    {
+      "path": ".claude/skills/dns-update-change-gate/SKILL.md",
+      "source": "docs/agents/skills/dns-update-change-gate.md"
+    },
+    {
+      "path": ".claude/skills/dns-update-release-gate/SKILL.md",
+      "source": "docs/agents/skills/dns-update-release-gate.md"
+    },
+    {
+      "path": ".gemini/commands/dns-update/change-gate.toml",
+      "source": "docs/agents/skills/dns-update-change-gate.md"
+    },
+    {
+      "path": ".gemini/commands/dns-update/release-gate.toml",
+      "source": "docs/agents/skills/dns-update-release-gate.md"
+    },
+    {
+      "path": "AGENTS.md",
+      "source": "docs/agents/contract.md"
+    },
+    {
+      "path": "CLAUDE.md",
+      "source": "docs/agents/contract.md"
+    },
+    {
+      "path": "GEMINI.md",
+      "source": "docs/agents/contract.md"
+    }
+  ],
+  "structured": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "reason": "This file contains only GitHub form configuration."
+    },
+    {
+      "path": "cloudflare.token.example",
+      "reason": "This machine-readable placeholder contains no continuous prose."
+    },
+    {
+      "path": "config.example.json",
+      "reason": "This machine-readable example follows the tested config schema."
+    },
+    {
+      "path": "docs/documentation-inventory.json",
+      "reason": "This machine-readable contract classifies documentation."
+    },
+    {
+      "path": "docs/runtime-versions.json",
+      "reason": "This machine-readable contract records runtime pins."
+    },
+    {
+      "path": "docs/user-interface.json",
+      "reason": "This machine-readable contract maps code to documentation."
+    }
+  ],
+  "verbatim": [
+    {
+      "path": "CHANGELOG.md",
+      "reason": "This file is a historical release record."
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "reason": "This file preserves third-party policy text, attribution, and version."
+    },
+    {
+      "path": "LICENSE",
+      "reason": "This file preserves legal license text."
+    },
+    {
+      "path": "debian/changelog",
+      "reason": "This file is a historical package record."
+    },
+    {
+      "path": "debian/copyright",
+      "reason": "This file preserves legal copyright and license metadata."
+    }
+  ],
+  "section_exclusions": [
+    {
+      "path": "packaging/rpm/dns-update.spec",
+      "section": "%changelog",
+      "reason": "This section is a historical package record."
+    }
+  ]
+}

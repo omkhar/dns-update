@@ -2,7 +2,21 @@
 kind: contract
 slug: dns-update
 title: dns-update repo contract
-summary: Keep changes simple, correct, tested, secure, public-repo-safe, and in sync with generated docs; keep PRs human-reviewable, and run release or packaging checks only when the change touches those paths.
+summary: Keep each change simple, correct, tested, secure, reviewable, and safe for a public repository.
 ---
-- Keep changes in scope, preserve unrelated work, and keep PRs human-reviewable; CI rejects changes above `35` changed files or `3000` total added plus deleted lines.
-- Regenerate agent docs from `docs/agents/**`, never hand-edit generated projections, and prefer the smallest correct idiomatic change with focused tests; use public-repo-safe wording only, and update docs plus release or packaging checks only when those behaviors or paths are touched; normal code changes still require `go test ./...`, `go vet ./...`, and `go build ./...`.
+This document uses ASD-STE100 Simplified Technical English.
+
+- Keep each change in scope.
+- Preserve unrelated work.
+- Keep each pull request easy to review.
+- Use no more than `35` changed files.
+- Use no more than `3000` total added and deleted lines.
+- Edit agent text only in `docs/agents/**`.
+- Run `go run ./cmd/agentdocgen` after an agent-text change.
+- Do not edit generated agent projections.
+- Use the smallest correct idiomatic change.
+- Add focused tests.
+- Use text that is safe for a public repository.
+- Update documentation when behavior changes.
+- Run release and package checks when those paths change.
+- Run `go test ./...`, `go vet ./...`, and `go build ./...` for a normal code change.

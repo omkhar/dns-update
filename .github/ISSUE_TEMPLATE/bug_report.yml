@@ -1,4 +1,5 @@
 ---
+# This form uses ASD-STE100 Simplified Technical English.
 name: Bug report
 description: Report a reproducible defect in dns-update.
 title: "[Bug]: "
@@ -8,7 +9,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the report. Please keep it focused and reproducible.
+        Thank you for the report. Keep it focused and reproducible.
 
         Do not use this form for undisclosed security vulnerabilities.
         Follow `SECURITY.md` instead.
@@ -16,7 +17,7 @@ body:
     id: summary
     attributes:
       label: Summary
-      description: What is broken?
+      description: What failed?
     validations:
       required: true
   - type: textarea

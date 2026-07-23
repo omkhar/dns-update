@@ -54,15 +54,15 @@ func newFlagSet(stderr io.Writer) (*flag.FlagSet, *cliFlagValues) {
 
 	flags := flag.NewFlagSet("dns-update", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	flags.StringVar(&values.configPath, "config", "", "Path to the JSON configuration file.")
-	flags.Var(newDeleteFlagValue(&values.deleteSelection), "delete", "Delete managed DNS records instead of reconciling to observed egress IPs. Use a, aaaa, or both; bare -delete deletes both.")
+	flags.StringVar(&values.configPath, "config", "", "Set the JSON config file path.")
+	flags.Var(newDeleteFlagValue(&values.deleteSelection), "delete", "Delete managed DNS records instead of reconciliation. Use a, aaaa, or both. Bare -delete deletes both.")
 	flags.BoolVar(&values.dryRun, "dry-run", false, "Print planned changes without applying them.")
-	flags.BoolVar(&values.forcePush, "force-push", false, "Force a provider update even when the observed DNS state already matches.")
-	flags.BoolVar(&values.validateConfig, "validate-config", false, "Load and validate the assembled configuration, print a success message, and exit.")
-	flags.BoolVar(&values.printEffectiveConfig, "print-effective-config", false, "Load and validate the assembled configuration, print it as JSON, and exit.")
+	flags.BoolVar(&values.forcePush, "force-push", false, "Refresh matching existing address records only after normal reconciliation has no operations.")
+	flags.BoolVar(&values.validateConfig, "validate-config", false, "Load and validate the assembled config. Print a success message. Exit.")
+	flags.BoolVar(&values.printEffectiveConfig, "print-effective-config", false, "Load and validate the assembled config. Print it as JSON. Exit.")
 	flags.BoolVar(&values.verbose, "verbose", false, "Enable debug logging.")
-	flags.BoolVar(&values.version, "version", false, "Print version information and exit.")
-	flags.DurationVar(&values.timeout, "timeout", 0, "Maximum total runtime for one reconciliation cycle. 0 disables the global timeout.")
+	flags.BoolVar(&values.version, "version", false, "Print version information. Exit.")
+	flags.DurationVar(&values.timeout, "timeout", 0, "Set the maximum runtime for one reconciliation or delete cycle. Use 0 to disable the limit.")
 
 	return flags, values
 }

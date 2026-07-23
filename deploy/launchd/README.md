@@ -1,5 +1,7 @@
 # launchd deployment
 
+This document uses ASD-STE100 Simplified Technical English.
+
 Use `launchd` for native scheduled execution on macOS.
 
 The helper script in this directory writes and loads a `LaunchDaemon` that:
@@ -17,6 +19,26 @@ Suggested installed layout:
 - `/usr/local/etc/dns-update/cloudflare.token`
 - `/var/log/dns-update.log`
 
+## Installer options
+
+Run the installer as root.
+
+| Option | Default | Function |
+| --- | --- | --- |
+| `--label LABEL` | `com.dns-update` | Set the LaunchDaemon label. |
+| `--binary PATH` | `/usr/local/bin/dns-update` | Set the binary path. |
+| `--config PATH` | `/usr/local/etc/dns-update/config.json` | Set the config path. |
+| `--token PATH` | `/usr/local/etc/dns-update/cloudflare.token` | Set the token path. |
+| `--interval SECONDS` | `300` | Set a positive run interval. |
+| `--plist PATH` | `/Library/LaunchDaemons/com.dns-update.plist` | Set the plist path. |
+| `--log PATH` | `/var/log/dns-update.log` | Set the combined log path. |
+| `--timeout DURATION` | `2m` | Set `DNS_UPDATE_TIMEOUT`. |
+| `--validate-config` | disabled | Run one config preflight before installation. |
+
+The installer writes the plist with mode `0644`.
+The installer escapes each interpolated XML value.
+The installer uses `plutil` when that command is available.
+
 Example:
 
 ```sh
@@ -32,8 +54,9 @@ The helper writes `/Library/LaunchDaemons/com.dns-update.plist` by default and
 bootstraps it into the system launchd domain.
 
 Pass `--validate-config` to run an immediate preflight validation before the
-recurring job is installed. The installed `LaunchDaemon` still runs normal
-reconciliation and does not keep `-validate-config` in `ProgramArguments`.
+helper installs the recurring job. The installed `LaunchDaemon` still runs
+normal reconciliation and does not keep `-validate-config` in
+`ProgramArguments`.
 
 For a fresh install:
 
@@ -48,8 +71,8 @@ sudo ./deploy/launchd/install-launchd-job.sh \
   --token /usr/local/etc/dns-update/cloudflare.token
 ```
 
-To replace an existing job, rerun the helper with the same label. It bootstraps
-the updated plist after booting out any existing job with that label.
+To replace an existing job, run the helper again with the same label.
+The helper removes the existing job and loads the updated plist.
 
 To remove the default job:
 

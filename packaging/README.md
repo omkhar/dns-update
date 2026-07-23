@@ -1,5 +1,7 @@
 # Packaging
 
+This document uses ASD-STE100 Simplified Technical English.
+
 This repository ships native packaging metadata for:
 
 - Debian-family `.deb` packages
@@ -16,36 +18,34 @@ Both package layouts install:
 - `/usr/bin/dns-update`
 - the `dns-update(1)` man page under the distro-standard `man1` path
 - `/etc/dns-update/dns-update.env`
-- `/etc/dns-update/config.example.json` as a shipped sample that is not loaded
-  by the default systemd service
+- `/etc/dns-update/config.example.json` as a shipped sample. The default
+  systemd service does not load this file
 - `/etc/dns-update/cloudflare.token.example` as a shipped placeholder token file
 - hardened systemd units at the distro-standard unit path
 
 Packaged binaries are intentionally not UPX-packed. That keeps the installed
-service compatible with the hardened unit settings, including
+service compatible with the hardened unit settings and
 `MemoryDenyWriteExecute=yes`.
 
 The package intentionally does not install a live `/etc/dns-update/config.json`
-or `/etc/dns-update/cloudflare.token`. Create those files before enabling the
+or `/etc/dns-update/cloudflare.token`. Create those files before you enable the
 timer.
 
 Copy `/etc/dns-update/config.example.json` to `/etc/dns-update/config.json`
 and `/etc/dns-update/cloudflare.token.example` to
-`/etc/dns-update/cloudflare.token` when bootstrapping a host. The default
-systemd service does not read the sample files directly, and placeholders such
-as `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_TOKEN` must be replaced.
+`/etc/dns-update/cloudflare.token` during host setup. The default
+systemd service does not read the sample files directly. Replace placeholders
+such as `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_TOKEN`.
 
-If you want to run `dns-update` directly outside the packaged systemd unit,
-either edit `/etc/dns-update/config.json` so
-`provider.cloudflare.api_token_file` points at
-`/etc/dns-update/cloudflare.token`, or export
-`DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`
-for that invocation. The packaged systemd unit overrides only that field at
-runtime.
+For a direct binary run, edit `/etc/dns-update/config.json`.
+Set `provider.cloudflare.api_token_file` to `/etc/dns-update/cloudflare.token`.
+You can instead export
+`DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`.
+The packaged systemd unit overrides only that field.
 
-`-force-push` is CLI-only. The packaged `dns-update.env` file does not expose
-a persistent toggle for it, so use it for explicit one-off refreshes or a
-custom unit override instead of enabling it in the default scheduler path.
+`-force-push` is CLI-only.
+The packaged `dns-update.env` file has no persistent control for it.
+Use it for a one-time refresh or in a custom unit override.
 
 At runtime the packaged service uses `LoadCredential=` to materialize
 `/etc/dns-update/cloudflare.token` into a private systemd credential directory.
@@ -58,28 +58,119 @@ Default package targets:
 - `rpi32` for Raspberry Pi OS / Linux ARMv7 (`armhf` / `armv7hl`)
 - `rpi64` for Raspberry Pi OS / Linux ARM64 (`arm64` / `aarch64`)
 
-Artifacts are written under:
+## Supported helper interface
+
+Use no target argument to build all default package targets.
+Use `amd64`, `rpi32`, or `rpi64` to select package targets.
+`build-packages.sh` passes its target arguments to both package builders.
+
+The package builders accept these common controls:
+
+| Variable | Function |
+| --- | --- |
+| `DNS_UPDATE_RELEASE_GOFLAGS` | Replace the release Go build flags. |
+| `DNS_UPDATE_RELEASE_LDFLAGS` | Replace the release Go linker flags. |
+| `GOTOOLCHAIN` | Replace the Go toolchain selection for native tests. |
+| `PACKAGING_SKIP_BUILDDEPS=1` | Skip native package build-dependency checks. |
+| `PACKAGING_SKIP_NATIVE_TESTS=1` | Skip the native Go test run. |
+| `PACKAGING_SKIP_SIGN=1` | Skip package blob signing. |
+| `SOURCE_DATE_EPOCH` | Set the reproducible source timestamp. |
+
+`build-deb.sh` also accepts these controls:
+
+| Variable | Function |
+| --- | --- |
+| `DEB_BUILD_OPTIONS` | Add Debian build options. |
+| `DEB_OUTPUT_DIR` | Replace the Debian output directory. |
+| `DEB_RELEASE` | Replace the package release. |
+| `DEB_VERSION` | Replace the package version. |
+| `PACKAGING_FORCE_DIRECT_DEB=1` | Use direct `dpkg-deb` assembly. |
+
+`build-rpm.sh` also accepts these controls:
+
+| Variable | Function |
+| --- | --- |
+| `PACKAGING_LINUX_MACROS=1` | Use Linux paths and GNU tools on macOS. |
+| `RPM_CANONICAL_TOPDIR_ROOT` | Replace the stable RPM build root. |
+| `RPM_OUTPUT_DIR` | Replace the RPM output directory. |
+| `RPM_RELEASE` | Replace the package release. |
+| `RPM_TOPDIR_ROOT` | Replace the RPM work directory. |
+| `RPM_VERSION` | Replace the package version. |
+
+`build-release-assets.sh` accepts these controls:
+
+| Variable | Default | Function |
+| --- | --- | --- |
+| `RELEASE_OUTPUT_DIR` | `out/release` | Replace the asset output directory. |
+| `RELEASE_SKIP_ARCHIVES` | `0` | Set `1` to skip archives. |
+| `RELEASE_SKIP_PACKAGES` | `0` | Set `1` to skip native packages. |
+| `RELEASE_TMP_DIR` | `out/release-tmp` | Replace the work directory. |
+| `RELEASE_VERSION` | package metadata | Replace the release version. |
+| `RELEASE_WRITE_CHECKSUMS` | `1` | Set `0` to skip `checksums.txt`. |
+
+`build-remote-container.sh` accepts these command options:
+
+| Option | Default | Function |
+| --- | --- | --- |
+| `--host HOST` | required | Select the SSH Docker host. |
+| `--mode MODE` | `release-assets` | Use `release-assets` or `reproducibility`. |
+| `--output-dir DIR` | generated local path | Replace the local result path. |
+| `--image IMAGE` | module Go image | Replace the direct base image. |
+| `--bootstrap-image IMAGE` | unset | Install Go in this cached Debian image. |
+| `--image-tag TAG` | generated | Replace the remote image tag. |
+| `--keep-remote-root` | disabled | Keep the remote work directory. |
+| `--rebuild-image` | disabled | Build the image without layer cache. |
+| `-h` or `--help` | disabled | Print usage and exit with status 2. |
+
+The remote helper accepts these environment variables:
+
+| Variable | Function |
+| --- | --- |
+| `REMOTE_BUILD_HOST` | Set the SSH Docker host. |
+| `REMOTE_BUILD_MODE` | Set `release-assets` or `reproducibility`. |
+| `REMOTE_BUILD_IMAGE` | Set the direct base image. |
+| `REMOTE_BUILD_BOOTSTRAP_IMAGE` | Set the cached Debian bootstrap image. |
+| `REMOTE_BUILD_TAG` | Set the remote image tag. |
+| `REMOTE_BUILD_REBUILD_IMAGE=1` | Build the image without layer cache. |
+| `REMOTE_BUILD_LOCAL_CONFIG` | Select the optional local defaults file. |
+
+The local defaults file accepts only the six build-value variables.
+It does not accept `REMOTE_BUILD_LOCAL_CONFIG`.
+
+`check-release-reproducibility.sh` accepts no arguments.
+It builds two asset sets and compares their `checksums.txt` files.
+It sets direct package defaults that callers can override.
+
+`verify-artifacts.sh` accepts one or more artifact paths.
+Use `COSIGN_KEY` for key-based verification.
+For keyless verification, set `SIGSTORE_CERTIFICATE_IDENTITY` and `SIGSTORE_OIDC_ISSUER`.
+
+`verify-release-assets.sh` accepts one or more release artifact paths.
+It checks the expected payload for archives, Debian packages, and RPM packages.
+It ignores adjacent Sigstore bundles, SPDX files, and checksum files.
+It rejects an unsupported artifact suffix.
+
+The build helpers write artifacts under:
 
 - `out/packages/deb/<target>/`
 - `out/packages/rpm/<target>/`
 - `out/release/` for signed release assets and unsigned local release-asset
   builds
 
-`./packaging/build-packages.sh` runs the native test suite once, then invokes
-both package builders with `PACKAGING_SKIP_NATIVE_TESTS=1` so the package loops
-do not rerun the same native tests.
+`./packaging/build-packages.sh` runs the native test suite once.
+It then invokes both package builders with `PACKAGING_SKIP_NATIVE_TESTS=1`.
+The package loops do not rerun the same native tests.
 
 GitHub Actions runs package creation in two places:
 
 - `Package Validation` builds the cross-platform release archives on pull
-  requests and validates package/archive payloads on `main` pushes without
-  publishing or signing them.
-- The tag-driven `Release` workflow rebuilds the same package and archive
-  formats on the GitHub-hosted runner, generates an SPDX SBOM, emits GitHub
-  artifact attestations for build provenance and the SBOM, signs those files
-  with Sigstore, verifies the signatures and attestations, stages the assets on
-  a draft release, and only then publishes the release payload plus the
-  `*.sigstore.json` bundles.
+  requests and validates package/archive payloads on `main` pushes.
+  It does not publish or sign them.
+- The tag-driven `Release` workflow rebuilds the same package and archive formats.
+- It generates an SPDX SBOM and GitHub artifact attestations.
+- It signs and verifies the files with Sigstore.
+- It puts the assets in a draft release.
+- It then publishes the payload and the `*.sigstore.json` bundles.
 
 To rebuild an already tagged release from the GitHub-hosted builder, run the
 `Release` workflow manually and pass the existing tag plus
@@ -91,11 +182,10 @@ gh workflow run release.yml --ref main \
   -f rebuild_existing_release=true
 ```
 
-That manual rebuild path checks out the requested tag before building. Prefer a
+That manual rebuild path checks out the requested tag. The workflow then builds. Prefer a
 new release tag when you need tag-aligned provenance for a public reissue.
-When rebuilding an older tag in place, the workflow publishes it without
-relabeling GitHub's Latest release slot unless that tag is still the newest
-version.
+An older tag rebuild does not change GitHub's Latest release.
+It changes this label only when that tag is still the newest version.
 
 Build the full unsigned local release asset set with:
 
@@ -121,8 +211,8 @@ Docker host inside a dedicated container with:
 That wrapper:
 
 - streams a fresh source snapshot to the remote host
-- builds a dedicated remote image tag for that run, reusing Docker layer cache
-  unless `--rebuild-image` is passed
+- builds a dedicated remote image tag for that run and reuses Docker layer cache
+  unless you pass `--rebuild-image`
 - runs the build as the remote login UID/GID so bind-mounted outputs remain
   removable by that shared account
 - carries `SOURCE_DATE_EPOCH` into the container so release timestamps stay
@@ -139,18 +229,17 @@ that file now accepts only literal `KEY=VALUE` entries for:
 - `REMOTE_BUILD_TAG`
 - `REMOTE_BUILD_REBUILD_IMAGE`
 
-The wrapper no longer shell-sources that file, so shell syntax, command
-substitutions, and unrelated environment keys are rejected.
+The wrapper no longer shell-sources that file.
+It rejects shell syntax, command substitutions, and unrelated environment keys.
 
-The remote wrapper is intended for the release-asset and reproducibility lanes.
+Use the remote wrapper for the release-asset and reproducibility lanes.
 It intentionally does not run `packaging/test-systemd-timer.sh`, because that
 integration test already drives privileged Docker containers against the remote
 host daemon.
 
-If the remote Docker daemon cannot pull the default `golang:<go.mod version>-bookworm`
-base image directly, bootstrap from a locally cached Debian-based image and let
-the wrapper install the exact module Go toolchain plus the packaging tools into
-that image:
+The remote Docker daemon can fail to pull the default Go image.
+In that case, use a cached Debian-based bootstrap image.
+The wrapper installs the exact Go toolchain and package tools.
 
 ```sh
 ./packaging/build-remote-container.sh --host builder@example-build-host \
@@ -163,9 +252,8 @@ Check that two consecutive full release-asset builds are reproducible with:
 ./packaging/check-release-reproducibility.sh
 ```
 
-That check follows the same direct Debian and RPM packaging path used by the
-trusted release workflow, so it requires the local `dpkg-deb`, `rpmbuild`,
-`zip`, and `unzip` tooling.
+That check uses the trusted release package path.
+Install local `dpkg-deb`, `rpmbuild`, `zip`, and `unzip` tools.
 
 Run the same reproducibility check inside the remote container wrapper with:
 
@@ -199,13 +287,12 @@ Build one target explicitly:
 The Debian wrapper runs `go test ./...` once natively, then cross-builds each
 package with `DEB_BUILD_OPTIONS=nocheck`.
 
-When `dh` is unavailable on the build host, the wrapper falls back to direct
-`dpkg-deb` assembly and still produces the `.deb` artifact with the same
-installed payload. The native Debian path additionally emits `.buildinfo` and
-`.changes` files.
+When `dh` is unavailable, the wrapper uses direct `dpkg-deb` assembly.
+This path produces the same installed payload.
+The native Debian path also emits `.buildinfo` and `.changes` files.
 
 Set `PACKAGING_FORCE_DIRECT_DEB=1` to force the direct `dpkg-deb` path even
-when `dh` is installed.
+when the host has `dh`.
 
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus
@@ -219,7 +306,7 @@ Requirements:
 - `rpmbuild`
 - `cosign`
 - `golang >= 1.26.5`
-- `tar` or `gtar` (GNU tar is preferred on macOS)
+- `tar` or `gtar` (prefer GNU tar on macOS)
 
 Build:
 
@@ -257,20 +344,19 @@ Linux-style filesystem macros and prepend GNU coreutils where needed:
 PACKAGING_LINUX_MACROS=1 ./packaging/build-rpm.sh
 ```
 
-GitHub Actions also runs `packaging/test-systemd-timer.sh` across Debian
-stable/unstable, Ubuntu stable/unstable, and Fedora stable/unstable to validate
-the installed timer/service flow on each Linux distro family using the actual
-built package for that family, including the regression where the first
-activation is skipped before later timer runs are due and a later timer-fired
-activation must succeed automatically.
+GitHub Actions runs `packaging/test-systemd-timer.sh` on six Linux images.
+The images cover stable and unstable Debian, Ubuntu, and Fedora versions.
+Each test uses the package for its distribution family.
+The test skips the first service activation.
+It then proves that a later timer activation succeeds.
 
 Separate native scheduler integration jobs validate:
 
 - `deploy/launchd/install-launchd-job.sh` on `macos-26`
 - `deploy/windows/register-scheduled-task.ps1` on `windows-2025`
 
-Those macOS and Windows jobs run an install-time config-validation preflight
-and then prove a later scheduler-fired invocation uses the installed
+Those macOS and Windows jobs run an install-time config-validation preflight.
+They then prove that a later scheduler-fired invocation uses the installed
 non-validation action.
 
 For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
@@ -283,18 +369,19 @@ Native test and normal development builds keep their existing defaults.
 
 ## Sigstore signing
 
-Each generated `.deb` and `.rpm` is signed with `cosign sign-blob` and a
-Sigstore bundle written next to the artifact as `*.sigstore.json`.
+The package helpers sign each generated `.deb` and `.rpm` with
+`cosign sign-blob`. They write a Sigstore bundle next to the artifact as
+`*.sigstore.json`.
 
-This is detached blob signing. If you inspect an RPM directly with
-`rpm -qip`, the header signature field will still show `Signature: (none)`;
-the attestation lives in the adjacent Sigstore bundle instead.
+This process uses detached blob signing. If you inspect an RPM directly with
+`rpm -qip`, the header signature field still shows `Signature: (none)`.
+The adjacent Sigstore bundle contains the attestation.
 
 Default signing mode is keyless. That follows the Sigstore blob-signing flow and
 requires an identity that Cosign can use.
 
 If keyless auth is not available on the local build host, sign with a managed
-key by setting `COSIGN_KEY`.
+key. Set `COSIGN_KEY` to select the key.
 
 Verify an artifact with:
 
@@ -322,4 +409,4 @@ Validate the expected payload layout of built archives and packages with:
 ## Maintainer metadata
 
 The Debian and RPM metadata currently use a generic maintainer identity. Update
-that metadata before publishing packages outside your own infrastructure.
+that metadata before you publish packages outside your own infrastructure.
