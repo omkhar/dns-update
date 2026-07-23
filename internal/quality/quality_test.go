@@ -113,6 +113,64 @@ func TestAgentdocsIntegration(t *testing.T) {
 	}
 }
 
+func TestCheckWorkflowActionPin(t *testing.T) {
+	t.Parallel()
+
+	const action = "actions/checkout"
+	firstPin := strings.Repeat("a", 40) + " # v7.0.1"
+	tests := []struct {
+		name       string
+		line       string
+		currentPin string
+		wantPin    string
+		wantFound  bool
+		wantError  bool
+	}{
+		{
+			name:      "mapping step",
+			line:      "uses: actions/checkout@" + strings.Repeat("a", 40) + "  # v7.0.1",
+			wantPin:   firstPin,
+			wantFound: true,
+		},
+		{
+			name:      "list step",
+			line:      "- uses: actions/checkout@" + strings.Repeat("a", 40) + "  # v7.0.1",
+			wantPin:   firstPin,
+			wantFound: true,
+		},
+		{
+			name:       "inconsistent pin",
+			line:       "- uses: actions/checkout@" + strings.Repeat("b", 40) + "  # v7.0.2",
+			currentPin: firstPin,
+			wantPin:    firstPin,
+			wantFound:  true,
+			wantError:  true,
+		},
+		{
+			name:      "short pin",
+			line:      "uses: actions/checkout@abc123  # v7.0.1",
+			wantFound: true,
+			wantError: true,
+		},
+		{
+			name: "different action",
+			line: "uses: actions/setup-go@" + strings.Repeat("c", 40) + "  # v7.0.0",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pin, found, err := checkWorkflowActionPin(test.line, action, test.currentPin)
+			if pin != test.wantPin || found != test.wantFound || (err != nil) != test.wantError {
+				t.Fatalf(
+					"checkWorkflowActionPin() = (%q, %t, %v), want (%q, %t, error=%t)",
+					pin, found, err, test.wantPin, test.wantFound, test.wantError,
+				)
+			}
+		})
+	}
+}
+
 func TestWorkflowActionPins(t *testing.T) {
 	t.Parallel()
 
@@ -141,20 +199,16 @@ func TestWorkflowActionPins(t *testing.T) {
 		}
 		for lineNumber, line := range strings.Split(string(content), "\n") {
 			for _, action := range actions {
-				if !strings.HasPrefix(strings.TrimSpace(line), "uses: "+action+"@") {
+				pin, present, err := checkWorkflowActionPin(line, action, currentPins[action])
+				if !present {
 					continue
 				}
 				found[action]++
-				pin, ok := workflowActionPin(line, action)
-				if !ok {
-					t.Errorf("%s:%d action %s must use a full commit SHA and release tag comment", entry.Name(), lineNumber+1, action)
+				if err != nil {
+					t.Errorf("%s:%d action %s %v", entry.Name(), lineNumber+1, action, err)
 					continue
 				}
-				if current, exists := currentPins[action]; exists && pin != current {
-					t.Errorf("%s:%d action %s pin %s does not match %s", entry.Name(), lineNumber+1, action, pin, current)
-				} else {
-					currentPins[action] = pin
-				}
+				currentPins[action] = pin
 			}
 		}
 	}
@@ -164,6 +218,24 @@ func TestWorkflowActionPins(t *testing.T) {
 			t.Errorf("workflow action %s is not present", action)
 		}
 	}
+}
+
+func checkWorkflowActionPin(line string, action string, currentPin string) (string, bool, error) {
+	line = strings.TrimSpace(line)
+	line = strings.TrimSpace(strings.TrimPrefix(line, "-"))
+	if !strings.HasPrefix(line, "uses: "+action+"@") {
+		return currentPin, false, nil
+	}
+
+	pin, ok := workflowActionPin(line, action)
+	if !ok {
+		return currentPin, true, errors.New("must use a full commit SHA and release tag comment")
+	}
+	if currentPin != "" && pin != currentPin {
+		return currentPin, true, fmt.Errorf("pin %s does not match %s", pin, currentPin)
+	}
+
+	return pin, true, nil
 }
 
 func workflowActionPin(line string, action string) (string, bool) {
