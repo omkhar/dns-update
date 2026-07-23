@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,6 +20,10 @@ import (
 const (
 	skipCoverageEnv = "DNS_UPDATE_SKIP_COVERAGE_TEST"
 	skipMutationEnv = "DNS_UPDATE_SKIP_MUTATION_TEST"
+)
+
+var workflowActionPinPattern = regexp.MustCompile(
+	`^uses: ([^@[:space:]]+)@([0-9a-f]{40})  # (v[0-9][0-9A-Za-z.+-]*)$`,
 )
 
 type mutant struct {
@@ -106,6 +111,140 @@ func TestAgentdocsIntegration(t *testing.T) {
 	if err := agentdocs.Write(root); err == nil || !strings.Contains(err.Error(), ".agents/skills") {
 		t.Fatalf("agentdocs.Write(managed root file) error = %v, want .agents/skills failure", err)
 	}
+}
+
+func TestCheckWorkflowActionPin(t *testing.T) {
+	t.Parallel()
+
+	const action = "actions/checkout"
+	firstPin := strings.Repeat("a", 40) + " # v7.0.1"
+	tests := []struct {
+		name       string
+		line       string
+		currentPin string
+		wantPin    string
+		wantFound  bool
+		wantError  bool
+	}{
+		{
+			name:      "mapping step",
+			line:      "uses: actions/checkout@" + strings.Repeat("a", 40) + "  # v7.0.1",
+			wantPin:   firstPin,
+			wantFound: true,
+		},
+		{
+			name:      "list step",
+			line:      "- uses: actions/checkout@" + strings.Repeat("a", 40) + "  # v7.0.1",
+			wantPin:   firstPin,
+			wantFound: true,
+		},
+		{
+			name:       "inconsistent pin",
+			line:       "- uses: actions/checkout@" + strings.Repeat("b", 40) + "  # v7.0.2",
+			currentPin: firstPin,
+			wantPin:    firstPin,
+			wantFound:  true,
+			wantError:  true,
+		},
+		{
+			name:      "short pin",
+			line:      "uses: actions/checkout@abc123  # v7.0.1",
+			wantFound: true,
+			wantError: true,
+		},
+		{
+			name: "different action",
+			line: "uses: actions/setup-go@" + strings.Repeat("c", 40) + "  # v7.0.0",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pin, found, err := checkWorkflowActionPin(test.line, action, test.currentPin)
+			if pin != test.wantPin || found != test.wantFound || (err != nil) != test.wantError {
+				t.Fatalf(
+					"checkWorkflowActionPin() = (%q, %t, %v), want (%q, %t, error=%t)",
+					pin, found, err, test.wantPin, test.wantFound, test.wantError,
+				)
+			}
+		})
+	}
+}
+
+func TestWorkflowActionPins(t *testing.T) {
+	t.Parallel()
+
+	actions := []string{
+		"actions/attest",
+		"actions/checkout",
+		"actions/setup-go",
+		"zizmorcore/zizmor-action",
+	}
+	found := make(map[string]int, len(actions))
+	currentPins := make(map[string]string, len(actions))
+	workflowDir := filepath.Join(repoRoot(t), ".github", "workflows")
+
+	entries, err := os.ReadDir(workflowDir)
+	if err != nil {
+		t.Fatalf("os.ReadDir(%s) error = %v", workflowDir, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yml" {
+			continue
+		}
+		path := filepath.Join(workflowDir, entry.Name())
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("os.ReadFile(%s) error = %v", path, err)
+		}
+		for lineNumber, line := range strings.Split(string(content), "\n") {
+			for _, action := range actions {
+				pin, present, err := checkWorkflowActionPin(line, action, currentPins[action])
+				if !present {
+					continue
+				}
+				found[action]++
+				if err != nil {
+					t.Errorf("%s:%d action %s %v", entry.Name(), lineNumber+1, action, err)
+					continue
+				}
+				currentPins[action] = pin
+			}
+		}
+	}
+
+	for _, action := range actions {
+		if found[action] == 0 {
+			t.Errorf("workflow action %s is not present", action)
+		}
+	}
+}
+
+func checkWorkflowActionPin(line string, action string, currentPin string) (string, bool, error) {
+	line = strings.TrimSpace(line)
+	line = strings.TrimSpace(strings.TrimPrefix(line, "-"))
+	if !strings.HasPrefix(line, "uses: "+action+"@") {
+		return currentPin, false, nil
+	}
+
+	pin, ok := workflowActionPin(line, action)
+	if !ok {
+		return currentPin, true, errors.New("must use a full commit SHA and release tag comment")
+	}
+	if currentPin != "" && pin != currentPin {
+		return currentPin, true, fmt.Errorf("pin %s does not match %s", pin, currentPin)
+	}
+
+	return pin, true, nil
+}
+
+func workflowActionPin(line string, action string) (string, bool) {
+	match := workflowActionPinPattern.FindStringSubmatch(strings.TrimSpace(line))
+	if match == nil || match[1] != action {
+		return "", false
+	}
+
+	return match[2] + " # " + match[3], true
 }
 
 func TestCoverageThreshold(t *testing.T) {
