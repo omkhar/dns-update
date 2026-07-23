@@ -433,7 +433,7 @@ on:
 env:
   run: |
     GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-    GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+    GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
     GOBIN="$RUNNER_TEMP/bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
     echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
     sudo apt-get update
@@ -452,7 +452,7 @@ jobs:
 `
 	tools := map[string]string{
 		"github.com/rhysd/actionlint/cmd/actionlint":             "v1.7.12",
-		"golang.org/x/vuln/cmd/govulncheck":                      "v1.1.4",
+		"golang.org/x/vuln/cmd/govulncheck":                      "v1.6.0",
 		"github.com/golangci/golangci-lint/v2/cmd/golangci-lint": "v2.12.2",
 	}
 	if err := validateWorkflowToolReferences(tools, workflow); err == nil {

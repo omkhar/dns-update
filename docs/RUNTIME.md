@@ -22,7 +22,7 @@ The workflows also pin deterministic integration containers to multi-platform im
 The workflows install these tool versions:
 
 - actionlint 1.7.12
-- govulncheck 1.1.4
+- govulncheck 1.6.0
 - golangci-lint 2.12.2
 - yamllint 1.38.0
 - cosign 3.1.2
