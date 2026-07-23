@@ -27,7 +27,7 @@ concurrency:
 jobs:
   release:
     name: Build and publish release assets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       attestations: write  # Publish GitHub attestations for the generated release assets.
@@ -100,7 +100,7 @@ jobs:
       - name: Install cosign
         shell: bash
         run: |
-          GOBIN="$RUNNER_TEMP/bin" go install github.com/sigstore/cosign/v2/cmd/cosign@v2.6.2
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/sigstore/cosign/v3/cmd/cosign@v3.1.2
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       - name: Install packaging tools

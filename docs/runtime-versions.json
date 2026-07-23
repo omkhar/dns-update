@@ -1,0 +1,79 @@
+{
+  "go": "1.26.5",
+  "runners": [
+    "ubuntu-24.04",
+    "macos-26",
+    "windows-2025"
+  ],
+  "actions": {
+    "actions/attest": {
+      "sha": "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
+    },
+    "actions/attest-build-provenance": {
+      "sha": "0f67c3f4856b2e3261c31976d6725780e5e4c373"
+    },
+    "actions/checkout": {
+      "sha": "3d3c42e5aac5ba805825da76410c181273ba90b1"
+    },
+    "actions/dependency-review-action": {
+      "sha": "a1d282b36b6f3519aa1f3fc636f609c47dddb294"
+    },
+    "actions/setup-go": {
+      "sha": "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"
+    },
+    "actions/upload-artifact": {
+      "sha": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+    },
+    "anchore/sbom-action": {
+      "sha": "e22c389904149dbc22b58101806040fa8d37a610"
+    },
+    "github/codeql-action/analyze": {
+      "sha": "e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81"
+    },
+    "github/codeql-action/init": {
+      "sha": "e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81"
+    },
+    "github/codeql-action/upload-sarif": {
+      "sha": "e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81"
+    },
+    "google/osv-scanner-action/osv-reporter-action": {
+      "sha": "9a498708959aeaef5ef730655706c5a1df1edbc2"
+    },
+    "google/osv-scanner-action/osv-scanner-action": {
+      "sha": "9a498708959aeaef5ef730655706c5a1df1edbc2"
+    },
+    "ossf/scorecard-action": {
+      "sha": "4eaacf0543bb3f2c246792bd56e8cdeffafb205a"
+    },
+    "zizmorcore/zizmor-action": {
+      "sha": "6599ee8b7a49aef6a770f63d261d214911a7ce02"
+    }
+  },
+  "containers": {
+    "debian:stable-slim": {
+      "digest": "328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd"
+    },
+    "debian:unstable-slim": {
+      "digest": "153e7023d3501a4a980f54fd3e8560c029109bb1a3475fcc5047fc948da553ab"
+    },
+    "fedora:44": {
+      "digest": "6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898"
+    },
+    "fedora:rawhide": {
+      "digest": "0c1f63ed8fb818fad16cf6ae091598c410a21d2e1a9adf183beb93189299bfba"
+    },
+    "ubuntu:devel": {
+      "digest": "694b773ee7e0d0b55ca74c095ac3309055589e7cbfaf3100f0b226c38c6936fa"
+    },
+    "ubuntu:rolling": {
+      "digest": "3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb"
+    }
+  },
+  "tools": {
+    "github.com/golangci/golangci-lint/v2/cmd/golangci-lint": "v2.12.2",
+    "github.com/rhysd/actionlint/cmd/actionlint": "v1.7.12",
+    "github.com/sigstore/cosign/v3/cmd/cosign": "v3.1.2",
+    "golang.org/x/vuln/cmd/govulncheck": "v1.6.0",
+    "yamllint": "1.38.0"
+  }
+}

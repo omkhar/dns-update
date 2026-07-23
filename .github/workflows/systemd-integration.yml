@@ -19,7 +19,7 @@ concurrency:
 jobs:
   systemd:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -31,37 +31,37 @@ jobs:
             label: debian-stable
             floating_image: "debian:stable-slim"
             pinned_image: "debian:stable-slim@sha256:\
-              99fc6d2a0882fcbcdc452948d2d54eab91faafc7db037df82425edcdcf950e1f"
+              328d16499860ae6cb9b345e2e4cebca08c2a36e4f7278482c7bd1f39d71e5bfd"
             family: debian
           - name: Debian Unstable
             label: debian-unstable
             floating_image: "debian:unstable-slim"
             pinned_image: "debian:unstable-slim@sha256:\
-              4629867cb5aa1f25958b91d0ac0a867308ec5a72d470811fc2e551df1e240087"
+              153e7023d3501a4a980f54fd3e8560c029109bb1a3475fcc5047fc948da553ab"
             family: debian
           - name: Ubuntu Stable
             label: ubuntu-stable
             floating_image: "ubuntu:rolling"
             pinned_image: "ubuntu:rolling@sha256:\
-              4a9232cc47bf99defcc8860ef6222c99773330367fcecbf21ba2edb0b810a31e"
+              3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb"
             family: ubuntu
           - name: Ubuntu Unstable
             label: ubuntu-unstable
             floating_image: "ubuntu:devel"
             pinned_image: "ubuntu:devel@sha256:\
-              91832dcd7bc5e44c098ecefc0a251a5c5d596dae494b33fb248e01b6840f8ce0"
+              694b773ee7e0d0b55ca74c095ac3309055589e7cbfaf3100f0b226c38c6936fa"
             family: ubuntu
           - name: Fedora Stable
             label: fedora-stable
-            floating_image: "fedora:43"
-            pinned_image: "fedora:43@sha256:\
-              49b5f0ab05516b1a8168c79f295da65e8d8db1cae275a4bec007c0b88cd19ffb"
+            floating_image: "fedora:44"
+            pinned_image: "fedora:44@sha256:\
+              6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898"
             family: fedora
           - name: Fedora Unstable
             label: fedora-unstable
             floating_image: "fedora:rawhide"
             pinned_image: "fedora:rawhide@sha256:\
-              8b838b3253cb855b1e5c3e1366fd0cda28cd1cc4c3517d625847172fd4ac6869"
+              0c1f63ed8fb818fad16cf6ae091598c410a21d2e1a9adf183beb93189299bfba"
             family: fedora
     steps:
       - name: Checkout
