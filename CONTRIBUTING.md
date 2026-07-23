@@ -2,13 +2,13 @@
 
 This document uses ASD-STE100 Simplified Technical English.
 
-Thank you for contributing to this repository.
+Thank you for your contribution to this repository.
 
 ## Before You Start
 
 - Keep changes focused.
 - Make each pull request easy to review.
-- Open an issue before starting broad refactors, new providers, or behavior
+- Open an issue before you start broad refactors, new providers, or behavior
   changes that affect operators.
 - For security-sensitive changes, read [SECURITY.md](./SECURITY.md) first.
 
@@ -22,7 +22,7 @@ Thank you for contributing to this repository.
 - Keep pull requests small enough for a complete review.
 - Pull request CI rejects changes above 35 changed files or 3000 total added
   plus deleted lines.
-- Edit `docs/agents/**` instead of hand-editing generated agent projections.
+- Edit `docs/agents/**`. Do not edit generated agent projections by hand.
 - Regenerate agent projections with `go run ./cmd/agentdocgen` whenever
   `docs/agents/**` changes.
 - Keep documentation in sync when flags, config, security posture, or
@@ -30,7 +30,7 @@ Thank you for contributing to this repository.
 
 ## Local Checks
 
-Run the checks relevant to your change before opening a pull request.
+Run the checks relevant to your change before you open a pull request.
 
 Typical checks:
 
@@ -40,7 +40,7 @@ go vet ./...
 go build ./cmd/dns-update
 ```
 
-If you are changing a narrow area, run the focused package tests too.
+If you change a narrow area, run the focused package tests too.
 
 ## Branch and Pull Request Flow
 
@@ -67,7 +67,7 @@ Because of that:
 
 - Prefer imperative commit subjects.
 - Keep the first line concise and specific.
-- Avoid mixing unrelated docs, refactors, and behavior changes in one PR.
+- Do not mix unrelated docs, refactors, and behavior changes in one PR.
 
 ## Reporting Problems
 

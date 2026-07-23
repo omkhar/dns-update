@@ -180,7 +180,7 @@ On Unix, group and other users cannot access a normal token file.
 On Unix, group and other users cannot write its parent directory.
 A systemd-managed credential can have mode `0440`.
 The program accepts this mode only in the active systemd credential directory.
-On Windows, the program checks the corresponding file and directory ACLs.
+On Windows, the program checks the related file and directory ACLs.
 The token file can contain at most 4096 bytes.
 It must contain exactly one nonempty token.
 
@@ -243,7 +243,7 @@ Neither preflight changes the installed recurring action.
 
 Run `go run ./cmd/agentdocgen` to generate the tracked agent projections from
 `docs/agents/**`.
-Use `-check` to compare the projections without changing files.
+Use `-check` to compare the projections. The command does not change files.
 Use `-root PATH` to select the repository root.
 The current directory is the default root.
 The helper returns exit code 1 for a generation failure or a difference.

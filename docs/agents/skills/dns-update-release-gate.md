@@ -2,7 +2,7 @@
 kind: skill
 slug: dns-update-release-gate
 title: dns-update release gate
-summary: Validate release-ready changes, generated docs, and package-impacting paths when relevant.
+summary: Validate release-ready changes, generated docs, and paths that affect packages when relevant.
 ---
 This document uses ASD-STE100 Simplified Technical English.
 

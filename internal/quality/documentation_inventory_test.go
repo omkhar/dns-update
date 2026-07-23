@@ -15,7 +15,7 @@ import (
 )
 
 const steDeclaration = "ASD-STE100 Simplified Technical English"
-const maximumSimplifiedEnglishSentenceWords = 25
+const maximumSimplifiedEnglishSentenceWords = 20
 
 var (
 	inlineCodePattern  = regexp.MustCompile("`[^`]*`")
@@ -61,10 +61,8 @@ type documentationSectionExclusion struct {
 }
 
 func TestDocumentationInventoryCoversLiveSurfaces(t *testing.T) {
-	t.Parallel()
-
 	root := repoRoot(t)
-	inventory := readDocumentationInventory(t, root)
+	inventory := readJSONContract[documentationInventory](t, root, "docs/documentation-inventory.json")
 	classified := make(map[string]string)
 
 	requireSortedUniquePaths(t, "ste", inventory.STE)
@@ -119,17 +117,8 @@ func TestDocumentationInventoryCoversLiveSurfaces(t *testing.T) {
 }
 
 func TestDocumentationPathUsesRepositorySlashSemantics(t *testing.T) {
-	t.Parallel()
-
 	for _, candidate := range []string{
-		"",
-		".",
-		"../docs/FUNCTIONS.md",
-		"./docs/FUNCTIONS.md",
-		"/docs/FUNCTIONS.md",
-		"C:/docs/FUNCTIONS.md",
-		`docs\FUNCTIONS.md`,
-		"docs/../FUNCTIONS.md",
+		"", ".", "../docs/FUNCTIONS.md", "./docs/FUNCTIONS.md", "/docs/FUNCTIONS.md", "C:/docs/FUNCTIONS.md", `docs\FUNCTIONS.md`, "docs/../FUNCTIONS.md",
 	} {
 		if isCleanDocumentationPath(candidate) {
 			t.Errorf("isCleanDocumentationPath(%q) = true, want false", candidate)
@@ -142,20 +131,18 @@ func TestDocumentationPathUsesRepositorySlashSemantics(t *testing.T) {
 }
 
 func TestSimplifiedEnglishGrammarFindings(t *testing.T) {
-	t.Parallel()
-
 	long := strings.TrimSpace(strings.Repeat("word ", 26)) + "."
+	procedure := "Use " + strings.TrimSpace(strings.Repeat("word ", 20)) + "."
 	technical := "Use `the package is signed by a key with more than twenty-five technical words " +
 		"one two three four five six seven eight nine ten eleven twelve thirteen fourteen`.\n\n" +
 		"```text\nThe package is signed by the maintainer.\n```\n" +
 		"~~~text\nThe package is signed by the maintainer.\n~~~\n"
 	for _, test := range []struct {
-		name string
-		data string
-		want string
+		name, data, want string
 	}{
 		{"passive voice", "The release is signed by the maintainer.", "passive voice"},
 		{"long sentence", long, "26 words"},
+		{"procedural sentence", procedure, "21 words"},
 		{"wrapped list", "- " + strings.Repeat("word ", 13) + "\n  " + long[13*5:], "26 words"},
 		{"technical syntax", technical, ""},
 	} {
@@ -178,12 +165,10 @@ func simplifiedEnglishGrammarFindings(data string) []string {
 	for _, sentence := range simplifiedEnglishSentences(data) {
 		words := wordPattern.FindAllString(sentence, -1)
 		if len(words) > maximumSimplifiedEnglishSentenceWords {
-			findings = append(findings,
-				fmt.Sprintf("sentence has %d words: %q", len(words), sentence))
+			findings = append(findings, fmt.Sprintf("sentence has %d words: %q", len(words), sentence))
 		}
 		if construction := passivePattern.FindString(sentence); construction != "" {
-			findings = append(findings,
-				fmt.Sprintf("passive voice %q in %q", construction, sentence))
+			findings = append(findings, fmt.Sprintf("passive voice %q in %q", construction, sentence))
 		}
 	}
 	return findings
@@ -207,12 +192,9 @@ func simplifiedEnglishSentences(data string) []string {
 			continue
 		}
 
-		startNew := strings.HasPrefix(trimmed, "- ") ||
-			strings.HasPrefix(trimmed, "* ") ||
-			strings.HasPrefix(trimmed, "|") ||
-			orderedListPattern.MatchString(trimmed) ||
-			yamlKeyPattern.MatchString(trimmed) ||
-			tomlKeyPattern.MatchString(trimmed)
+		startNew := strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") ||
+			strings.HasPrefix(trimmed, "|") || orderedListPattern.MatchString(trimmed) ||
+			yamlKeyPattern.MatchString(trimmed) || tomlKeyPattern.MatchString(trimmed)
 		switch {
 		case strings.HasPrefix(trimmed, "#"):
 			prose.WriteByte('\n')
@@ -261,7 +243,6 @@ func sanitizeSimplifiedEnglishText(value string) string {
 
 func requireSimplifiedEnglishStyle(t *testing.T, path string, data string) {
 	t.Helper()
-
 	prose := strings.Join(simplifiedEnglishSentences(data), "\n")
 	if strings.Contains(prose, ";") {
 		t.Errorf("%s contains a semicolon", path)
@@ -269,20 +250,7 @@ func requireSimplifiedEnglishStyle(t *testing.T, path string, data string) {
 
 	lower := strings.ToLower(prose)
 	for _, term := range []string{
-		"can't",
-		"couldn't",
-		"didn't",
-		"doesn't",
-		"don't",
-		"hasn't",
-		"haven't",
-		"isn't",
-		"shouldn't",
-		"they're",
-		"we're",
-		"won't",
-		"wouldn't",
-		"you're",
+		"can't", "couldn't", "didn't", "doesn't", "don't", "hasn't", "haven't", "isn't", "shouldn't", "they're", "we're", "won't", "wouldn't", "you're",
 	} {
 		if strings.Contains(lower, term) {
 			t.Errorf("%s contains contraction %q", path, term)
@@ -315,38 +283,28 @@ func documentationProse(data string) string {
 	return prose.String()
 }
 
-func readDocumentationInventory(t *testing.T, root string) documentationInventory {
+func readJSONContract[T any](t *testing.T, root string, path string) T {
 	t.Helper()
-
-	file, err := os.Open(filepath.Join(root, "docs", "documentation-inventory.json"))
+	file, err := os.Open(filepath.Join(root, path))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		_ = file.Close()
-	}()
+	defer func() { _ = file.Close() }()
 
-	var inventory documentationInventory
+	var value T
 	decoder := json.NewDecoder(file)
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&inventory); err != nil {
+	if err := decoder.Decode(&value); err != nil {
 		t.Fatal(err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		t.Fatalf("documentation inventory must contain one JSON value: %v", err)
+		t.Fatalf("%s must contain one JSON value: %v", path, err)
 	}
-	return inventory
+	return value
 }
 
-func validateExcludedDocumentation(
-	t *testing.T,
-	root string,
-	classified map[string]string,
-	category string,
-	entries []excludedDocumentation,
-) {
+func validateExcludedDocumentation(t *testing.T, root string, classified map[string]string, category string, entries []excludedDocumentation) {
 	t.Helper()
-
 	paths := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		paths = append(paths, entry.Path)
@@ -358,15 +316,8 @@ func validateExcludedDocumentation(
 	requireSortedUniquePaths(t, category, paths)
 }
 
-func classifyDocumentationPath(
-	t *testing.T,
-	root string,
-	classified map[string]string,
-	path string,
-	category string,
-) {
+func classifyDocumentationPath(t *testing.T, root string, classified map[string]string, path string, category string) {
 	t.Helper()
-
 	requireDocumentationFile(t, root, path)
 	if previous, ok := classified[path]; ok {
 		t.Errorf("%s is in both %s and %s", path, previous, category)
@@ -377,7 +328,6 @@ func classifyDocumentationPath(
 
 func requireDocumentationFile(t *testing.T, root string, path string) {
 	t.Helper()
-
 	if !isCleanDocumentationPath(path) {
 		t.Errorf("documentation path %q is not a clean relative path", path)
 		return
@@ -410,7 +360,6 @@ func isWindowsSlashAbsolutePath(value string) bool {
 
 func requireSortedUniquePaths(t *testing.T, category string, paths []string) {
 	t.Helper()
-
 	if !slices.IsSorted(paths) {
 		t.Errorf("%s paths are not sorted: %v", category, paths)
 	}
@@ -452,17 +401,11 @@ func discoverDocumentation(root string) ([]string, error) {
 
 func isDocumentationSurface(path string) bool {
 	extension := filepath.Ext(path)
-	if extension == ".md" || extension == ".markdown" || extension == ".rst" ||
-		extension == ".adoc" || extension == ".txt" || extension == ".1" {
+	if slices.Contains([]string{".md", ".markdown", ".rst", ".adoc", ".txt", ".1"}, extension) ||
+		strings.HasPrefix(filepath.Base(path), "README") {
 		return true
 	}
-	if strings.HasPrefix(filepath.Base(path), "README") {
-		return true
-	}
-	if path == "LICENSE" || path == "debian/changelog" ||
-		path == "cloudflare.token.example" ||
-		path == "config.example.json" ||
-		path == "debian/copyright" {
+	if slices.Contains([]string{"LICENSE", "debian/changelog", "cloudflare.token.example", "config.example.json", "debian/copyright"}, path) {
 		return true
 	}
 	if strings.HasPrefix(path, "docs/") && extension == ".json" {

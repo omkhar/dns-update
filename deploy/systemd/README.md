@@ -40,9 +40,9 @@ macOS and Windows use the native helpers in `deploy/launchd` and `deploy/windows
    Do not manually create or change files under `/run/credentials/`.
    `LoadCredential=` creates the runtime file when the service starts.
 
-   A config copied from `config.example.json` can keep its sample
-   `api_token_file` value for the packaged timer because the unit overrides only
-   that field at runtime. If you plan to run `/usr/bin/dns-update` directly
+   A config copied from `config.example.json` can keep the sample
+   `api_token_file` value. The packaged timer overrides only that field
+   at runtime. If you plan to run `/usr/bin/dns-update` directly
    outside the unit, either change `provider.cloudflare.api_token_file` to
    `/etc/dns-update/cloudflare.token` or export
    `DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`
@@ -102,6 +102,6 @@ host filesystem.
 Published packages also avoid self-unpacking binary compression so the shipped
 `/usr/bin/dns-update` remains compatible with `MemoryDenyWriteExecute=yes`.
 
-Depending on the distro/systemd combination, the runtime credential presented in
-`$CREDENTIALS_DIRECTORY` may show up as `0400` or `0440`. That is still treated
-as a private systemd-managed credential by `dns-update`.
+The distro and systemd versions can change the runtime credential mode in
+`$CREDENTIALS_DIRECTORY` to `0400` or `0440`. `dns-update` treats both modes
+as private systemd-managed credentials.

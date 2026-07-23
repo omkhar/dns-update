@@ -11,7 +11,7 @@ body:
     attributes:
       label: Problem
       description: >-
-        What operator or contributor problem are you trying to solve?
+        What operator or contributor problem do you want to solve?
     validations:
       required: true
   - type: textarea

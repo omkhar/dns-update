@@ -16,7 +16,7 @@ The helper scripts in this directory:
 - invoke `dns-update` with a config file path
 - pass the Cloudflare token path and timeout through environment variables
 - lock the token file and its dedicated credentials directory down to explicit
-  NTFS access rules before registering the task
+  NTFS access rules before task registration
 - append combined stdout and stderr to a log file
 
 Suggested installed layout:
@@ -43,7 +43,7 @@ Run the registration helper with Administrator permissions.
 
 The task runs as `SYSTEM` with the highest run level.
 The task ignores a new start when an instance is active.
-The task starts when Windows becomes available.
+The task starts after it misses a scheduled start.
 The task has a 10-minute execution limit.
 
 `invoke-dns-update.ps1` is the task action wrapper.

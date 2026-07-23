@@ -16,7 +16,7 @@ This document uses ASD-STE100 Simplified Technical English.
 - Do not edit generated agent projections.
 - Use the smallest correct idiomatic change.
 - Add focused tests.
-- Use wording that is safe for a public repository.
+- Use text that is safe for a public repository.
 - Update documentation when behavior changes.
 - Run release and package checks when those paths change.
 - Run `go test ./...`, `go vet ./...`, and `go build ./...` for a normal code change.

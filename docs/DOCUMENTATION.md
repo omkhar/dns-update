@@ -5,7 +5,7 @@ This document uses ASD-STE100 Simplified Technical English.
 ## Purpose
 
 This policy defines the live documentation set for `dns-update`.
-The policy prevents a documentation file from escaping review.
+The policy makes sure that review covers each documentation file.
 
 `docs/documentation-inventory.json` classifies each live documentation surface.
 The repository test compares that inventory with the files in the repository.
@@ -19,7 +19,7 @@ Use the imperative form for instructions.
 Do not use contractions.
 Do not use a semicolon to join clauses.
 
-The automated check sets a maximum of 25 words for one prose sentence.
+The automated check applies the Rule 5.1 20-word limit to all controlled prose.
 It finds common passive forms that use `be` plus a past participle.
 It ignores fenced code, inline code, URLs, and file-format syntax.
 It checks only the `ste` and `generated` inventory classes.

@@ -4,8 +4,8 @@ This document uses ASD-STE100 Simplified Technical English.
 
 ASD-STE100 Rule 1.12 permits technical names.
 This document uses these technical names: Go, GitHub Actions, Git, runner,
-commit SHA, container, image, tag, digest, SemVer, actionlint, govulncheck,
-golangci-lint, yamllint, cosign, and ShellCheck.
+commit SHA, container, image, tag, and digest. It also uses SemVer, actionlint,
+govulncheck, golangci-lint, yamllint, cosign, and ShellCheck.
 
 Use Go 1.26.5 to build, test, and release `dns-update`.
 The `go` directive in `go.mod` is the source for the Go version.

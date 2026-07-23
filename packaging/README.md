@@ -24,16 +24,16 @@ Both package layouts install:
 - hardened systemd units at the distro-standard unit path
 
 Packaged binaries are intentionally not UPX-packed. That keeps the installed
-service compatible with the hardened unit settings, including
+service compatible with the hardened unit settings and
 `MemoryDenyWriteExecute=yes`.
 
 The package intentionally does not install a live `/etc/dns-update/config.json`
-or `/etc/dns-update/cloudflare.token`. Create those files before enabling the
+or `/etc/dns-update/cloudflare.token`. Create those files before you enable the
 timer.
 
 Copy `/etc/dns-update/config.example.json` to `/etc/dns-update/config.json`
 and `/etc/dns-update/cloudflare.token.example` to
-`/etc/dns-update/cloudflare.token` when bootstrapping a host. The default
+`/etc/dns-update/cloudflare.token` during host setup. The default
 systemd service does not read the sample files directly. Replace placeholders
 such as `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_TOKEN`.
 
@@ -157,15 +157,15 @@ The build helpers write artifacts under:
 - `out/release/` for signed release assets and unsigned local release-asset
   builds
 
-`./packaging/build-packages.sh` runs the native test suite once, then invokes
-both package builders with `PACKAGING_SKIP_NATIVE_TESTS=1` so the package loops
-do not rerun the same native tests.
+`./packaging/build-packages.sh` runs the native test suite once.
+It then invokes both package builders with `PACKAGING_SKIP_NATIVE_TESTS=1`.
+The package loops do not rerun the same native tests.
 
 GitHub Actions runs package creation in two places:
 
 - `Package Validation` builds the cross-platform release archives on pull
-  requests and validates package/archive payloads on `main` pushes without
-  publishing or signing them.
+  requests and validates package/archive payloads on `main` pushes.
+  It does not publish or sign them.
 - The tag-driven `Release` workflow rebuilds the same package and archive formats.
 - It generates an SPDX SBOM and GitHub artifact attestations.
 - It signs and verifies the files with Sigstore.
@@ -182,7 +182,7 @@ gh workflow run release.yml --ref main \
   -f rebuild_existing_release=true
 ```
 
-That manual rebuild path checks out the requested tag before building. Prefer a
+That manual rebuild path checks out the requested tag. The workflow then builds. Prefer a
 new release tag when you need tag-aligned provenance for a public reissue.
 An older tag rebuild does not change GitHub's Latest release.
 It changes this label only when that tag is still the newest version.
@@ -211,7 +211,7 @@ Docker host inside a dedicated container with:
 That wrapper:
 
 - streams a fresh source snapshot to the remote host
-- builds a dedicated remote image tag for that run, reusing Docker layer cache
+- builds a dedicated remote image tag for that run and reuses Docker layer cache
   unless you pass `--rebuild-image`
 - runs the build as the remote login UID/GID so bind-mounted outputs remain
   removable by that shared account
@@ -355,8 +355,8 @@ Separate native scheduler integration jobs validate:
 - `deploy/launchd/install-launchd-job.sh` on `macos-26`
 - `deploy/windows/register-scheduled-task.ps1` on `windows-2025`
 
-Those macOS and Windows jobs run an install-time config-validation preflight
-and then prove a later scheduler-fired invocation uses the installed
+Those macOS and Windows jobs run an install-time config-validation preflight.
+They then prove that a later scheduler-fired invocation uses the installed
 non-validation action.
 
 For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
@@ -381,7 +381,7 @@ Default signing mode is keyless. That follows the Sigstore blob-signing flow and
 requires an identity that Cosign can use.
 
 If keyless auth is not available on the local build host, sign with a managed
-key by setting `COSIGN_KEY`.
+key. Set `COSIGN_KEY` to select the key.
 
 Verify an artifact with:
 
@@ -409,4 +409,4 @@ Validate the expected payload layout of built archives and packages with:
 ## Maintainer metadata
 
 The Debian and RPM metadata currently use a generic maintainer identity. Update
-that metadata before publishing packages outside your own infrastructure.
+that metadata before you publish packages outside your own infrastructure.

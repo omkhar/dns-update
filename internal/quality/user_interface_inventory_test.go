@@ -1,13 +1,10 @@
 package quality_test
 
 import (
-	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -44,10 +41,8 @@ type mappedSurface struct {
 }
 
 func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
-	t.Parallel()
-
 	root := repoRoot(t)
-	inventory := readUserInterfaceInventory(t, root)
+	inventory := readJSONContract[userInterfaceInventory](t, root, "docs/user-interface.json")
 	requireDocumentationFile(t, root, inventory.Scope.Documentation)
 	if strings.TrimSpace(inventory.Scope.SupportedSurface) == "" ||
 		strings.TrimSpace(inventory.Scope.InternalExclusion) == "" {
@@ -64,54 +59,19 @@ func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
 	validateMappedSurfaces(t, root, "supported_helpers", inventory.SupportedHelpers)
 
 	requireExactIDs(t, "cli_flags", mappedIDs(inventory.CLIFlags), actualCLIFlags(t, root))
-	requireExactIDs(t, "environment_variables", mappedIDs(inventory.EnvironmentVariables),
-		actualEnvironmentVariables(t, root))
+	requireExactIDs(t, "environment_variables", mappedIDs(inventory.EnvironmentVariables), actualEnvironmentVariables(t, root))
 	requireExactIDs(t, "config_fields", mappedIDs(inventory.ConfigFields), actualConfigFields(t, root))
 	requireExactIDs(t, "modes", mappedIDs(inventory.Modes), []string{
-		"delete-a",
-		"delete-aaaa",
-		"delete-both",
-		"delete-disabled",
-		"dry-run",
-		"force-push",
-		"help",
-		"print-effective-config",
-		"reconcile",
-		"validate-config",
-		"version",
+		"delete-a", "delete-aaaa", "delete-both", "delete-disabled", "dry-run", "force-push", "help", "print-effective-config", "reconcile", "validate-config", "version",
 	})
 	requireExactIDs(t, "behaviors", mappedIDs(inventory.Behaviors), []string{
-		"bounded-retries",
-		"cloudflare-scope",
-		"config-precedence",
-		"deployment-security",
-		"package-model",
-		"partial-probe-failure",
-		"post-apply-verification",
-		"probe-and-parse",
-		"reconciliation-plan",
-		"record-scope",
-		"runtime-override-precedence",
-		"scheduler-model",
-		"signal-and-timeout",
-		"token-file-protection",
-		"token-path-override",
+		"bounded-retries", "cloudflare-scope", "config-precedence", "deployment-security", "package-model", "partial-probe-failure", "post-apply-verification", "probe-and-parse", "reconciliation-plan", "record-scope", "runtime-override-precedence", "scheduler-model", "signal-and-timeout", "token-file-protection", "token-path-override",
 	})
 	requireExactIDs(t, "exit_codes", mappedIDs(inventory.ExitCodes), []string{
-		"exit-0",
-		"exit-1",
-		"exit-2",
+		"exit-0", "exit-1", "exit-2",
 	})
 	requireExactIDs(t, "limitations", mappedIDs(inventory.Limitations), []string{
-		"a-and-aaaa-only",
-		"cloudflare-only",
-		"credential-validation",
-		"linux-native-packages",
-		"local-test-doubles",
-		"no-distributed-lock",
-		"no-internal-scheduler",
-		"probe-failure",
-		"workflow-contract-parser",
+		"a-and-aaaa-only", "cloudflare-only", "credential-validation", "linux-native-packages", "local-test-doubles", "no-distributed-lock", "no-internal-scheduler", "probe-failure", "workflow-contract-parser",
 	})
 
 	internalHelperPaths := make([]string, 0, len(inventory.InternalHelpers))
@@ -130,27 +90,19 @@ func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
 }
 
 func TestOperatorDocumentationContracts(t *testing.T) {
-	t.Parallel()
-
 	root := repoRoot(t)
 	readme := mustReadContractFile(t, root, "README.md")
-	for _, token := range []string{
-		"- `-version` or `--version` prints",
-		"- `-h`, `--h`, `-help`, or `--help` prints",
-	} {
+	for _, token := range []string{"- `-version` or `--version` prints", "- `-h`, `--h`, `-help`, or `--help` prints"} {
 		if !strings.Contains(readme, token) {
 			t.Errorf("README.md introspection list does not contain %q", token)
 		}
 	}
 	aliases := []string{"-version", "--version", "-h", "--h", "-help", "--help"}
-	requireDocumentedAliases(t, "docs/FUNCTIONS.md",
-		mustReadContractFile(t, root, "docs/FUNCTIONS.md"), aliases...)
+	requireDocumentedAliases(t, "docs/FUNCTIONS.md", mustReadContractFile(t, root, "docs/FUNCTIONS.md"), aliases...)
 
 	manual := mustReadContractFile(t, root, "docs/dns-update.1")
-	requireDocumentedAliases(t, "docs/dns-update.1 SYNOPSIS",
-		manualSection(t, manual, "SYNOPSIS"), aliases...)
-	requireDocumentedAliases(t, "docs/dns-update.1 OPTIONS",
-		manualSection(t, manual, "OPTIONS"), aliases...)
+	requireDocumentedAliases(t, "docs/dns-update.1 SYNOPSIS", manualSection(t, manual, "SYNOPSIS"), aliases...)
+	requireDocumentedAliases(t, "docs/dns-update.1 OPTIONS", manualSection(t, manual, "OPTIONS"), aliases...)
 	if !strings.Contains(manualSection(t, manual, "EXIT STATUS"), "requested help") {
 		t.Error("docs/dns-update.1 EXIT STATUS does not define the successful help result")
 	}
@@ -159,11 +111,18 @@ func TestOperatorDocumentationContracts(t *testing.T) {
 			t.Errorf("%s does not define the force-push existing-record boundary", path)
 		}
 	}
+	script := mustReadContractFile(t, root, "deploy/windows/register-scheduled-task.ps1")
+	windows := mustReadContractFile(t, root, "deploy/windows/README.md")
+	if !strings.Contains(script, "-Once") || !strings.Contains(script, "-At (Get-Date).AddMinutes(1)") ||
+		!strings.Contains(script, "-StartWhenAvailable") || strings.Count(script, "-RepetitionInterval") != 1 ||
+		strings.Contains(script, "-AtStartup") || !strings.Contains(windows, "after it misses a scheduled start") ||
+		strings.Contains(windows, "when Windows becomes available") {
+		t.Error("Windows scheduler documentation does not define the missed-start behavior")
+	}
 }
 
 func requireDocumentedAliases(t *testing.T, name string, data string, aliases ...string) {
 	t.Helper()
-
 	normalized := strings.NewReplacer(`\fB`, " ", `\fI`, " ", `\fR`, " ", `\-`, "-").Replace(data)
 	pattern := regexp.MustCompile(`(?:^|[^A-Za-z0-9-])(--?[a-z][a-z0-9-]*)`)
 	found := make(map[string]bool)
@@ -179,7 +138,6 @@ func requireDocumentedAliases(t *testing.T, name string, data string, aliases ..
 
 func manualSection(t *testing.T, data string, name string) string {
 	t.Helper()
-
 	data = strings.ReplaceAll(data, "\r\n", "\n")
 	parts := strings.SplitN(data, ".SH "+name+"\n", 2)
 	if len(parts) != 2 {
@@ -196,32 +154,8 @@ func TestManualSectionHandlesLineEndings(t *testing.T) {
 	}
 }
 
-func readUserInterfaceInventory(t *testing.T, root string) userInterfaceInventory {
-	t.Helper()
-
-	file, err := os.Open(filepath.Join(root, "docs", "user-interface.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		_ = file.Close()
-	}()
-
-	var inventory userInterfaceInventory
-	decoder := json.NewDecoder(file)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&inventory); err != nil {
-		t.Fatal(err)
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		t.Fatalf("user-interface inventory must contain one JSON value: %v", err)
-	}
-	return inventory
-}
-
 func validateMappedSurfaces(t *testing.T, root string, category string, entries []mappedSurface) {
 	t.Helper()
-
 	ids := mappedIDs(entries)
 	requireSortedUniquePaths(t, category, ids)
 	for _, entry := range entries {
@@ -253,7 +187,6 @@ func mappedIDs(entries []mappedSurface) []string {
 
 func requireExactIDs(t *testing.T, category string, got []string, want []string) {
 	t.Helper()
-
 	slices.Sort(got)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
@@ -263,7 +196,6 @@ func requireExactIDs(t *testing.T, category string, got []string, want []string)
 
 func actualCLIFlags(t *testing.T, root string) []string {
 	t.Helper()
-
 	file := parseGoFile(t, filepath.Join(root, "cmd", "dns-update", "flags.go"))
 	var names []string
 	ast.Inspect(file, func(node ast.Node) bool {
@@ -294,7 +226,6 @@ func actualCLIFlags(t *testing.T, root string) []string {
 
 func actualEnvironmentVariables(t *testing.T, root string) []string {
 	t.Helper()
-
 	pattern := regexp.MustCompile(`DNS_UPDATE_[A-Z0-9_]+`)
 	seen := make(map[string]bool)
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -334,7 +265,6 @@ func actualEnvironmentVariables(t *testing.T, root string) []string {
 
 func actualConfigFields(t *testing.T, root string) []string {
 	t.Helper()
-
 	file := parseGoFile(t, filepath.Join(root, "internal", "config", "types.go"))
 	structs := make(map[string]*ast.StructType)
 	for _, declaration := range file.Decls {
@@ -386,7 +316,6 @@ func actualConfigFields(t *testing.T, root string) []string {
 
 func parseGoFile(t *testing.T, path string) *ast.File {
 	t.Helper()
-
 	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -396,14 +325,9 @@ func parseGoFile(t *testing.T, path string) *ast.File {
 
 func actualHelperSurfaces(t *testing.T, root string) []string {
 	t.Helper()
-
 	paths := []string{"cmd/agentdocgen"}
 	for _, directory := range []string{"deploy", "packaging"} {
-		err := filepath.WalkDir(filepath.Join(root, directory), func(
-			path string,
-			entry fs.DirEntry,
-			walkErr error,
-		) error {
+		err := filepath.WalkDir(filepath.Join(root, directory), func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}

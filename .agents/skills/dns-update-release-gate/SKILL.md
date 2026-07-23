@@ -1,6 +1,6 @@
 ---
 name: dns-update-release-gate
-description: Validate release-ready changes, generated docs, and package-impacting paths when relevant.
+description: Validate release-ready changes, generated docs, and paths that affect packages when relevant.
 ---
 This document uses ASD-STE100 Simplified Technical English.
 
