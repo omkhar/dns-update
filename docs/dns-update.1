@@ -21,7 +21,8 @@ It compares these addresses with the configured DNS A and AAAA records.
 It changes records that do not match.
 With
 .B \-force-push,
-the program also refreshes matching records.
+the program refreshes an existing address record
+that matches an observed address.
 .B \-delete
 selects an explicit delete mode.
 This mode skips egress probing.
@@ -147,9 +148,8 @@ This option is mutually exclusive with
 .BR \-force-push .
 .TP
 .B \-force-push
-Refresh matching A and AAAA records.
-The observed egress IPs stay as the desired target.
-This option forces a provider write for an existing matching record.
+Refresh an existing A or AAAA record that matches an observed address.
+This option does not create a missing record.
 .TP
 .B \-validate-config
 Load and validate the assembled config.

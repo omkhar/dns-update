@@ -255,11 +255,7 @@ func sanitizeSimplifiedEnglishText(value string) string {
 	value = urlPattern.ReplaceAllString(value, " ")
 	value = roffFontPattern.ReplaceAllString(value, "")
 	value = strings.Trim(value, `"'`)
-	value = strings.NewReplacer(
-		"**", "",
-		"__", "",
-		"~~", "",
-	).Replace(value)
+	value = strings.NewReplacer("**", "", "__", "", "~~", "").Replace(value)
 	return strings.Join(strings.Fields(value), " ")
 }
 

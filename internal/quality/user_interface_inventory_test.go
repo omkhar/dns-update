@@ -129,7 +129,7 @@ func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
 	requireExactIDs(t, "helper classification", allHelpers, actualHelperSurfaces(t, root))
 }
 
-func TestSupportedIntrospectionAliasesAppearInOperatorDocumentation(t *testing.T) {
+func TestOperatorDocumentationContracts(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
@@ -142,31 +142,29 @@ func TestSupportedIntrospectionAliasesAppearInOperatorDocumentation(t *testing.T
 			t.Errorf("README.md introspection list does not contain %q", token)
 		}
 	}
+	aliases := []string{"-version", "--version", "-h", "--h", "-help", "--help"}
 	requireDocumentedAliases(t, "docs/FUNCTIONS.md",
-		mustReadContractFile(t, root, "docs/FUNCTIONS.md"),
-		"-version", "--version", "-h", "--h", "-help", "--help")
+		mustReadContractFile(t, root, "docs/FUNCTIONS.md"), aliases...)
 
 	manual := mustReadContractFile(t, root, "docs/dns-update.1")
 	requireDocumentedAliases(t, "docs/dns-update.1 SYNOPSIS",
-		manualSection(t, manual, "SYNOPSIS"),
-		"-version", "--version", "-h", "--h", "-help", "--help")
+		manualSection(t, manual, "SYNOPSIS"), aliases...)
 	requireDocumentedAliases(t, "docs/dns-update.1 OPTIONS",
-		manualSection(t, manual, "OPTIONS"),
-		"-version", "--version", "-h", "--h", "-help", "--help")
+		manualSection(t, manual, "OPTIONS"), aliases...)
 	if !strings.Contains(manualSection(t, manual, "EXIT STATUS"), "requested help") {
 		t.Error("docs/dns-update.1 EXIT STATUS does not define the successful help result")
+	}
+	for _, path := range []string{"README.md", "docs/FUNCTIONS.md", "docs/LIMITATIONS.md", "docs/dns-update.1"} {
+		if !strings.Contains(mustReadContractFile(t, root, path), "existing address record") {
+			t.Errorf("%s does not define the force-push existing-record boundary", path)
+		}
 	}
 }
 
 func requireDocumentedAliases(t *testing.T, name string, data string, aliases ...string) {
 	t.Helper()
 
-	normalized := strings.NewReplacer(
-		`\fB`, " ",
-		`\fI`, " ",
-		`\fR`, " ",
-		`\-`, "-",
-	).Replace(data)
+	normalized := strings.NewReplacer(`\fB`, " ", `\fI`, " ", `\fR`, " ", `\-`, "-").Replace(data)
 	pattern := regexp.MustCompile(`(?:^|[^A-Za-z0-9-])(--?[a-z][a-z0-9-]*)`)
 	found := make(map[string]bool)
 	for _, match := range pattern.FindAllStringSubmatch(normalized, -1) {
@@ -182,17 +180,20 @@ func requireDocumentedAliases(t *testing.T, name string, data string, aliases ..
 func manualSection(t *testing.T, data string, name string) string {
 	t.Helper()
 
-	startMarker := ".SH " + name + "\n"
-	start := strings.Index(data, startMarker)
-	if start < 0 {
+	data = strings.ReplaceAll(data, "\r\n", "\n")
+	parts := strings.SplitN(data, ".SH "+name+"\n", 2)
+	if len(parts) != 2 {
 		t.Fatalf("manual has no %s section", name)
 	}
-	start += len(startMarker)
-	end := strings.Index(data[start:], "\n.SH ")
-	if end < 0 {
-		return data[start:]
+	return strings.SplitN(parts[1], "\n.SH ", 2)[0]
+}
+
+func TestManualSectionHandlesLineEndings(t *testing.T) {
+	for _, data := range []string{".SH SYNOPSIS\nbody\n.SH OPTIONS\n", ".SH SYNOPSIS\r\nbody\r\n.SH OPTIONS\r\n"} {
+		if got := strings.TrimSpace(manualSection(t, data, "SYNOPSIS")); got != "body" {
+			t.Fatalf("manualSection() = %q, want body", got)
+		}
 	}
-	return data[start : start+end]
 }
 
 func readUserInterfaceInventory(t *testing.T, root string) userInterfaceInventory {

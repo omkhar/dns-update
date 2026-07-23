@@ -57,7 +57,7 @@ func newFlagSet(stderr io.Writer) (*flag.FlagSet, *cliFlagValues) {
 	flags.StringVar(&values.configPath, "config", "", "Set the JSON config file path.")
 	flags.Var(newDeleteFlagValue(&values.deleteSelection), "delete", "Delete managed DNS records instead of reconciliation. Use a, aaaa, or both. Bare -delete deletes both.")
 	flags.BoolVar(&values.dryRun, "dry-run", false, "Print planned changes without applying them.")
-	flags.BoolVar(&values.forcePush, "force-push", false, "Send a provider update when the observed DNS state already matches.")
+	flags.BoolVar(&values.forcePush, "force-push", false, "Send a provider update for an existing address record that matches an observed address.")
 	flags.BoolVar(&values.validateConfig, "validate-config", false, "Load and validate the assembled config. Print a success message. Exit.")
 	flags.BoolVar(&values.printEffectiveConfig, "print-effective-config", false, "Load and validate the assembled config. Print it as JSON. Exit.")
 	flags.BoolVar(&values.verbose, "verbose", false, "Enable debug logging.")

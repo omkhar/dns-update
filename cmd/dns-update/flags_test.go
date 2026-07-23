@@ -23,7 +23,7 @@ func TestFlagHelpUsesSimplifiedEnglish(t *testing.T) {
 		"Set the JSON config file path.",
 		"Delete managed DNS records instead of reconciliation. Use a, aaaa, or both. Bare -delete deletes both.",
 		"Print planned changes without applying them.",
-		"Send a provider update when the observed DNS state already matches.",
+		"Send a provider update for an existing address record that matches an observed address.",
 		"Load and validate the assembled config. Print it as JSON. Exit.",
 		"Set the maximum runtime for one reconciliation or delete cycle. Use 0 to disable the limit.",
 		"Load and validate the assembled config. Print a success message. Exit.",
