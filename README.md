@@ -1,20 +1,24 @@
 # dns-update
 
+This document uses ASD-STE100 Simplified Technical English.
+
 `dns-update` is a Go service that keeps one hostname's `A` and `AAAA` records
 aligned with the host's current egress IPv4/IPv6 addresses.
 
-The current implementation targets Cloudflare through its DNS Records API and is
-structured so additional providers can be added behind the same internal
-provider interface.
+The current implementation uses the Cloudflare DNS Records API.
+The internal provider interface permits more provider implementations.
 
-The release and deployment story is now cross-platform:
+The project supplies release and deployment files for these platforms:
 
 - Linux ships native `.deb` and `.rpm` packages plus systemd units.
 - macOS ships release archives plus a native `launchd` helper.
 - Windows ships release archives plus a native Task Scheduler helper.
 
-Linux packages also install the `dns-update(1)` man page; its source lives at
-`docs/dns-update.1`.
+Linux packages also install the `dns-update(1)` man page.
+Its source is `docs/dns-update.1`.
+
+Read [`docs/FUNCTIONS.md`](docs/FUNCTIONS.md) for the complete supported interface.
+Read [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) for the documentation policy.
 
 ## Actions
 
@@ -33,6 +37,7 @@ Current GitHub Actions workflow status:
 - [Scorecard](https://github.com/omkhar/dns-update/actions/workflows/scorecard.yml): [![Scorecard](https://github.com/omkhar/dns-update/actions/workflows/scorecard.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/scorecard.yml)
 - [Systemd Integration](https://github.com/omkhar/dns-update/actions/workflows/systemd-integration.yml): [![Systemd Integration](https://github.com/omkhar/dns-update/actions/workflows/systemd-integration.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/systemd-integration.yml)
 - [zizmor](https://github.com/omkhar/dns-update/actions/workflows/zizmor.yml): [![zizmor](https://github.com/omkhar/dns-update/actions/workflows/zizmor.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/zizmor.yml)
+
 ## Behavior
 
 On each run, the service:
@@ -46,9 +51,9 @@ On each run, the service:
    - IPv6 probe must yield a valid IPv6 or `ip=none`
    - If one probe family fails, aborts the run by default
    - If `probe.allow_partial_failure` is `true`, logs a warning and reconciles
-     only the family that succeeded; the failed family is left as-is
+     only the family that succeeded. The failed family stays unchanged
    - If both probe families fail, aborts the run
-   - Only explicit `ip=none` means that record family should be absent
+   - Only explicit `ip=none` removes that record family
 4. Reads the current provider-side records for `record.name`.
 5. Compares desired vs current DNS state:
    - If already matching, exits without update unless `-force-push` is set.
@@ -103,12 +108,12 @@ The app reads JSON config with this schema:
 - `provider.cloudflare.base_url` (optional): defaults to
   `https://api.cloudflare.com/client/v4/`. Overrides are limited to the default
   Cloudflare API host or loopback or `localhost` test endpoints.
-- `provider.cloudflare.proxied` (optional): whether Cloudflare should proxy the
+- `provider.cloudflare.proxied` (optional): sets Cloudflare proxying for the
   managed A/AAAA records. Defaults to `false`.
 
-See `config.example.json` for a complete sample. The shipped sample shows the
-full schema, but placeholder values and the token-file path should be adjusted
-for the deployment that will actually run `dns-update`.
+See `config.example.json` for a complete sample.
+The sample shows the full schema.
+Replace its placeholder values and token-file path for your deployment.
 
 ## Configuration Sources
 
@@ -120,7 +125,7 @@ Runtime settings:
 - `-config` or `DNS_UPDATE_CONFIG`
 - `-delete` on the command line to delete managed records instead of
   reconciling to observed egress IPs. Bare `-delete` deletes both `A` and
-  `AAAA`; `-delete=a`, `-delete=aaaa`, and `-delete=both` are also accepted
+  `AAAA`. The command also accepts `-delete=a`, `-delete=aaaa`, and `-delete=both`
 - `-dry-run` or `DNS_UPDATE_DRY_RUN`
 - `-force-push` on the command line to refresh matching records even when
   nothing drifted
@@ -161,21 +166,19 @@ Behavior notes:
 
 - The codebase keeps the dependency surface intentionally small and prefers
   reviewed packages over broad frameworks.
-- No inline secrets in config; store the Cloudflare API token in a separate
-  file.
+- Do not put secrets in config.
+- Store the Cloudflare API token in a separate file.
 - On Unix-like systems, restrict the token file permissions (for example
   `chmod 600`).
-- On Unix-like systems, keep the token file in a non-writable directory; the
-  app rejects token paths whose parent directory is writable by group or other
-  users.
-- Windows deployments rely on NTFS ACLs instead of Unix owner/group/other mode
-  bits for token-file directory privacy, and the app rejects token paths whose
-  file ACL grants read/write access to other users or whose parent directory
-  grants write access to other users.
-- The token file itself must not be a symlink. Deeper configured path
-  components are rejected if they are symlinks, and on Unix-like systems the
-  token file is opened without following symlinks, then revalidated at read
-  time.
+- On Unix-like systems, keep the token file in a non-writable directory.
+- The app rejects a parent directory that group or other users can write.
+- Windows deployments use NTFS ACLs for token-file privacy.
+- The app rejects Windows token ACLs that give access to other users.
+- The app rejects Windows parent-directory ACLs that give write access to other users.
+- The token file must not be a symlink.
+- The app rejects symlinks in deeper configured path components.
+- On Unix-like systems, the app opens the token file without following symlinks.
+- The app validates the open file again before it reads the token.
 - Use HTTPS probe URLs unless `probe.allow_insecure_http` is explicitly needed.
 - Probe URL overrides are restricted to the shipped `4.ip.omsab.net` and
   `6.ip.omsab.net` hosts or loopback or `localhost` test endpoints.
@@ -189,9 +192,8 @@ Behavior notes:
 - Scope the Cloudflare token to the single zone being managed.
 - Cloudflare record reads are filtered to the managed hostname instead of
   listing the full zone.
-- Overriding `provider.cloudflare.base_url` changes where the Cloudflare bearer
-  token is sent, so the app accepts only the default Cloudflare API host or
-  loopback or `localhost` test endpoints.
+- `provider.cloudflare.base_url` changes where the app sends the Cloudflare token.
+- The app accepts only the default API host, loopback, or `localhost`.
 - Probe and provider HTTP clients use a fixed custom user-agent, ignore ambient
   proxy environment variables, and apply bounded retries that honor
   `Retry-After` when present.
@@ -209,8 +211,8 @@ Runtime dependencies are deliberately narrow:
 - `github.com/cloudflare/cloudflare-go/v6` for the Cloudflare DNS API
 - `github.com/google/go-cmp/cmp` is used in tests only
 
-There is no separate `golang.org/x/time/rate` dependency in the current build;
-outbound request pacing is handled by the code in this repository.
+The current build does not use a separate `golang.org/x/time/rate` dependency.
+Code in this repository controls outbound request pacing.
 
 ## Cloudflare Token Scope
 
@@ -239,11 +241,10 @@ Run one reconciliation cycle:
 ./dns-update -config /etc/dns-update/config.json
 ```
 
-On a host that uses the packaged layout, `dns-update` without `-config` will
-also pick up `/etc/dns-update/config.json` automatically when there is no
-`config.json` in the current working directory.
+The packaged layout uses `/etc/dns-update/config.json`.
+The command uses this file when the current directory has no `config.json`.
 
-Cap the entire run, including retries and backoff:
+Limit one reconciliation cycle, including retries and backoff:
 
 ```sh
 ./dns-update -config /etc/dns-update/config.json -timeout 30s
@@ -293,10 +294,9 @@ DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token \
 ./dns-update -config /etc/dns-update/config.json -print-effective-config
 ```
 
-If `/etc/dns-update/config.json` was copied from the packaged sample without
-editing `provider.cloudflare.api_token_file`, direct CLI runs outside the
-systemd unit need either that JSON field updated to
-`/etc/dns-update/cloudflare.token` or the environment override shown above.
+For a direct binary run, update the packaged sample token path.
+Set it to `/etc/dns-update/cloudflare.token`.
+You can instead use the environment override shown above.
 
 ## Platform Schedulers
 
@@ -311,8 +311,8 @@ Each release archive also includes the `deploy/` tree so the scheduler helpers
 travel with the binary on non-Linux systems.
 
 `-force-push` is intentionally not part of the default scheduler configuration.
-Use it for explicit refresh runs when you need the provider to see an update
-even though the managed records already match the current egress IPs.
+Use it for an explicit provider refresh.
+The managed records can already match the current egress IPs.
 
 `-delete` is also intentionally not part of the default scheduler
 configuration. It is a one-shot destructive operator action, not a steady-state
@@ -325,10 +325,10 @@ Example hardened systemd units live in `deploy/systemd/`.
 - `deploy/systemd/dns-update.service` runs one reconciliation with a locked-down
   `DynamicUser`, no ambient capabilities, a read-only filesystem view, and a
   private systemd credential for the Cloudflare token.
-- `deploy/systemd/dns-update.timer` starts the service immediately at boot or
-  enable time, reruns it on five-minute clock boundaries, keeps future runs
-  queued even if an early service start is skipped, and with `Persistent=yes`
-  catches up one missed run after downtime.
+- `deploy/systemd/dns-update.timer` starts the service at boot or enable time.
+- The timer runs on five-minute clock boundaries.
+- It keeps future runs queued after a skipped early start.
+- `Persistent=yes` starts one missed run after downtime.
 - `deploy/systemd/dns-update.env` shows how to override runtime options
   such as `DNS_UPDATE_TIMEOUT` without editing the unit.
 
@@ -338,13 +338,13 @@ The service expects:
 - `/etc/dns-update/config.json`
 - `/etc/dns-update/cloudflare.token`
 
-The token is mounted into the service with `LoadCredential=` and exposed to the
-binary through
-`DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=%d/cloudflare.token`, so the
-credential never needs to be stored in the JSON config path used by the unit.
+`LoadCredential=` mounts the token into the service.
+`DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=%d/cloudflare.token` gives the path to the binary.
+The unit does not store this credential in the JSON config.
 On some systems the runtime credential file may appear with a read-only mode
-such as `0400` or `0440`; that is expected for systemd-managed credentials and
-does not require any manual chmod under `/run/credentials/`.
+such as `0400` or `0440`.
+This mode is normal for systemd-managed credentials.
+Do not manually change modes under `/run/credentials/`.
 
 See `deploy/systemd/README.md` for installation steps.
 
@@ -465,11 +465,10 @@ The packaged `/etc/dns-update/config.example.json` and
 `/etc/dns-update/cloudflare.token.example` are there as starting points only.
 The packaged systemd service overrides only
 `provider.cloudflare.api_token_file` and reads the live token through a
-credential-backed `/etc/dns-update/cloudflare.token`. If you copy the sample
-config unchanged and want to run the binary directly outside the unit, either
-update that JSON field to `/etc/dns-update/cloudflare.token` or export
-`DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`
-for that command.
+credential-backed `/etc/dns-update/cloudflare.token`.
+For a direct binary run, update the sample token path.
+You can also export
+`DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE=/etc/dns-update/cloudflare.token`.
 
 See `packaging/README.md` for package build requirements and notes.
 Use `./packaging/verify-artifacts.sh ...` to verify a package against its
@@ -505,24 +504,23 @@ Regenerate the tracked agent projections with:
 go run ./cmd/agentdocgen
 ```
 
-The mutation and coverage skip environment variables are only for the nested
-subprocesses launched by those tests and normally should remain unset during
-regular use.
+The mutation and coverage skip environment variables are only for test subprocesses.
+Keep these variables unset during regular use.
 
 GitHub Actions is split into four lanes:
 
-- `CI` is the fast PR gate. It checks PR reviewability limits, YAML style,
-  GitHub Actions syntax, Go formatting, module hygiene, shell syntax, shell
-  lint, Go lint, reachable vulnerabilities, `go vet`, `go test`, and
-  `go build ./...`.
+- `CI` is the fast pull-request gate.
+- It checks reviewability limits, YAML, Go formatting, modules, and shell code.
+- It runs linters, vulnerability checks, `go vet`, `go test`, and `go build ./...`.
 - `Package Validation` builds the cross-platform release archives on pull
   requests and validates package/archive payloads on `main`.
 - `Nightly` runs the expensive repository-level quality gates, longer fuzzing,
   and full release-artifact reproducibility checks.
-- `Release` rebuilds tagged artifacts, generates an SBOM, signs the artifacts,
-  emits provenance and SBOM attestations, verifies the signatures and
-  attestations, attaches the full asset set to a draft GitHub release, and
-  only then publishes.
+- `Release` rebuilds tagged artifacts and generates an SBOM.
+- It signs the artifacts and emits attestations.
+- It verifies all signatures and attestations.
+- It puts the asset set in a draft GitHub release.
+- It publishes only after these checks pass.
 
 GitHub Actions additionally runs the dedicated `Systemd Integration` workflow
 to validate the installed Linux timer/service flow on:

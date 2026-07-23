@@ -1,11 +1,13 @@
 # Contributing
 
-Thanks for contributing to this repository.
+This document uses ASD-STE100 Simplified Technical English.
+
+Thank you for contributing to this repository.
 
 ## Before You Start
 
-- Keep changes focused. Small, reviewable pull requests are easier to merge
-  safely.
+- Keep changes focused.
+- Make each pull request easy to review.
 - Open an issue before starting broad refactors, new providers, or behavior
   changes that affect operators.
 - For security-sensitive changes, read [SECURITY.md](./SECURITY.md) first.
@@ -17,8 +19,7 @@ Thanks for contributing to this repository.
 - Preserve existing behavior unless the change clearly documents and tests a
   behavior update.
 - Add or update tests for behavior you change.
-- Keep pull requests small enough that a reviewer can reason about the full
-  change without guesswork.
+- Keep pull requests small enough for a complete review.
 - Pull request CI rejects changes above 35 changed files or 3000 total added
   plus deleted lines.
 - Edit `docs/agents/**` instead of hand-editing generated agent projections.
@@ -47,7 +48,7 @@ If you are changing a narrow area, run the focused package tests too.
 - Use clear branch names such as `docs/security-policy`,
   `fix/cloudflare-timeout`, or `feat/provider-foo`.
 - Keep the pull request scoped to one logical change.
-- Write the pull request description so a reviewer can understand:
+- Include this information in the pull request description:
   - what changed
   - why it changed
   - how it was tested
@@ -58,7 +59,7 @@ This repository is intended to use squash merge on GitHub.
 Because of that:
 
 - You do not need a perfect public commit history.
-- You should still keep commits coherent enough for review while the PR is open.
+- Keep commits coherent enough for review while the PR is open.
 - Use a pull request title that works well as the eventual squash commit
   message.
 
@@ -71,8 +72,8 @@ Because of that:
 ## Reporting Problems
 
 - Bugs and feature requests belong in GitHub issues.
-- Security vulnerabilities should follow the process in
-  [SECURITY.md](./SECURITY.md), not a public bug report with exploit details.
+- Follow [SECURITY.md](./SECURITY.md) for security vulnerabilities.
+- Do not put exploit details in a public bug report.
 
 ## Licensing
 

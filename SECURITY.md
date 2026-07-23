@@ -1,8 +1,10 @@
 # Security Policy
 
+This document uses ASD-STE100 Simplified Technical English.
+
 ## Supported Code
 
-Security fixes are expected to land on the current default branch first.
+Put security fixes on the current default branch first.
 
 Unless a future release process says otherwise:
 
@@ -24,9 +26,9 @@ Repository security settings and policy are also published at:
 
 - `https://github.com/omkhar/dns-update/security/policy`
 
-If neither private path is available yet, open a minimal public issue asking for
-a private reporting route and do not include sensitive details, proof-of-concept
-code, tokens, or reproduction steps.
+If no private path is available, open a minimal public issue.
+Ask for a private reporting route.
+Do not include sensitive details, proof-of-concept code, tokens, or reproduction steps.
 
 ## Probe Failure Posture
 
@@ -34,11 +36,10 @@ code, tokens, or reproduction steps.
 default. That fail-closed behavior keeps a failed IPv4 or IPv6 probe from
 suppressing updates for the corresponding managed record family.
 
-Operators can set `probe.allow_partial_failure` to `true` when availability on
-single-stack or intermittently single-family hosts is more important than that
-default posture. In that mode, the successful family is reconciled and the
-failed family is left unchanged until a later successful probe or an explicit
-`ip=none` response changes it.
+Set `probe.allow_partial_failure` to `true` for single-family availability.
+In that mode, the command reconciles the successful family.
+It leaves the failed family unchanged.
+A later successful probe or an explicit `ip=none` response can change that family.
 
 ## What to Include
 
@@ -52,14 +53,13 @@ When reporting a vulnerability, include:
 
 ## Response Expectations
 
-Maintainers aim to acknowledge well-formed vulnerability reports within 7 days
-and to communicate a remediation or mitigation plan within 30 days when a fix
-is warranted.
+Maintainers aim to acknowledge a complete vulnerability report within 7 days.
+They aim to give a remediation or mitigation plan within 30 days.
 
-Public disclosure should wait until a fix or mitigation is available, or until
-maintainers confirm that coordinated disclosure can proceed safely.
+Wait for a fix or mitigation before public disclosure.
+You can disclose earlier when maintainers confirm that coordinated disclosure is safe.
 
 ## Coordinated Disclosure
 
-Please avoid public disclosure until a fix or mitigation is available and the
-project has had a reasonable opportunity to respond.
+Do not make a public disclosure before a fix or mitigation is available.
+Give the project a reasonable time to respond.

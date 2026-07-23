@@ -1,8 +1,10 @@
 # systemd deployment
 
-These units run `dns-update` as a locked-down `Type=oneshot` service behind a
-timer. They are the Linux-specific scheduler integration; macOS and Windows use
-the native helpers under `deploy/launchd` and `deploy/windows`.
+This document uses ASD-STE100 Simplified Technical English.
+
+These units run `dns-update` as a locked-down `Type=oneshot` service.
+A systemd timer starts the service.
+macOS and Windows use the native helpers in `deploy/launchd` and `deploy/windows`.
 
 ## Files
 
@@ -34,9 +36,9 @@ the native helpers under `deploy/launchd` and `deploy/windows`.
    install -o root -g root -m 0600 /etc/dns-update/cloudflare.token.example /etc/dns-update/cloudflare.token
    ```
 
-   Keep the source token at `0600`. Do not manually create or chmod files under
-   `/run/credentials/`; `LoadCredential=` materializes that runtime file for the
-   service on each start.
+   Keep the source token at `0600`.
+   Do not manually create or change files under `/run/credentials/`.
+   `LoadCredential=` creates the runtime file when the service starts.
 
    A config copied from `config.example.json` can keep its sample
    `api_token_file` value for the packaged timer because the unit overrides only
@@ -56,10 +58,11 @@ the native helpers under `deploy/launchd` and `deploy/windows`.
 4. Optionally install `/etc/dns-update/dns-update.env` from
    `deploy/systemd/dns-update.env`. Use it for runtime flags such as
    `DNS_UPDATE_TIMEOUT`, `DNS_UPDATE_VERBOSE`, `DNS_UPDATE_DRY_RUN`, or
-   `DNS_UPDATE_CONFIG`; keep record and provider settings in the JSON config.
-   `-force-push` stays CLI-only, so use it on an explicit command line or a
-   custom unit override for ad hoc refreshes instead of treating it as a
-   persistent scheduler default.
+   `DNS_UPDATE_CONFIG`.
+   Keep record and provider settings in the JSON config.
+   `-force-push` stays CLI-only.
+   Use it on an explicit command line or in a custom unit override.
+   Do not make it a persistent scheduler default.
 
 5. Reload systemd and enable the timer:
 

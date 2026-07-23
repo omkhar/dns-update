@@ -1,0 +1,364 @@
+package quality_test
+
+import (
+	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"reflect"
+	"regexp"
+	"slices"
+	"strings"
+	"testing"
+)
+
+type userInterfaceInventory struct {
+	Scope                userInterfaceScope      `json:"scope"`
+	CLIFlags             []mappedSurface         `json:"cli_flags"`
+	EnvironmentVariables []mappedSurface         `json:"environment_variables"`
+	ConfigFields         []mappedSurface         `json:"config_fields"`
+	Modes                []mappedSurface         `json:"modes"`
+	Behaviors            []mappedSurface         `json:"behaviors"`
+	ExitCodes            []mappedSurface         `json:"exit_codes"`
+	Limitations          []mappedSurface         `json:"limitations"`
+	SupportedHelpers     []mappedSurface         `json:"supported_helpers"`
+	InternalHelpers      []excludedDocumentation `json:"internal_helpers"`
+}
+
+type userInterfaceScope struct {
+	Documentation     string `json:"documentation"`
+	SupportedSurface  string `json:"supported_surface"`
+	InternalExclusion string `json:"internal_exclusion"`
+}
+
+type mappedSurface struct {
+	ID                 string `json:"id"`
+	Source             string `json:"source"`
+	SourceToken        string `json:"source_token"`
+	Documentation      string `json:"documentation"`
+	DocumentationToken string `json:"documentation_token"`
+}
+
+func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	inventory := readUserInterfaceInventory(t, root)
+	requireDocumentationFile(t, root, inventory.Scope.Documentation)
+	if strings.TrimSpace(inventory.Scope.SupportedSurface) == "" ||
+		strings.TrimSpace(inventory.Scope.InternalExclusion) == "" {
+		t.Error("user-interface scope must define the supported surface and the internal exclusion")
+	}
+
+	validateMappedSurfaces(t, root, "cli_flags", inventory.CLIFlags)
+	validateMappedSurfaces(t, root, "environment_variables", inventory.EnvironmentVariables)
+	validateMappedSurfaces(t, root, "config_fields", inventory.ConfigFields)
+	validateMappedSurfaces(t, root, "modes", inventory.Modes)
+	validateMappedSurfaces(t, root, "behaviors", inventory.Behaviors)
+	validateMappedSurfaces(t, root, "exit_codes", inventory.ExitCodes)
+	validateMappedSurfaces(t, root, "limitations", inventory.Limitations)
+	validateMappedSurfaces(t, root, "supported_helpers", inventory.SupportedHelpers)
+
+	requireExactIDs(t, "cli_flags", mappedIDs(inventory.CLIFlags), actualCLIFlags(t, root))
+	requireExactIDs(t, "environment_variables", mappedIDs(inventory.EnvironmentVariables),
+		actualEnvironmentVariables(t, root))
+	requireExactIDs(t, "config_fields", mappedIDs(inventory.ConfigFields), actualConfigFields(t, root))
+	requireExactIDs(t, "modes", mappedIDs(inventory.Modes), []string{
+		"delete-a",
+		"delete-aaaa",
+		"delete-both",
+		"delete-disabled",
+		"dry-run",
+		"force-push",
+		"help",
+		"print-effective-config",
+		"reconcile",
+		"validate-config",
+		"version",
+	})
+	requireExactIDs(t, "behaviors", mappedIDs(inventory.Behaviors), []string{
+		"bounded-retries",
+		"cloudflare-scope",
+		"config-precedence",
+		"deployment-security",
+		"package-model",
+		"partial-probe-failure",
+		"post-apply-verification",
+		"probe-and-parse",
+		"reconciliation-plan",
+		"record-scope",
+		"runtime-override-precedence",
+		"scheduler-model",
+		"signal-and-timeout",
+		"token-file-protection",
+		"token-path-override",
+	})
+	requireExactIDs(t, "exit_codes", mappedIDs(inventory.ExitCodes), []string{
+		"exit-0",
+		"exit-1",
+		"exit-2",
+	})
+	requireExactIDs(t, "limitations", mappedIDs(inventory.Limitations), []string{
+		"a-and-aaaa-only",
+		"cloudflare-only",
+		"credential-validation",
+		"linux-native-packages",
+		"local-test-doubles",
+		"no-distributed-lock",
+		"no-internal-scheduler",
+		"probe-failure",
+		"workflow-contract-parser",
+	})
+
+	internalHelperPaths := make([]string, 0, len(inventory.InternalHelpers))
+	for _, entry := range inventory.InternalHelpers {
+		internalHelperPaths = append(internalHelperPaths, entry.Path)
+		requireDocumentationFile(t, root, entry.Path)
+		if strings.TrimSpace(entry.Reason) == "" {
+			t.Errorf("internal helper %s must have a reason", entry.Path)
+		}
+	}
+	requireSortedUniquePaths(t, "internal_helpers", internalHelperPaths)
+
+	allHelpers := append(mappedIDs(inventory.SupportedHelpers), internalHelperPaths...)
+	slices.Sort(allHelpers)
+	requireExactIDs(t, "helper classification", allHelpers, actualHelperSurfaces(t, root))
+}
+
+func readUserInterfaceInventory(t *testing.T, root string) userInterfaceInventory {
+	t.Helper()
+
+	file, err := os.Open(filepath.Join(root, "docs", "user-interface.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	var inventory userInterfaceInventory
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&inventory); err != nil {
+		t.Fatal(err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		t.Fatalf("user-interface inventory must contain one JSON value: %v", err)
+	}
+	return inventory
+}
+
+func validateMappedSurfaces(t *testing.T, root string, category string, entries []mappedSurface) {
+	t.Helper()
+
+	ids := mappedIDs(entries)
+	requireSortedUniquePaths(t, category, ids)
+	for _, entry := range entries {
+		requireDocumentationFile(t, root, entry.Source)
+		requireDocumentationFile(t, root, entry.Documentation)
+		if strings.TrimSpace(entry.SourceToken) == "" || strings.TrimSpace(entry.DocumentationToken) == "" {
+			t.Errorf("%s entry %s must have source and documentation tokens", category, entry.ID)
+			continue
+		}
+		source := mustReadContractFile(t, root, entry.Source)
+		if !strings.Contains(source, entry.SourceToken) {
+			t.Errorf("%s source %s does not contain %q", entry.ID, entry.Source, entry.SourceToken)
+		}
+		documentation := mustReadContractFile(t, root, entry.Documentation)
+		if !strings.Contains(documentation, entry.DocumentationToken) {
+			t.Errorf("%s documentation %s does not contain %q",
+				entry.ID, entry.Documentation, entry.DocumentationToken)
+		}
+	}
+}
+
+func mappedIDs(entries []mappedSurface) []string {
+	ids := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		ids = append(ids, entry.ID)
+	}
+	return ids
+}
+
+func requireExactIDs(t *testing.T, category string, got []string, want []string) {
+	t.Helper()
+
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Errorf("%s mismatch\ngot:  %v\nwant: %v", category, got, want)
+	}
+}
+
+func actualCLIFlags(t *testing.T, root string) []string {
+	t.Helper()
+
+	file := parseGoFile(t, filepath.Join(root, "cmd", "dns-update", "flags.go"))
+	var names []string
+	ast.Inspect(file, func(node ast.Node) bool {
+		call, ok := node.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || selector.Sel == nil {
+			return true
+		}
+		if selector.Sel.Name != "StringVar" && selector.Sel.Name != "BoolVar" &&
+			selector.Sel.Name != "DurationVar" && selector.Sel.Name != "Var" {
+			return true
+		}
+		if len(call.Args) < 2 {
+			return true
+		}
+		literal, ok := call.Args[1].(*ast.BasicLit)
+		if ok && literal.Kind == token.STRING {
+			names = append(names, strings.Trim(literal.Value, `"`))
+		}
+		return true
+	})
+	slices.Sort(names)
+	return names
+}
+
+func actualEnvironmentVariables(t *testing.T, root string) []string {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`DNS_UPDATE_[A-Z0-9_]+`)
+	seen := make(map[string]bool)
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		if entry.IsDir() {
+			if relative == ".git" || relative == "out" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(relative, ".go") || strings.HasSuffix(relative, "_test.go") {
+			return nil
+		}
+		data := mustReadContractFile(t, root, relative)
+		for _, name := range pattern.FindAllString(data, -1) {
+			seen[name] = true
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+func actualConfigFields(t *testing.T, root string) []string {
+	t.Helper()
+
+	file := parseGoFile(t, filepath.Join(root, "internal", "config", "types.go"))
+	structs := make(map[string]*ast.StructType)
+	for _, declaration := range file.Decls {
+		general, ok := declaration.(*ast.GenDecl)
+		if !ok || general.Tok != token.TYPE {
+			continue
+		}
+		for _, specification := range general.Specs {
+			typeSpec, ok := specification.(*ast.TypeSpec)
+			if !ok {
+				continue
+			}
+			structType, ok := typeSpec.Type.(*ast.StructType)
+			if ok {
+				structs[typeSpec.Name.Name] = structType
+			}
+		}
+	}
+
+	var fields []string
+	var walk func(string, string)
+	walk = func(typeName string, prefix string) {
+		structType := structs[typeName]
+		for _, field := range structType.Fields.List {
+			if field.Tag == nil {
+				continue
+			}
+			tag := strings.Trim(field.Tag.Value, "`")
+			jsonName := strings.Split(reflect.StructTag(tag).Get("json"), ",")[0]
+			if jsonName == "" || jsonName == "-" {
+				continue
+			}
+			path := jsonName
+			if prefix != "" {
+				path = prefix + "." + jsonName
+			}
+			identifier, nested := field.Type.(*ast.Ident)
+			if nested && strings.HasPrefix(identifier.Name, "file") {
+				walk(identifier.Name, path)
+				continue
+			}
+			fields = append(fields, path)
+		}
+	}
+	walk("fileConfig", "")
+	slices.Sort(fields)
+	return fields
+}
+
+func parseGoFile(t *testing.T, path string) *ast.File {
+	t.Helper()
+
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return file
+}
+
+func actualHelperSurfaces(t *testing.T, root string) []string {
+	t.Helper()
+
+	var paths []string
+	for _, directory := range []string{"deploy", "packaging"} {
+		err := filepath.WalkDir(filepath.Join(root, directory), func(
+			path string,
+			entry fs.DirEntry,
+			walkErr error,
+		) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			extension := filepath.Ext(path)
+			if extension != ".sh" && extension != ".ps1" && extension != ".service" &&
+				extension != ".timer" && extension != ".env" {
+				return nil
+			}
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			paths = append(paths, filepath.ToSlash(relative))
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	slices.Sort(paths)
+	return paths
+}

@@ -1,13 +1,14 @@
 # Windows scheduled task deployment
 
+This document uses ASD-STE100 Simplified Technical English.
+
 Use Task Scheduler for native scheduled execution on Windows.
 
-Windows deployments rely on NTFS ACLs for token-file privacy. The registration
-helper now disables inherited access on the token file and its dedicated
-credentials directory, then replaces it with explicit rules for `SYSTEM` and
-local Administrators so the scheduled task can read the token without leaving
-it broadly readable. `dns-update` also validates that the token file and its
-parent directory do not grant risky access to other Windows users at runtime.
+Windows deployments use NTFS ACLs for token-file privacy.
+The registration helper disables inherited access on the token and its directory.
+The helper gives explicit access to `SYSTEM` and local Administrators.
+The scheduled task can then read the token.
+`dns-update` also checks the file and directory ACLs at runtime.
 
 The helper scripts in this directory:
 
@@ -24,6 +25,40 @@ Suggested installed layout:
 - `C:\ProgramData\dns-update\config.json`
 - `C:\ProgramData\dns-update\credentials\cloudflare.token`
 - `C:\ProgramData\dns-update\dns-update.log`
+
+## Registration parameters
+
+Run the registration helper with Administrator permissions.
+
+| Parameter | Default | Function |
+| --- | --- | --- |
+| `-TaskName` | `dns-update` | Set the scheduled-task name. |
+| `-BinaryPath` | `C:\Program Files\dns-update\dns-update.exe` | Set the binary path. |
+| `-ConfigPath` | `C:\ProgramData\dns-update\config.json` | Set the config path. |
+| `-TokenPath` | `C:\ProgramData\dns-update\credentials\cloudflare.token` | Set the token path. |
+| `-LogPath` | `C:\ProgramData\dns-update\dns-update.log` | Set the combined log path. |
+| `-IntervalMinutes` | `5` | Set an interval from 1 through 1439 minutes. |
+| `-Timeout` | `2m` | Set `DNS_UPDATE_TIMEOUT`. |
+| `-ValidateConfig` | disabled | Run one config preflight before registration. |
+
+The task runs as `SYSTEM` with the highest run level.
+The task ignores a new start when an instance is active.
+The task starts when Windows becomes available.
+The task has a 10-minute execution limit.
+
+`invoke-dns-update.ps1` is the task action wrapper.
+Its path parameters are mandatory.
+It passes the config, token, and timeout to `dns-update`.
+It appends output and the exit code to the configured log.
+
+| Wrapper parameter | Default | Function |
+| --- | --- | --- |
+| `-BinaryPath` | required | Set the binary path. |
+| `-ConfigPath` | required | Set the config path. |
+| `-TokenPath` | required | Set the token path. |
+| `-LogPath` | required | Set the combined log path. |
+| `-Timeout` | `2m` | Set `DNS_UPDATE_TIMEOUT`. |
+| `-ValidateConfig` | disabled | Run config validation instead of reconciliation. |
 
 Example:
 
