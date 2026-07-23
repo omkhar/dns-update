@@ -10,7 +10,6 @@ import (
 
 func TestFlagHelpUsesSimplifiedEnglish(t *testing.T) {
 	t.Parallel()
-
 	var output bytes.Buffer
 	flags, _ := newFlagSet(&output)
 	flags.PrintDefaults()
@@ -23,7 +22,7 @@ func TestFlagHelpUsesSimplifiedEnglish(t *testing.T) {
 		"Set the JSON config file path.",
 		"Delete managed DNS records instead of reconciliation. Use a, aaaa, or both. Bare -delete deletes both.",
 		"Print planned changes without applying them.",
-		"Send a provider update for an existing address record that matches an observed address.",
+		"Refresh matching existing address records only after normal reconciliation has no operations.",
 		"Load and validate the assembled config. Print it as JSON. Exit.",
 		"Set the maximum runtime for one reconciliation or delete cycle. Use 0 to disable the limit.",
 		"Load and validate the assembled config. Print a success message. Exit.",

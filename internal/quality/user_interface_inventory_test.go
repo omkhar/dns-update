@@ -107,7 +107,7 @@ func TestOperatorDocumentationContracts(t *testing.T) {
 	}
 	for _, path := range []string{"README.md", "docs/FUNCTIONS.md", "docs/LIMITATIONS.md", "docs/dns-update.1"} {
 		data := mustReadContractFile(t, root, path)
-		if !strings.Contains(data, "existing address record") || !strings.Contains(data, "Normal reconciliation creates a missing observed record") {
+		if !strings.Contains(data, "existing address record") || !strings.Contains(data, "Normal reconciliation creates a missing observed record") || !strings.Contains(data, "normal reconciliation has no operations") {
 			t.Errorf("%s does not define the normal-create and force-only boundaries", path)
 		}
 	}

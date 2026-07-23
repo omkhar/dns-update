@@ -67,10 +67,10 @@ You can combine `-dry-run` with reconcile, delete, or force-push mode.
 
 ## Force-push mode
 
-Use `-force-push` to refresh an existing address record that matches an observed address.
+Use `-force-push` to request the force-only path.
 The command still requires valid probe evidence.
 Normal reconciliation creates a missing observed record even when you use `-force-push`.
-The force-only path refreshes only an existing address record that matches an observed address.
+The force-only path refreshes matching existing address records only after normal reconciliation has no operations.
 It sends no operation when `ip=none` matches an absent family.
 
 ## Introspection modes
@@ -98,7 +98,7 @@ Version mode does not load config.
 | `-config PATH` | unset | Select the JSON config file. |
 | `-delete[=a\|aaaa\|both]` | unset | Select delete mode and the record families. |
 | `-dry-run` | `false` | Print the plan without a provider mutation. |
-| `-force-push` | `false` | Refresh matching existing address records. |
+| `-force-push` | `false` | Refresh matching existing address records after normal reconciliation has no operations. |
 | `-print-effective-config` | `false` | Print the assembled config and exit. |
 | `-timeout DURATION` | `0` | Limit one reconciliation or delete cycle. Zero disables this limit. |
 | `-validate-config` | `false` | Validate the assembled config and exit. |

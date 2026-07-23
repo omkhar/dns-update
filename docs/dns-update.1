@@ -21,8 +21,8 @@ It compares these addresses with the configured DNS A and AAAA records.
 It changes records that do not match.
 With
 .B \-force-push,
-the program refreshes an existing address record
-that matches an observed address.
+the program first does normal reconciliation.
+It uses the force-only path only when that plan has no operations.
 .B \-delete
 selects an explicit delete mode.
 This mode skips egress probing.
@@ -151,6 +151,7 @@ This option is mutually exclusive with
 .B \-force-push
 Normal reconciliation creates a missing observed record.
 This behavior applies even when you use this option.
+The force-only path runs only when normal reconciliation has no operations.
 The force-only path refreshes only an existing address record.
 The record must match an observed address.
 It sends no operation when

@@ -58,8 +58,8 @@ On each run, the service:
 5. Compares desired vs current DNS state:
    - If DNS already matches, the service exits without an update unless you use
      `-force-push`.
-   - If you use `-force-push`, the service refreshes each existing address
-     record that matches an observed address.
+   - `-force-push` refreshes matching existing address records only after
+     normal reconciliation has no operations.
    - Normal reconciliation creates a missing observed record even when you use
      `-force-push`.
    - If DNS differs, the service applies only the required record operations.
@@ -128,8 +128,8 @@ Runtime settings:
   It does not reconcile to observed egress IPs. Bare `-delete` deletes both `A` and
   `AAAA`. The command also accepts `-delete=a`, `-delete=aaaa`, and `-delete=both`
 - `-dry-run` or `DNS_UPDATE_DRY_RUN`
-- `-force-push` on the command line to refresh existing address records that
-  match observed addresses
+- `-force-push` on the command line requests refresh of matching existing
+  address records only after normal reconciliation has no operations
 - `-verbose` or `DNS_UPDATE_VERBOSE`
 - `-timeout` or `DNS_UPDATE_TIMEOUT`
 - `DNS_UPDATE_PROVIDER_CLOUDFLARE_API_TOKEN_FILE` to override only
@@ -274,7 +274,7 @@ Delete only the managed IPv4 record family:
 ./dns-update -config /etc/dns-update/config.json -delete=a
 ```
 
-Refresh existing address records that match the observed egress IPs:
+Request refresh after normal reconciliation has no operations:
 
 ```sh
 ./dns-update -config /etc/dns-update/config.json -force-push
@@ -316,7 +316,7 @@ Each release archive also includes the `deploy/` tree so the scheduler helpers
 travel with the binary on non-Linux systems.
 
 `-force-push` is intentionally not part of the default scheduler configuration.
-Use it to refresh an existing address record that matches an observed address.
+Use it to refresh matching existing address records only after normal reconciliation has no operations.
 
 `-delete` is also intentionally not part of the default scheduler
 configuration. It is a one-shot destructive operator action, not a steady-state
