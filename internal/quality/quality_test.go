@@ -108,6 +108,22 @@ func TestAgentdocsIntegration(t *testing.T) {
 	}
 }
 
+func TestReleaseAttestationActionPin(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(repoRoot(t), ".github", "workflows", "release.yml")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("os.ReadFile(%s) error = %v", path, err)
+	}
+
+	const action = "uses: actions/attest@"
+	const current = action + "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6  # v4.2.0"
+	if strings.Count(string(content), action) != 1 || !strings.Contains(string(content), current) {
+		t.Fatalf("release workflow must use the current actions/attest pin: %s", current)
+	}
+}
+
 func TestCoverageThreshold(t *testing.T) {
 	t.Parallel()
 
