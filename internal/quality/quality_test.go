@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,6 +20,10 @@ import (
 const (
 	skipCoverageEnv = "DNS_UPDATE_SKIP_COVERAGE_TEST"
 	skipMutationEnv = "DNS_UPDATE_SKIP_MUTATION_TEST"
+)
+
+var workflowActionPinPattern = regexp.MustCompile(
+	`^uses: ([^@[:space:]]+)@([0-9a-f]{40})  # (v[0-9][0-9A-Za-z.+-]*)$`,
 )
 
 type mutant struct {
@@ -108,31 +113,17 @@ func TestAgentdocsIntegration(t *testing.T) {
 	}
 }
 
-func TestReleaseAttestationActionPin(t *testing.T) {
+func TestWorkflowActionPins(t *testing.T) {
 	t.Parallel()
 
-	path := filepath.Join(repoRoot(t), ".github", "workflows", "release.yml")
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("os.ReadFile(%s) error = %v", path, err)
+	actions := []string{
+		"actions/attest",
+		"actions/checkout",
+		"actions/setup-go",
+		"zizmorcore/zizmor-action",
 	}
-
-	const action = "uses: actions/attest@"
-	const current = action + "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6  # v4.2.0"
-	if strings.Count(string(content), action) != 1 || !strings.Contains(string(content), current) {
-		t.Fatalf("release workflow must use the current actions/attest pin: %s", current)
-	}
-}
-
-func TestCurrentWorkflowActionPins(t *testing.T) {
-	t.Parallel()
-
-	want := map[string]string{
-		"actions/checkout@":         "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1",
-		"actions/setup-go@":         "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0",
-		"zizmorcore/zizmor-action@": "zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02  # v0.6.0",
-	}
-	found := make(map[string]int, len(want))
+	found := make(map[string]int, len(actions))
+	currentPins := make(map[string]string, len(actions))
 	workflowDir := filepath.Join(repoRoot(t), ".github", "workflows")
 
 	entries, err := os.ReadDir(workflowDir)
@@ -149,23 +140,39 @@ func TestCurrentWorkflowActionPins(t *testing.T) {
 			t.Fatalf("os.ReadFile(%s) error = %v", path, err)
 		}
 		for lineNumber, line := range strings.Split(string(content), "\n") {
-			for action, current := range want {
-				if !strings.Contains(line, "uses: "+action) {
+			for _, action := range actions {
+				if !strings.HasPrefix(strings.TrimSpace(line), "uses: "+action+"@") {
 					continue
 				}
 				found[action]++
-				if strings.TrimSpace(line) != "uses: "+current {
-					t.Errorf("%s:%d must use the current pin: %s", entry.Name(), lineNumber+1, current)
+				pin, ok := workflowActionPin(line, action)
+				if !ok {
+					t.Errorf("%s:%d action %s must use a full commit SHA and release tag comment", entry.Name(), lineNumber+1, action)
+					continue
+				}
+				if current, exists := currentPins[action]; exists && pin != current {
+					t.Errorf("%s:%d action %s pin %s does not match %s", entry.Name(), lineNumber+1, action, pin, current)
+				} else {
+					currentPins[action] = pin
 				}
 			}
 		}
 	}
 
-	for action := range want {
+	for _, action := range actions {
 		if found[action] == 0 {
 			t.Errorf("workflow action %s is not present", action)
 		}
 	}
+}
+
+func workflowActionPin(line string, action string) (string, bool) {
+	match := workflowActionPinPattern.FindStringSubmatch(strings.TrimSpace(line))
+	if match == nil || match[1] != action {
+		return "", false
+	}
+
+	return match[2] + " # " + match[3], true
 }
 
 func TestCoverageThreshold(t *testing.T) {
