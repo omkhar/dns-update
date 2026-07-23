@@ -4,7 +4,8 @@
 dns-update \- keep DNS A and AAAA records aligned with egress IP addresses
 .SH SYNOPSIS
 .B dns-update
-[\fB\--version\fR]
+[\fB\-version\fR|\fB\-\-version\fR]
+[\fB\-h\fR|\fB\-\-h\fR|\fB\-help\fR|\fB\-\-help\fR]
 [\fB\-config\fR \fIPATH\fR]
 [\fB\-delete\fR[=\fIa|aaaa|both\fR]]
 [\fB\-dry-run\fR]
@@ -62,11 +63,11 @@ Each probe response must parse as
 or
 .BR ip=none .
 If one probe family fails, reconciliation stops by default.
-If
+When the JSON config sets
 .B probe.allow_partial_failure
-is set to
-.B true
-in the JSON config, the program logs a warning.
+to
+.BR true ,
+the program logs a warning.
 It reconciles only the successful family.
 The failed family stays unchanged.
 If both probe families fail, reconciliation stops.
@@ -97,8 +98,12 @@ Published releases also include macOS and Windows archives.
 These platforms use native schedulers.
 .SH OPTIONS
 .TP
-.B \--version
+.BR \-version ", " \-\-version
 Print the binary version to standard output.
+Exit without config loading or provider contact.
+.TP
+.BR \-h ", " \-\-h ", " \-help ", " \-\-help
+Print flag help to standard error.
 Exit without config loading or provider contact.
 .TP
 .B \-config
@@ -197,11 +202,10 @@ The packaged systemd service uses this variable for its credential file.
 .SH FILES
 .TP
 .I ./config.json
-Implicit first config lookup path when neither
+The program searches this path first when you omit both
 .BR \-config
-nor
-.B DNS_UPDATE_CONFIG
-is set.
+and
+.BR DNS_UPDATE_CONFIG .
 .TP
 .I /etc/dns-update/config.json
 Fallback JSON configuration file for packaged and systemd deployments.
@@ -217,7 +221,7 @@ Optional environment overrides for packaged systemd deployments.
 .SH EXIT STATUS
 .TP
 .B 0
-Success.
+Success or requested help.
 .TP
 .B 1
 A config, output, provider, reconciliation, delete, or verification operation

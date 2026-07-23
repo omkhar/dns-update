@@ -126,14 +126,14 @@
       "source": "internal/config/types.go",
       "source_token": "json:\"ipv4_url\"",
       "documentation": "docs/FUNCTIONS.md",
-      "documentation_token": "`probe.ipv4_url`"
+      "documentation_token": "Set the IPv4 egress probe."
     },
     {
       "id": "probe.ipv6_url",
       "source": "internal/config/types.go",
       "source_token": "json:\"ipv6_url\"",
       "documentation": "docs/FUNCTIONS.md",
-      "documentation_token": "`probe.ipv6_url`"
+      "documentation_token": "Set the IPv6 egress probe."
     },
     {
       "id": "probe.timeout",
@@ -254,7 +254,7 @@
       "source": "cmd/dns-update/main.go",
       "source_token": "errors.Is(err, flag.ErrHelp)",
       "documentation": "docs/FUNCTIONS.md",
-      "documentation_token": "Use `-h` or `-help` to print flag help."
+      "documentation_token": "Use `-h`, `--h`, `-help`, or `--help` to print flag help."
     },
     {
       "id": "print-effective-config",
@@ -481,6 +481,13 @@
     }
   ],
   "supported_helpers": [
+    {
+      "id": "cmd/agentdocgen",
+      "source": "cmd/agentdocgen/main.go",
+      "source_token": "func run(args []string, stderr io.Writer) int",
+      "documentation": "docs/FUNCTIONS.md",
+      "documentation_token": "`go run ./cmd/agentdocgen`"
+    },
     {
       "id": "deploy/launchd/install-launchd-job.sh",
       "source": "deploy/launchd/install-launchd-job.sh",

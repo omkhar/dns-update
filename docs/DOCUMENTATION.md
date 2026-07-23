@@ -19,6 +19,12 @@ Use the imperative form for instructions.
 Do not use contractions.
 Do not use a semicolon to join clauses.
 
+The automated check sets a maximum of 25 words for one prose sentence.
+It finds common passive forms that use `be` plus a past participle.
+It ignores fenced code, inline code, URLs, and file-format syntax.
+It checks only the `ste` and `generated` inventory classes.
+A maintainer must review the remaining ASD-STE100 rules manually.
+
 ASD-STE100 Rule 1.12 permits technical names.
 This repository uses product names, command names, code names, paths, and file formats as technical names.
 
@@ -72,7 +78,7 @@ The remaining RPM spec is package source, not a documentation surface.
 Read `docs/FUNCTIONS.md` for the supported operator and maintainer interface.
 Read `docs/user-interface.json` for the code-to-documentation map.
 The map covers flags, environment variables, config fields, modes, and exit codes.
-It also covers behavior, limitations, schedulers, installers, and package helpers.
+It also covers behavior, limitations, schedulers, installers, and maintainer helpers.
 
 Internal Go identifiers are not a public API.
-Internal test scripts and sourced shell libraries are not supported operator functions.
+The supported interface excludes internal test scripts and sourced shell libraries.

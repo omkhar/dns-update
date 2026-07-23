@@ -8,12 +8,33 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
 )
 
 const steDeclaration = "ASD-STE100 Simplified Technical English"
+const maximumSimplifiedEnglishSentenceWords = 25
+
+var (
+	inlineCodePattern  = regexp.MustCompile("`[^`]*`")
+	linkPattern        = regexp.MustCompile(`\[([^\]]+)\]\([^)]*\)`)
+	urlPattern         = regexp.MustCompile(`https?://\S+`)
+	wordPattern        = regexp.MustCompile(`[[:alnum:]]+(?:[-'][[:alnum:]]+)*`)
+	sentencePattern    = regexp.MustCompile(`[^.!?]+[.!?]?`)
+	tableRulePattern   = regexp.MustCompile(`^[-:| ]+$`)
+	orderedListPattern = regexp.MustCompile(`^[0-9]+[.] `)
+	roffFontPattern    = regexp.MustCompile(`\\f[BRI]`)
+	passivePattern     = regexp.MustCompile(
+		`(?i)\b(?:am|are|is|was|were|be|been|being)\s+(?:not\s+)?(?:[a-z]+ly\s+)*` +
+			`(?:[a-z]{3,}ed|bent|bound|broken|built|bought|caught|chosen|done|driven|` +
+			`found|given|held|kept|known|left|lost|made|meant|put|read|run|seen|sent|` +
+			`set|shown|spoken|taken|told|written)\b`,
+	)
+	yamlKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+:\s*(?:[>|][+-]?)?\s*`)
+	tomlKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+\s*=\s*`)
+)
 
 type documentationInventory struct {
 	STE               []string                        `json:"ste"`
@@ -120,10 +141,132 @@ func TestDocumentationPathUsesRepositorySlashSemantics(t *testing.T) {
 	}
 }
 
+func TestSimplifiedEnglishGrammarFindings(t *testing.T) {
+	t.Parallel()
+
+	long := strings.TrimSpace(strings.Repeat("word ", 26)) + "."
+	technical := "Use `the package is signed by a key with more than twenty-five technical words " +
+		"one two three four five six seven eight nine ten eleven twelve thirteen fourteen`.\n\n" +
+		"```text\nThe package is signed by the maintainer.\n```\n" +
+		"~~~text\nThe package is signed by the maintainer.\n~~~\n"
+	for _, test := range []struct {
+		name string
+		data string
+		want string
+	}{
+		{"passive voice", "The release is signed by the maintainer.", "passive voice"},
+		{"long sentence", long, "26 words"},
+		{"wrapped list", "- " + strings.Repeat("word ", 13) + "\n  " + long[13*5:], "26 words"},
+		{"technical syntax", technical, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			findings := simplifiedEnglishGrammarFindings(test.data)
+			if test.want == "" && len(findings) != 0 {
+				t.Fatalf("findings = %v, want none", findings)
+			}
+			if test.want != "" && !slices.ContainsFunc(findings, func(finding string) bool {
+				return strings.Contains(finding, test.want)
+			}) {
+				t.Fatalf("findings = %v, want %q", findings, test.want)
+			}
+		})
+	}
+}
+
+func simplifiedEnglishGrammarFindings(data string) []string {
+	var findings []string
+	for _, sentence := range simplifiedEnglishSentences(data) {
+		words := wordPattern.FindAllString(sentence, -1)
+		if len(words) > maximumSimplifiedEnglishSentenceWords {
+			findings = append(findings,
+				fmt.Sprintf("sentence has %d words: %q", len(words), sentence))
+		}
+		if construction := passivePattern.FindString(sentence); construction != "" {
+			findings = append(findings,
+				fmt.Sprintf("passive voice %q in %q", construction, sentence))
+		}
+	}
+	return findings
+}
+
+func simplifiedEnglishSentences(data string) []string {
+	data = strings.ReplaceAll(documentationProse(data), `\n`, "\n")
+	var prose strings.Builder
+
+	for line := range strings.SplitSeq(data, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || trimmed == "---" {
+			prose.WriteByte('\n')
+			continue
+		}
+		if strings.HasPrefix(trimmed, ".") {
+			if strings.HasPrefix(trimmed, ".SH ") || trimmed == ".TP" ||
+				trimmed == ".P" || strings.HasPrefix(trimmed, ".TH ") {
+				prose.WriteByte('\n')
+			}
+			continue
+		}
+
+		startNew := strings.HasPrefix(trimmed, "- ") ||
+			strings.HasPrefix(trimmed, "* ") ||
+			strings.HasPrefix(trimmed, "|") ||
+			orderedListPattern.MatchString(trimmed) ||
+			yamlKeyPattern.MatchString(trimmed) ||
+			tomlKeyPattern.MatchString(trimmed)
+		switch {
+		case strings.HasPrefix(trimmed, "#"):
+			prose.WriteByte('\n')
+			continue
+		case strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* "):
+			trimmed = strings.TrimSpace(trimmed[2:])
+		case strings.HasPrefix(trimmed, "|"):
+			trimmed = strings.Trim(trimmed, "| ")
+		case orderedListPattern.MatchString(trimmed):
+			trimmed = orderedListPattern.ReplaceAllString(trimmed, "")
+		}
+		trimmed = yamlKeyPattern.ReplaceAllString(trimmed, "")
+		trimmed = tomlKeyPattern.ReplaceAllString(trimmed, "")
+
+		trimmed = sanitizeSimplifiedEnglishText(trimmed)
+		if startNew {
+			prose.WriteByte('\n')
+		}
+		if trimmed == "" || tableRulePattern.MatchString(trimmed) {
+			continue
+		}
+		prose.WriteByte(' ')
+		prose.WriteString(trimmed)
+	}
+
+	var sentences []string
+	for paragraph := range strings.SplitSeq(prose.String(), "\n") {
+		for _, match := range sentencePattern.FindAllString(paragraph, -1) {
+			if sentence := strings.TrimSpace(match); sentence != "" {
+				sentences = append(sentences, sentence)
+			}
+		}
+	}
+	return sentences
+}
+
+func sanitizeSimplifiedEnglishText(value string) string {
+	value = linkPattern.ReplaceAllString(value, "$1")
+	value = inlineCodePattern.ReplaceAllString(value, " ")
+	value = urlPattern.ReplaceAllString(value, " ")
+	value = roffFontPattern.ReplaceAllString(value, "")
+	value = strings.Trim(value, `"'`)
+	value = strings.NewReplacer(
+		"**", "",
+		"__", "",
+		"~~", "",
+	).Replace(value)
+	return strings.Join(strings.Fields(value), " ")
+}
+
 func requireSimplifiedEnglishStyle(t *testing.T, path string, data string) {
 	t.Helper()
 
-	prose := documentationProse(data)
+	prose := strings.Join(simplifiedEnglishSentences(data), "\n")
 	if strings.Contains(prose, ";") {
 		t.Errorf("%s contains a semicolon", path)
 	}
@@ -154,13 +297,17 @@ func requireSimplifiedEnglishStyle(t *testing.T, path string, data string) {
 			t.Errorf("%s contains non-imperative term %q", path, strings.TrimSpace(term))
 		}
 	}
+	for _, finding := range simplifiedEnglishGrammarFindings(data) {
+		t.Errorf("%s contains %s", path, finding)
+	}
 }
 
 func documentationProse(data string) string {
 	var prose strings.Builder
 	inFence := false
 	for line := range strings.SplitSeq(data, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
 			inFence = !inFence
 			continue
 		}

@@ -17,7 +17,7 @@ body:
     id: summary
     attributes:
       label: Summary
-      description: What is broken?
+      description: What failed?
     validations:
       required: true
   - type: textarea

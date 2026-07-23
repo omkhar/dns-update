@@ -71,11 +71,10 @@ macOS and Windows use the native helpers in `deploy/launchd` and `deploy/windows
    systemctl enable --now dns-update.timer
    ```
 
-   The first timer run happens immediately at boot or immediately after the
-   timer is enabled, then repeats on five-minute clock boundaries. The
-   `OnCalendar=` schedule keeps future runs queued even if an early service
-   start is skipped, and `Persistent=yes` triggers one catch-up run after
-   downtime.
+   The first timer run happens immediately at boot or after you enable the
+   timer. It then repeats on five-minute clock boundaries. The `OnCalendar=`
+   schedule keeps future runs queued even if systemd skips an early service
+   start. `Persistent=yes` triggers one catch-up run after downtime.
 
 6. Run one immediate reconciliation if you want to validate the setup before the
    next scheduled timer event:
@@ -89,8 +88,8 @@ macOS and Windows use the native helpers in `deploy/launchd` and `deploy/windows
 The service uses:
 
 - `DynamicUser=yes` so the process runs without a persistent account
-- `LoadCredential=` so the Cloudflare token is exposed through a private
-  credential path instead of a world-readable environment variable
+- `LoadCredential=` gives the process a private credential path for the
+  Cloudflare token instead of a world-readable environment variable
 - `ProtectSystem=strict`, `ProtectHome=yes`, and related isolation knobs so the
   filesystem stays read-only to the service
 - an empty capability set and `NoNewPrivileges=yes`

@@ -9,7 +9,8 @@ Put security fixes on the current default branch first.
 Unless a future release process says otherwise:
 
 - the latest code on the default branch is the supported version
-- older snapshots, forks, and unpublished local modifications are not supported
+- the maintainers do not support older snapshots, forks, or unpublished local
+  modifications
 
 ## Reporting a Vulnerability
 

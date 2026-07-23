@@ -54,8 +54,9 @@ The helper writes `/Library/LaunchDaemons/com.dns-update.plist` by default and
 bootstraps it into the system launchd domain.
 
 Pass `--validate-config` to run an immediate preflight validation before the
-recurring job is installed. The installed `LaunchDaemon` still runs normal
-reconciliation and does not keep `-validate-config` in `ProgramArguments`.
+helper installs the recurring job. The installed `LaunchDaemon` still runs
+normal reconciliation and does not keep `-validate-config` in
+`ProgramArguments`.
 
 For a fresh install:
 

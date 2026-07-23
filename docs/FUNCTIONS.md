@@ -106,7 +106,7 @@ Version mode does not load config.
 | `-version` | `false` | Print version information and exit. |
 
 The Go flag parser also accepts the double-hyphen form.
-Use `-h` or `-help` to print flag help.
+Use `-h`, `--h`, `-help`, or `--help` to print flag help.
 Help exits with status 0.
 
 ## Runtime environment variables
@@ -239,9 +239,19 @@ The macOS installer supports an optional validation preflight.
 The Windows installer supports an optional validation preflight.
 Neither preflight changes the installed recurring action.
 
+## Agent documentation helper
+
+Run `go run ./cmd/agentdocgen` to generate the tracked agent projections from
+`docs/agents/**`.
+Use `-check` to compare the projections without changing files.
+Use `-root PATH` to select the repository root.
+The current directory is the default root.
+The helper returns exit code 1 for a generation failure or a difference.
+It returns exit code 2 for an invalid flag.
+
 ## Package and release helpers
 
-These scripts are supported maintainer entry points:
+Maintainers can use these supported entry points:
 
 - `packaging/build-deb.sh` builds Debian packages for selected targets.
 - `packaging/build-rpm.sh` builds RPM packages for selected targets.

@@ -18,8 +18,8 @@ Both package layouts install:
 - `/usr/bin/dns-update`
 - the `dns-update(1)` man page under the distro-standard `man1` path
 - `/etc/dns-update/dns-update.env`
-- `/etc/dns-update/config.example.json` as a shipped sample that is not loaded
-  by the default systemd service
+- `/etc/dns-update/config.example.json` as a shipped sample. The default
+  systemd service does not load this file
 - `/etc/dns-update/cloudflare.token.example` as a shipped placeholder token file
 - hardened systemd units at the distro-standard unit path
 
@@ -34,8 +34,8 @@ timer.
 Copy `/etc/dns-update/config.example.json` to `/etc/dns-update/config.json`
 and `/etc/dns-update/cloudflare.token.example` to
 `/etc/dns-update/cloudflare.token` when bootstrapping a host. The default
-systemd service does not read the sample files directly, and placeholders such
-as `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_TOKEN` must be replaced.
+systemd service does not read the sample files directly. Replace placeholders
+such as `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_TOKEN`.
 
 For a direct binary run, edit `/etc/dns-update/config.json`.
 Set `provider.cloudflare.api_token_file` to `/etc/dns-update/cloudflare.token`.
@@ -150,7 +150,7 @@ It checks the expected payload for archives, Debian packages, and RPM packages.
 It ignores adjacent Sigstore bundles, SPDX files, and checksum files.
 It rejects an unsupported artifact suffix.
 
-Artifacts are written under:
+The build helpers write artifacts under:
 
 - `out/packages/deb/<target>/`
 - `out/packages/rpm/<target>/`
@@ -212,7 +212,7 @@ That wrapper:
 
 - streams a fresh source snapshot to the remote host
 - builds a dedicated remote image tag for that run, reusing Docker layer cache
-  unless `--rebuild-image` is passed
+  unless you pass `--rebuild-image`
 - runs the build as the remote login UID/GID so bind-mounted outputs remain
   removable by that shared account
 - carries `SOURCE_DATE_EPOCH` into the container so release timestamps stay
@@ -229,10 +229,10 @@ that file now accepts only literal `KEY=VALUE` entries for:
 - `REMOTE_BUILD_TAG`
 - `REMOTE_BUILD_REBUILD_IMAGE`
 
-The wrapper no longer shell-sources that file, so shell syntax, command
-substitutions, and unrelated environment keys are rejected.
+The wrapper no longer shell-sources that file.
+It rejects shell syntax, command substitutions, and unrelated environment keys.
 
-The remote wrapper is intended for the release-asset and reproducibility lanes.
+Use the remote wrapper for the release-asset and reproducibility lanes.
 It intentionally does not run `packaging/test-systemd-timer.sh`, because that
 integration test already drives privileged Docker containers against the remote
 host daemon.
@@ -292,7 +292,7 @@ This path produces the same installed payload.
 The native Debian path also emits `.buildinfo` and `.changes` files.
 
 Set `PACKAGING_FORCE_DIRECT_DEB=1` to force the direct `dpkg-deb` path even
-when `dh` is installed.
+when the host has `dh`.
 
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus
@@ -306,7 +306,7 @@ Requirements:
 - `rpmbuild`
 - `cosign`
 - `golang >= 1.26.5`
-- `tar` or `gtar` (GNU tar is preferred on macOS)
+- `tar` or `gtar` (prefer GNU tar on macOS)
 
 Build:
 
@@ -369,10 +369,11 @@ Native test and normal development builds keep their existing defaults.
 
 ## Sigstore signing
 
-Each generated `.deb` and `.rpm` is signed with `cosign sign-blob` and a
-Sigstore bundle written next to the artifact as `*.sigstore.json`.
+The package helpers sign each generated `.deb` and `.rpm` with
+`cosign sign-blob`. They write a Sigstore bundle next to the artifact as
+`*.sigstore.json`.
 
-This is detached blob signing. If you inspect an RPM directly with
+This process uses detached blob signing. If you inspect an RPM directly with
 `rpm -qip`, the header signature field still shows `Signature: (none)`.
 The adjacent Sigstore bundle contains the attestation.
 

@@ -56,14 +56,14 @@ On each run, the service:
    - Only explicit `ip=none` removes that record family
 4. Reads the current provider-side records for `record.name`.
 5. Compares desired vs current DNS state:
-   - If already matching, exits without update unless `-force-push` is set.
-   - If `-force-push` is set, reapplies the matching DNS state so the provider
-     receives a refresh update even when the observed egress IPs have not
-     changed.
-   - If different, applies only the required record create/update/delete
-     operations.
-   - If `-delete` is set, skips egress probing and deletes only the selected
-     managed record families for `record.name`.
+   - If DNS already matches, the service exits without an update unless you use
+     `-force-push`.
+   - If you use `-force-push`, the service reapplies the matching DNS state.
+     The provider receives a refresh update even when the observed egress IPs
+     have not changed.
+   - If DNS differs, the service applies only the required record operations.
+   - If you use `-delete`, the service skips egress probing. It deletes only
+     the selected managed record families for `record.name`.
 6. Re-reads provider state and verifies the final result.
 7. Retries transient probe and provider failures with bounded exponential
    backoff, jitter, and hard attempt/delay limits.
@@ -94,11 +94,11 @@ The app reads JSON config with this schema:
 - `probe.ipv6_url` (optional): defaults to `https://6.ip.omsab.net/`. Overrides
   must keep this host or use a loopback or `localhost` test endpoint.
 - `probe.timeout` (optional): Go duration string, defaults to `10s`.
-- `probe.allow_insecure_http` (optional): defaults to `false`. HTTP probe URLs
-  are only accepted for loopback or `localhost` test endpoints.
-- `probe.allow_partial_failure` (optional): defaults to `false`. When enabled,
-  a failed single-family probe leaves that record family untouched while the
-  successful family is reconciled.
+- `probe.allow_insecure_http` (optional): defaults to `false`. The app accepts
+  HTTP probe URLs only for loopback or `localhost` test endpoints.
+- `probe.allow_partial_failure` (optional): defaults to `false`. When you enable
+  it, a failed single-family probe leaves that record family untouched. The app
+  reconciles the successful family.
 - `provider.type` (required): currently `cloudflare`.
 - `provider.timeout` (optional): Go duration string, defaults to `10s`.
 - `provider.cloudflare.zone_id` (required): Cloudflare zone ID for the managed
@@ -106,7 +106,7 @@ The app reads JSON config with this schema:
 - `provider.cloudflare.api_token_file` (required): file containing only the
   Cloudflare API token.
 - `provider.cloudflare.base_url` (optional): defaults to
-  `https://api.cloudflare.com/client/v4/`. Overrides are limited to the default
+  `https://api.cloudflare.com/client/v4/`. The app accepts the default
   Cloudflare API host or loopback or `localhost` test endpoints.
 - `provider.cloudflare.proxied` (optional): sets Cloudflare proxying for the
   managed A/AAAA records. Defaults to `false`.
@@ -137,7 +137,10 @@ Runtime settings:
 
 CLI-only introspection settings:
 
-- `--version` prints the binary version and exits without loading config
+- `-version` or `--version` prints the binary version and exits without loading
+  config
+- `-h`, `--h`, `-help`, or `--help` prints flag help and exits without loading
+  config
 - `-validate-config` loads and validates the assembled configuration, prints
   `config is valid`, and exits without contacting Cloudflare
 - `-print-effective-config` loads and validates the assembled configuration,
@@ -151,10 +154,11 @@ Record and provider settings otherwise come from JSON config file fields.
 
 Behavior notes:
 
-- If `-config` or `DNS_UPDATE_CONFIG` is set, that path is required and must
-  exist.
-- If neither is set, the app first looks for `config.json` in the current
-  working directory, then `/etc/dns-update/config.json`.
+- If you use `-config` or `DNS_UPDATE_CONFIG`, the app requires that path. The
+  path must exist.
+- If you do not use either setting, the app first looks for `config.json` in
+  the current working directory. It then looks for
+  `/etc/dns-update/config.json`.
 - Built-in defaults still apply for optional unset values such as probe URLs,
   timeouts, and the Cloudflare base URL.
 - `-delete` is intentionally CLI-only. There is no config-file or environment
@@ -179,19 +183,20 @@ Behavior notes:
 - The app rejects symlinks in deeper configured path components.
 - On Unix-like systems, the app opens the token file without following symlinks.
 - The app validates the open file again before it reads the token.
-- Use HTTPS probe URLs unless `probe.allow_insecure_http` is explicitly needed.
-- Probe URL overrides are restricted to the shipped `4.ip.omsab.net` and
-  `6.ip.omsab.net` hosts or loopback or `localhost` test endpoints.
+- Use HTTPS probe URLs. Use HTTP only when the deployment requires
+  `probe.allow_insecure_http`.
+- Set probe URL overrides only to the shipped `4.ip.omsab.net` and
+  `6.ip.omsab.net` hosts or to loopback or `localhost` test endpoints.
 - Enabling `probe.allow_insecure_http` expands that risk further by allowing
-  on-path tampering of probe responses, so HTTP is restricted to loopback or
-  `localhost` test endpoints.
+  on-path tampering of probe responses. The app accepts HTTP only for loopback
+  or `localhost` test endpoints.
 - By default, any single-family probe failure aborts reconciliation so a failed
   probe cannot suppress updates for that family. Enabling
   `probe.allow_partial_failure` trades that fail-closed posture for
-  availability on hosts where only one address family is expected to work.
-- Scope the Cloudflare token to the single zone being managed.
-- Cloudflare record reads are filtered to the managed hostname instead of
-  listing the full zone.
+  availability on hosts that support only one address family.
+- Scope the Cloudflare token to the single zone that `dns-update` manages.
+- The app filters Cloudflare record reads to the managed hostname. It does not
+  list the full zone.
 - `provider.cloudflare.base_url` changes where the app sends the Cloudflare token.
 - The app accepts only the default API host, loopback, or `localhost`.
 - Probe and provider HTTP clients use a fixed custom user-agent, ignore ambient
@@ -217,8 +222,8 @@ Code in this repository controls outbound request pacing.
 ## Cloudflare Token Scope
 
 Because the config requires `provider.cloudflare.zone_id`, the app does not need
-to discover the zone through the Cloudflare API. For minimum privilege, create a
-Cloudflare API token that is limited to the target zone and grants only DNS edit
+to discover the zone through the Cloudflare API. For minimum privilege, create
+a Cloudflare API token for only the target zone. Grant the token only DNS edit
 capability for that zone.
 
 ## Build and Run
@@ -281,7 +286,7 @@ Combine the two flags to preview the forced update without mutating DNS:
 ./dns-update -config /etc/dns-update/config.json -dry-run -force-push
 ```
 
-Validate that the assembled configuration is accepted:
+Validate the assembled configuration:
 
 ```sh
 ./dns-update -config /etc/dns-update/config.json -validate-config
@@ -300,8 +305,8 @@ You can instead use the environment override shown above.
 
 ## Platform Schedulers
 
-The binary itself runs one reconciliation cycle per invocation. Periodic
-execution is handled by the native scheduler for each operating system:
+The binary itself runs one reconciliation cycle per invocation.
+Use the native scheduler for each operating system for periodic execution:
 
 - Linux: systemd service plus timer under `deploy/systemd/`
 - macOS: `launchd` `LaunchDaemon` helper under `deploy/launchd/`
@@ -413,13 +418,13 @@ Linux package builds install:
 - `/usr/bin/dns-update`
 - the `dns-update(1)` man page under the distro-standard `man1` path
 - `/etc/dns-update/dns-update.env`
-- `/etc/dns-update/config.example.json` as a shipped sample that is not loaded
-  by default
+- `/etc/dns-update/config.example.json` as a shipped sample. The default
+  service does not load this file
 - `/etc/dns-update/cloudflare.token.example` as a shipped placeholder token file
 - distro-standard systemd units for `dns-update.service` and `dns-update.timer`
 
-Packaged binaries are intentionally shipped without self-unpacking compression
-so they remain compatible with the hardened systemd unit, including
+Packages intentionally omit self-unpacking compression from the binaries.
+Thus, the binaries remain compatible with the hardened systemd unit, including
 `MemoryDenyWriteExecute=yes`.
 
 Build helpers:
@@ -436,14 +441,14 @@ Those wrappers build and sign the default package targets:
 - `rpi32`
 - `rpi64`
 
-Package artifacts are written under:
+The build helpers write package artifacts under:
 
 - `out/packages/deb/<target>/`
 - `out/packages/rpm/<target>/`
 
-Each package is signed with `cosign sign-blob`, with a Sigstore bundle written
-next to the artifact as `*.sigstore.json`. Package builds do not embed native
-Debian or RPM repository signatures.
+The package helpers sign each package with `cosign sign-blob`.
+They write a Sigstore bundle next to the artifact as `*.sigstore.json`.
+Package builds do not embed native Debian or RPM repository signatures.
 
 GitHub's `Release` workflow is separate from the native package scripts. It
 publishes a full signed cross-platform release asset set under `out/release/`:
@@ -588,5 +593,5 @@ See:
 
 ## License
 
-This repository is licensed under the Apache License 2.0. See
-[LICENSE](./LICENSE).
+The Apache License 2.0 applies to this repository.
+See [LICENSE](./LICENSE).

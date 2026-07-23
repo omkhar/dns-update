@@ -129,6 +129,72 @@ func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
 	requireExactIDs(t, "helper classification", allHelpers, actualHelperSurfaces(t, root))
 }
 
+func TestSupportedIntrospectionAliasesAppearInOperatorDocumentation(t *testing.T) {
+	t.Parallel()
+
+	root := repoRoot(t)
+	readme := mustReadContractFile(t, root, "README.md")
+	for _, token := range []string{
+		"- `-version` or `--version` prints",
+		"- `-h`, `--h`, `-help`, or `--help` prints",
+	} {
+		if !strings.Contains(readme, token) {
+			t.Errorf("README.md introspection list does not contain %q", token)
+		}
+	}
+	requireDocumentedAliases(t, "docs/FUNCTIONS.md",
+		mustReadContractFile(t, root, "docs/FUNCTIONS.md"),
+		"-version", "--version", "-h", "--h", "-help", "--help")
+
+	manual := mustReadContractFile(t, root, "docs/dns-update.1")
+	requireDocumentedAliases(t, "docs/dns-update.1 SYNOPSIS",
+		manualSection(t, manual, "SYNOPSIS"),
+		"-version", "--version", "-h", "--h", "-help", "--help")
+	requireDocumentedAliases(t, "docs/dns-update.1 OPTIONS",
+		manualSection(t, manual, "OPTIONS"),
+		"-version", "--version", "-h", "--h", "-help", "--help")
+	if !strings.Contains(manualSection(t, manual, "EXIT STATUS"), "requested help") {
+		t.Error("docs/dns-update.1 EXIT STATUS does not define the successful help result")
+	}
+}
+
+func requireDocumentedAliases(t *testing.T, name string, data string, aliases ...string) {
+	t.Helper()
+
+	normalized := strings.NewReplacer(
+		`\fB`, " ",
+		`\fI`, " ",
+		`\fR`, " ",
+		`\-`, "-",
+	).Replace(data)
+	pattern := regexp.MustCompile(`(?:^|[^A-Za-z0-9-])(--?[a-z][a-z0-9-]*)`)
+	found := make(map[string]bool)
+	for _, match := range pattern.FindAllStringSubmatch(normalized, -1) {
+		found[match[1]] = true
+	}
+	for _, alias := range aliases {
+		if !found[alias] {
+			t.Errorf("%s does not document %s", name, alias)
+		}
+	}
+}
+
+func manualSection(t *testing.T, data string, name string) string {
+	t.Helper()
+
+	startMarker := ".SH " + name + "\n"
+	start := strings.Index(data, startMarker)
+	if start < 0 {
+		t.Fatalf("manual has no %s section", name)
+	}
+	start += len(startMarker)
+	end := strings.Index(data[start:], "\n.SH ")
+	if end < 0 {
+		return data[start:]
+	}
+	return data[start : start+end]
+}
+
 func readUserInterfaceInventory(t *testing.T, root string) userInterfaceInventory {
 	t.Helper()
 
@@ -330,7 +396,7 @@ func parseGoFile(t *testing.T, path string) *ast.File {
 func actualHelperSurfaces(t *testing.T, root string) []string {
 	t.Helper()
 
-	var paths []string
+	paths := []string{"cmd/agentdocgen"}
 	for _, directory := range []string{"deploy", "packaging"} {
 		err := filepath.WalkDir(filepath.Join(root, directory), func(
 			path string,

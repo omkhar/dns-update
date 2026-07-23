@@ -51,10 +51,10 @@ If you are changing a narrow area, run the focused package tests too.
 - Include this information in the pull request description:
   - what changed
   - why it changed
-  - how it was tested
+  - how you tested it
   - whether there are follow-up tasks
 
-This repository is intended to use squash merge on GitHub.
+Use squash merge on GitHub for this repository.
 
 Because of that:
 
@@ -77,5 +77,5 @@ Because of that:
 
 ## Licensing
 
-By contributing to this repository, you agree that your contributions are made
+When you contribute to this repository, you agree to license your contributions
 under the Apache License 2.0 in [LICENSE](./LICENSE).

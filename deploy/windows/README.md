@@ -76,7 +76,7 @@ The registration helper uses the native `ScheduledTasks` PowerShell API and
 replaces any existing task with the same name.
 
 Pass `-ValidateConfig` to run an immediate preflight validation before the
-recurring task is registered. The installed task still runs normal
+helper registers the recurring task. The installed task still runs normal
 reconciliation and does not keep `-ValidateConfig` in its action arguments.
 
 For a fresh install:

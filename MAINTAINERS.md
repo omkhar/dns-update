@@ -1,6 +1,6 @@
 # Maintainer Notes
 
-This repository is published as `dns-update`.
+The maintainers publish this repository as `dns-update`.
 This document uses ASD-STE100 Simplified Technical English.
 
 ## Recommended GitHub Repository Settings
@@ -33,7 +33,7 @@ If you protect `main`, require these checks:
 
 ## Releases
 
-- Public releases are versioned with SemVer tags such as `v1.0`.
+- Use SemVer tags such as `v1.0` for public releases.
 - The GitHub release workflow publishes assets from signed tags only.
 - Keep `CHANGELOG.md`, `debian/changelog`, and `packaging/rpm/dns-update.spec`
   aligned before cutting a release tag.
