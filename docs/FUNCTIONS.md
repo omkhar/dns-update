@@ -69,9 +69,9 @@ You can combine `-dry-run` with reconcile, delete, or force-push mode.
 
 Use `-force-push` to refresh an existing address record that matches an observed address.
 The command still requires valid probe evidence.
-The command updates only an observed family that has an existing address record.
-It does not create a missing record. It sends no operation when `ip=none` matches an absent family.
-Normal reconciliation still creates a missing record.
+Normal reconciliation creates a missing observed record even when you use `-force-push`.
+The force-only path refreshes only an existing address record that matches an observed address.
+It sends no operation when `ip=none` matches an absent family.
 
 ## Introspection modes
 

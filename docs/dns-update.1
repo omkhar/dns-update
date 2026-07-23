@@ -149,8 +149,13 @@ This option is mutually exclusive with
 .BR \-force-push .
 .TP
 .B \-force-push
-Refresh an existing A or AAAA record that matches an observed address.
-This option does not create a missing record.
+Normal reconciliation creates a missing observed record.
+This behavior applies even when you use this option.
+The force-only path refreshes only an existing address record.
+The record must match an observed address.
+It sends no operation when
+.B ip=none
+matches an absent family.
 .TP
 .B \-validate-config
 Load and validate the assembled config.

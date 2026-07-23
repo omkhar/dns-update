@@ -60,6 +60,8 @@ On each run, the service:
      `-force-push`.
    - If you use `-force-push`, the service refreshes each existing address
      record that matches an observed address.
+   - Normal reconciliation creates a missing observed record even when you use
+     `-force-push`.
    - If DNS differs, the service applies only the required record operations.
    - If you use `-delete`, the service skips egress probing. It deletes only
      the selected managed record families for `record.name`.

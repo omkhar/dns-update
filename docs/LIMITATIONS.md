@@ -29,7 +29,9 @@ During normal reconciliation, the tool does not delete a record after a failed p
 The explicit `-delete` mode skips probes and deletes the selected managed record families.
 
 `-force-push` does not bypass probe validation.
-It only replaces an existing address record that matches an observed address.
+Normal reconciliation creates a missing observed record even when you use `-force-push`.
+The force-only path refreshes only an existing address record that matches an observed address.
+It sends no operation when `ip=none` matches an absent family.
 
 ## Scheduling
 

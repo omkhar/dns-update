@@ -64,7 +64,6 @@ func TestDocumentationInventoryCoversLiveSurfaces(t *testing.T) {
 	root := repoRoot(t)
 	inventory := readJSONContract[documentationInventory](t, root, "docs/documentation-inventory.json")
 	classified := make(map[string]string)
-
 	requireSortedUniquePaths(t, "ste", inventory.STE)
 	for _, path := range inventory.STE {
 		classifyDocumentationPath(t, root, classified, path, "ste")
@@ -74,7 +73,6 @@ func TestDocumentationInventoryCoversLiveSurfaces(t *testing.T) {
 		}
 		requireSimplifiedEnglishStyle(t, path, data)
 	}
-
 	generatedPaths := make([]string, 0, len(inventory.Generated))
 	for _, entry := range inventory.Generated {
 		generatedPaths = append(generatedPaths, entry.Path)
@@ -87,10 +85,8 @@ func TestDocumentationInventoryCoversLiveSurfaces(t *testing.T) {
 		requireSimplifiedEnglishStyle(t, entry.Path, data)
 	}
 	requireSortedUniquePaths(t, "generated", generatedPaths)
-
 	validateExcludedDocumentation(t, root, classified, "structured", inventory.Structured)
 	validateExcludedDocumentation(t, root, classified, "verbatim", inventory.Verbatim)
-
 	sectionPaths := make([]string, 0, len(inventory.SectionExclusions))
 	for _, entry := range inventory.SectionExclusions {
 		sectionPaths = append(sectionPaths, entry.Path+":"+entry.Section)
@@ -100,7 +96,6 @@ func TestDocumentationInventoryCoversLiveSurfaces(t *testing.T) {
 		}
 	}
 	requireSortedUniquePaths(t, "section_exclusions", sectionPaths)
-
 	discovered, err := discoverDocumentation(root)
 	if err != nil {
 		t.Fatal(err)

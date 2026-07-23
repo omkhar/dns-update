@@ -48,7 +48,6 @@ func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
 		strings.TrimSpace(inventory.Scope.InternalExclusion) == "" {
 		t.Error("user-interface scope must define the supported surface and the internal exclusion")
 	}
-
 	validateMappedSurfaces(t, root, "cli_flags", inventory.CLIFlags)
 	validateMappedSurfaces(t, root, "environment_variables", inventory.EnvironmentVariables)
 	validateMappedSurfaces(t, root, "config_fields", inventory.ConfigFields)
@@ -57,7 +56,6 @@ func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
 	validateMappedSurfaces(t, root, "exit_codes", inventory.ExitCodes)
 	validateMappedSurfaces(t, root, "limitations", inventory.Limitations)
 	validateMappedSurfaces(t, root, "supported_helpers", inventory.SupportedHelpers)
-
 	requireExactIDs(t, "cli_flags", mappedIDs(inventory.CLIFlags), actualCLIFlags(t, root))
 	requireExactIDs(t, "environment_variables", mappedIDs(inventory.EnvironmentVariables), actualEnvironmentVariables(t, root))
 	requireExactIDs(t, "config_fields", mappedIDs(inventory.ConfigFields), actualConfigFields(t, root))
@@ -67,13 +65,10 @@ func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
 	requireExactIDs(t, "behaviors", mappedIDs(inventory.Behaviors), []string{
 		"bounded-retries", "cloudflare-scope", "config-precedence", "deployment-security", "package-model", "partial-probe-failure", "post-apply-verification", "probe-and-parse", "reconciliation-plan", "record-scope", "runtime-override-precedence", "scheduler-model", "signal-and-timeout", "token-file-protection", "token-path-override",
 	})
-	requireExactIDs(t, "exit_codes", mappedIDs(inventory.ExitCodes), []string{
-		"exit-0", "exit-1", "exit-2",
-	})
+	requireExactIDs(t, "exit_codes", mappedIDs(inventory.ExitCodes), []string{"exit-0", "exit-1", "exit-2"})
 	requireExactIDs(t, "limitations", mappedIDs(inventory.Limitations), []string{
 		"a-and-aaaa-only", "cloudflare-only", "credential-validation", "linux-native-packages", "local-test-doubles", "no-distributed-lock", "no-internal-scheduler", "probe-failure", "workflow-contract-parser",
 	})
-
 	internalHelperPaths := make([]string, 0, len(inventory.InternalHelpers))
 	for _, entry := range inventory.InternalHelpers {
 		internalHelperPaths = append(internalHelperPaths, entry.Path)
@@ -83,7 +78,6 @@ func TestUserInterfaceInventoryMatchesCodeAndDocumentation(t *testing.T) {
 		}
 	}
 	requireSortedUniquePaths(t, "internal_helpers", internalHelperPaths)
-
 	allHelpers := append(mappedIDs(inventory.SupportedHelpers), internalHelperPaths...)
 	slices.Sort(allHelpers)
 	requireExactIDs(t, "helper classification", allHelpers, actualHelperSurfaces(t, root))
@@ -106,9 +100,15 @@ func TestOperatorDocumentationContracts(t *testing.T) {
 	if !strings.Contains(manualSection(t, manual, "EXIT STATUS"), "requested help") {
 		t.Error("docs/dns-update.1 EXIT STATUS does not define the successful help result")
 	}
+	run := mustReadContractFile(t, root, "internal/app/run.go")
+	if normal, force := strings.Index(run, "provider.BuildObservedAddressPlan"), strings.Index(run, "plan = forcePushPlan"); normal < 0 || force < 0 ||
+		normal >= force {
+		t.Error("force-push does not follow the normal reconciliation plan")
+	}
 	for _, path := range []string{"README.md", "docs/FUNCTIONS.md", "docs/LIMITATIONS.md", "docs/dns-update.1"} {
-		if !strings.Contains(mustReadContractFile(t, root, path), "existing address record") {
-			t.Errorf("%s does not define the force-push existing-record boundary", path)
+		data := mustReadContractFile(t, root, path)
+		if !strings.Contains(data, "existing address record") || !strings.Contains(data, "Normal reconciliation creates a missing observed record") {
+			t.Errorf("%s does not define the normal-create and force-only boundaries", path)
 		}
 	}
 	script := mustReadContractFile(t, root, "deploy/windows/register-scheduled-task.ps1")
