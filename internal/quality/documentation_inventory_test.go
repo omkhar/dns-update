@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -93,6 +94,29 @@ func TestDocumentationInventoryCoversLiveSurfaces(t *testing.T) {
 	if !slices.Equal(classifiedPaths, discovered) {
 		t.Errorf("documentation inventory does not match live surfaces\nclassified: %v\ndiscovered: %v",
 			classifiedPaths, discovered)
+	}
+}
+
+func TestDocumentationPathUsesRepositorySlashSemantics(t *testing.T) {
+	t.Parallel()
+
+	for _, candidate := range []string{
+		"",
+		".",
+		"../docs/FUNCTIONS.md",
+		"./docs/FUNCTIONS.md",
+		"/docs/FUNCTIONS.md",
+		"C:/docs/FUNCTIONS.md",
+		`docs\FUNCTIONS.md`,
+		"docs/../FUNCTIONS.md",
+	} {
+		if isCleanDocumentationPath(candidate) {
+			t.Errorf("isCleanDocumentationPath(%q) = true, want false", candidate)
+		}
+	}
+
+	if !isCleanDocumentationPath("docs/FUNCTIONS.md") {
+		t.Error(`isCleanDocumentationPath("docs/FUNCTIONS.md") = false, want true`)
 	}
 }
 
@@ -211,7 +235,7 @@ func classifyDocumentationPath(
 func requireDocumentationFile(t *testing.T, root string, path string) {
 	t.Helper()
 
-	if path == "" || filepath.IsAbs(path) || filepath.Clean(path) != path {
+	if !isCleanDocumentationPath(path) {
 		t.Errorf("documentation path %q is not a clean relative path", path)
 		return
 	}
@@ -223,6 +247,22 @@ func requireDocumentationFile(t *testing.T, root string, path string) {
 	if !info.Mode().IsRegular() {
 		t.Errorf("documentation path %s is not a regular file", path)
 	}
+}
+
+func isCleanDocumentationPath(value string) bool {
+	if value == "" || value == "." || strings.Contains(value, `\`) ||
+		pathpkg.IsAbs(value) || isWindowsSlashAbsolutePath(value) ||
+		value == ".." || strings.HasPrefix(value, "../") {
+		return false
+	}
+	return pathpkg.Clean(value) == value
+}
+
+func isWindowsSlashAbsolutePath(value string) bool {
+	if len(value) < 3 || value[1] != ':' || value[2] != '/' {
+		return false
+	}
+	return value[0] >= 'A' && value[0] <= 'Z' || value[0] >= 'a' && value[0] <= 'z'
 }
 
 func requireSortedUniquePaths(t *testing.T, category string, paths []string) {
