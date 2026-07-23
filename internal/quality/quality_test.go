@@ -124,6 +124,50 @@ func TestReleaseAttestationActionPin(t *testing.T) {
 	}
 }
 
+func TestCurrentWorkflowActionPins(t *testing.T) {
+	t.Parallel()
+
+	want := map[string]string{
+		"actions/checkout@":         "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1",
+		"actions/setup-go@":         "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0",
+		"zizmorcore/zizmor-action@": "zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02  # v0.6.0",
+	}
+	found := make(map[string]int, len(want))
+	workflowDir := filepath.Join(repoRoot(t), ".github", "workflows")
+
+	entries, err := os.ReadDir(workflowDir)
+	if err != nil {
+		t.Fatalf("os.ReadDir(%s) error = %v", workflowDir, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yml" {
+			continue
+		}
+		path := filepath.Join(workflowDir, entry.Name())
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("os.ReadFile(%s) error = %v", path, err)
+		}
+		for lineNumber, line := range strings.Split(string(content), "\n") {
+			for action, current := range want {
+				if !strings.Contains(line, "uses: "+action) {
+					continue
+				}
+				found[action]++
+				if strings.TrimSpace(line) != "uses: "+current {
+					t.Errorf("%s:%d must use the current pin: %s", entry.Name(), lineNumber+1, current)
+				}
+			}
+		}
+	}
+
+	for action := range want {
+		if found[action] == 0 {
+			t.Errorf("workflow action %s is not present", action)
+		}
+	}
+}
+
 func TestCoverageThreshold(t *testing.T) {
 	t.Parallel()
 
