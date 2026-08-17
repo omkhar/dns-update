@@ -42,7 +42,7 @@ jobs:
 
       - name: Scan pull request base
         if: ${{ github.event_name == 'pull_request' }}
-        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2
+        uses: google/osv-scanner-action/osv-scanner-action@8deb546fdb875b9996d27d4950be7312dac076a1
         continue-on-error: true
         with:
           scan-args: |-
@@ -58,7 +58,7 @@ jobs:
 
       - name: Scan pull request head
         if: ${{ github.event_name == 'pull_request' }}
-        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2
+        uses: google/osv-scanner-action/osv-scanner-action@8deb546fdb875b9996d27d4950be7312dac076a1
         continue-on-error: true
         with:
           scan-args: |-
@@ -69,7 +69,7 @@ jobs:
 
       - name: Report pull request vulnerabilities
         if: ${{ github.event_name == 'pull_request' }}
-        uses: google/osv-scanner-action/osv-reporter-action@9a498708959aeaef5ef730655706c5a1df1edbc2
+        uses: google/osv-scanner-action/osv-reporter-action@8deb546fdb875b9996d27d4950be7312dac076a1
         with:
           scan-args: |-
             --output=results.sarif
@@ -80,7 +80,7 @@ jobs:
 
       - name: Scan repository
         if: ${{ github.event_name != 'pull_request' }}
-        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2
+        uses: google/osv-scanner-action/osv-scanner-action@8deb546fdb875b9996d27d4950be7312dac076a1
         continue-on-error: true
         with:
           scan-args: |-
@@ -91,7 +91,7 @@ jobs:
 
       - name: Report repository vulnerabilities
         if: ${{ github.event_name != 'pull_request' }}
-        uses: google/osv-scanner-action/osv-reporter-action@9a498708959aeaef5ef730655706c5a1df1edbc2
+        uses: google/osv-scanner-action/osv-reporter-action@8deb546fdb875b9996d27d4950be7312dac076a1
         with:
           scan-args: |-
             --output=results.sarif
