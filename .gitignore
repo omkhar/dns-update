@@ -7,7 +7,8 @@
 /.claude/*
 !/.claude/skills/
 !/.claude/skills/**
-/.codex/
+/.codex/*
+!/.codex/config.toml
 /.cursor/
 /.aider*/
 /.continue/

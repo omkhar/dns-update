@@ -6,3 +6,4 @@ summary: Keep changes simple, correct, tested, secure, public-repo-safe, and in 
 ---
 - Keep changes in scope, preserve unrelated work, and keep PRs human-reviewable; CI rejects changes above `35` changed files or `3000` total added plus deleted lines.
 - Regenerate agent docs from `docs/agents/**`, never hand-edit generated projections, and prefer the smallest correct idiomatic change with focused tests; use public-repo-safe wording only, and update docs plus release or packaging checks only when those behaviors or paths are touched; normal code changes still require `go test ./...`, `go vet ./...`, and `go build ./...`.
+- Codex only: `.codex/config.toml` contains Codex-native model and delegation guidance; other agents ignore this line.

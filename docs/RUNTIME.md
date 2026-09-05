@@ -7,7 +7,7 @@ This document uses these technical names: Go, GitHub Actions, Git, runner,
 commit SHA, container, image, tag, digest, SemVer, actionlint, govulncheck,
 golangci-lint, yamllint, cosign, and ShellCheck.
 
-Use Go 1.26.5 to build, test, and release `dns-update`.
+Use Go 1.26.6 to build, test, and release `dns-update`.
 The `go` directive in `go.mod` is the source for the Go version.
 
 GitHub Actions uses these runner images:
