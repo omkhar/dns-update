@@ -199,7 +199,7 @@ Behavior notes:
 
 ## Toolchain
 
-Build and test with a patched Go toolchain. The module requires Go `1.26.6`.
+Build and test with a patched Go toolchain. The module requires Go `1.26.10`.
 See [`docs/RUNTIME.md`](docs/RUNTIME.md) for all build and CI runtime pins.
 Read [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) before you deploy a scheduled writer.
 
