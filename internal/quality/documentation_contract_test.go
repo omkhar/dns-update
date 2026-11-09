@@ -12,21 +12,34 @@ import (
 	"testing"
 )
 
-type pinnedRuntime struct {
-	SHA string `json:"sha"`
-}
-
 type pinnedContainer struct {
 	Digest string `json:"digest"`
 }
 
+// runtimeManifest does not copy values that Dependabot changes. go.mod holds
+// the Go version, and each workflow "uses:" line holds its action commit SHA.
+// The tests read those values from their source files.
 type runtimeManifest struct {
-	Go         string                     `json:"go"`
 	Runners    []string                   `json:"runners"`
-	Actions    map[string]pinnedRuntime   `json:"actions"`
+	Actions    []string                   `json:"actions"`
 	Containers map[string]pinnedContainer `json:"containers"`
 	Tools      map[string]string          `json:"tools"`
 }
+
+// goVersionResolverStep is the canonical step that each job runs before
+// actions/setup-go. It turns the go.mod "go" version into a SemVer tilde range,
+// so setup-go with check-latest installs the newest patch release of that
+// minor version. A new Go patch release then needs no repository change.
+const goVersionResolverStep = `      - name: Resolve Go version
+        id: go-version
+        shell: bash
+        run: |
+          go_version="$(sed -n 's/^go \([0-9][0-9.]*\)[[:space:]]*$/\1/p' go.mod)"
+          test -n "$go_version"
+          echo "range=~$go_version" >> "$GITHUB_OUTPUT"
+`
+
+var goDirectiveVersionPattern = regexp.MustCompile(`^1\.(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))?$`)
 
 func TestGoDirectiveVersionHandlesWindowsLineEndings(t *testing.T) {
 	for _, test := range []struct {
@@ -217,37 +230,117 @@ func TestRuntimeManifestRejectsUnvalidatedFields(t *testing.T) {
 		data string
 	}{
 		{
-			name: "action version",
-			data: `{"go":"1.26.5","runners":[],"actions":{"actions/checkout":{"sha":"3d3c42e5aac5ba805825da76410c181273ba90b1","version":"v0.0.0-peer-mutant"}},"containers":{}}`,
+			name: "copied Go version",
+			data: `{"go":"1.26.5","runners":[],"actions":[],"containers":{}}`,
+		},
+		{
+			name: "copied action SHA",
+			data: `{"runners":[],"actions":{"actions/checkout":{"sha":"3d3c42e5aac5ba805825da76410c181273ba90b1"}},"containers":{}}`,
+		},
+		{
+			name: "action with revision",
+			data: `{"runners":[],"actions":["actions/checkout@v7"],"containers":{}}`,
+		},
+		{
+			name: "duplicate action",
+			data: `{"runners":[],"actions":["actions/checkout","actions/checkout"],"containers":{}}`,
+		},
+		{
+			name: "empty action",
+			data: `{"runners":[],"actions":[""],"containers":{}}`,
 		},
 		{
 			name: "container tag",
-			data: `{"go":"1.26.5","runners":[],"actions":{},"containers":{"fedora:44":{"digest":"6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898","tag":"peer-mutant"}}}`,
+			data: `{"runners":[],"actions":[],"containers":{"fedora:44":{"digest":"6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898","tag":"peer-mutant"}}}`,
 		},
 		{
-			name: "duplicate SHA",
-			data: `{"go":"1.26.5","runners":[],"actions":{"actions/checkout":{"sha":"0000000000000000000000000000000000000000","sha":"3d3c42e5aac5ba805825da76410c181273ba90b1"}},"containers":{}}`,
+			name: "duplicate digest",
+			data: `{"runners":[],"actions":[],"containers":{"fedora:44":{"digest":"0000000000000000000000000000000000000000000000000000000000000000","digest":"6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898"}}}`,
 		},
 		{
 			name: "duplicate runner",
-			data: `{"go":"1.26.5","runners":["ubuntu-24.04","ubuntu-24.04"],"actions":{},"containers":{}}`,
-		},
-		{
-			name: "invalid action SHA",
-			data: `{"go":"1.26.5","runners":[],"actions":{"actions/checkout":{"sha":"v7"}},"containers":{}}`,
+			data: `{"runners":["ubuntu-24.04","ubuntu-24.04"],"actions":[],"containers":{}}`,
 		},
 		{
 			name: "invalid container digest",
-			data: `{"go":"1.26.5","runners":[],"actions":{},"containers":{"fedora:44":{"digest":"latest"}}}`,
+			data: `{"runners":[],"actions":[],"containers":{"fedora:44":{"digest":"latest"}}}`,
 		},
 		{
 			name: "empty tool version",
-			data: `{"go":"1.26.5","runners":[],"actions":{},"containers":{},"tools":{"actionlint":""}}`,
+			data: `{"runners":[],"actions":[],"containers":{},"tools":{"actionlint":""}}`,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if _, err := decodeRuntimeManifest(strings.NewReader(test.data)); err == nil {
 				t.Fatal("decodeRuntimeManifest accepted an unvalidated field")
+			}
+		})
+	}
+}
+
+func TestWorkflowActionPinsRejectSplitRepositoryPins(t *testing.T) {
+	sha := "e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81"
+	otherSHA := "3d3c42e5aac5ba805825da76410c181273ba90b1"
+	valid := []workflowAction{
+		{name: "github/codeql-action/init", sha: sha},
+		{name: "github/codeql-action/analyze", sha: sha},
+		{name: "actions/checkout", sha: otherSHA},
+		{name: "actions/checkout", sha: otherSHA},
+	}
+	if err := validateWorkflowActionPins(valid); err != nil {
+		t.Fatal(err)
+	}
+	for name, actions := range map[string][]workflowAction{
+		"two SHAs for one action": {
+			{name: "actions/checkout", sha: otherSHA},
+			{name: "actions/checkout", sha: sha},
+		},
+		"two SHAs for one repository": {
+			{name: "github/codeql-action/init", sha: sha},
+			{name: "github/codeql-action/analyze", sha: otherSHA},
+		},
+		"non-SHA revision": {
+			{name: "actions/checkout", sha: "v7"},
+		},
+		"no repository": {
+			{name: "checkout", sha: sha},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := validateWorkflowActionPins(actions); err == nil {
+				t.Fatal("validateWorkflowActionPins accepted an unpinned or split action pin")
+			}
+		})
+	}
+}
+
+func TestWorkflowGoSetupRequiresLatestPatchOfGoModMinor(t *testing.T) {
+	setup := func(with string) string {
+		return "jobs:\n  test:\n    runs-on: ubuntu-24.04\n    steps:\n" + goVersionResolverStep +
+			"      - name: Set up Go\n        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0\n        with:\n" + with
+	}
+	valid := setup("          go-version: ${{ steps.go-version.outputs.range }}\n          check-latest: true\n")
+	if err := validateWorkflowGoSetup(valid); err != nil {
+		t.Fatal(err)
+	}
+	for name, workflow := range map[string]string{
+		"exact go.mod version": setup("          go-version-file: go.mod\n"),
+		"no check-latest":      setup("          go-version: ${{ steps.go-version.outputs.range }}\n"),
+		"fixed version":        setup("          go-version: 1.26.10\n          check-latest: true\n"),
+		"both inputs": setup("          go-version: ${{ steps.go-version.outputs.range }}\n" +
+			"          check-latest: true\n          go-version-file: go.mod\n"),
+		"no resolver step": "jobs:\n  test:\n    runs-on: ubuntu-24.04\n    steps:\n" +
+			"      - name: Set up Go\n        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0\n        with:\n" +
+			"          go-version: ${{ steps.go-version.outputs.range }}\n          check-latest: true\n",
+		"changed resolver step": strings.Replace(valid, `echo "range=~$go_version"`, `echo "range=$go_version"`, 1),
+		"resolver in another job": "jobs:\n  resolve:\n    runs-on: ubuntu-24.04\n    steps:\n" + goVersionResolverStep +
+			"  test:\n    runs-on: ubuntu-24.04\n    steps:\n" +
+			"      - name: Set up Go\n        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0\n        with:\n" +
+			"          go-version: ${{ steps.go-version.outputs.range }}\n          check-latest: true\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := validateWorkflowGoSetup(workflow); err == nil {
+				t.Fatal("validateWorkflowGoSetup accepted a Go setup that does not track the latest patch release")
 			}
 		})
 	}
@@ -544,8 +637,13 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtimeDoc := mustReadContractFile(t, root, "docs/RUNTIME.md")
-	if !strings.Contains(runtimeDoc, "Use Go "+manifest.Go+" to build, test, and release `dns-update`.") {
-		t.Errorf("docs/RUNTIME.md does not state Go %s", manifest.Go)
+	for _, statement := range []string{
+		"The `go` directive in `go.mod` is the source for the Go version.",
+		"CI installs the latest patch release of that Go minor version.",
+	} {
+		if !strings.Contains(runtimeDoc, statement) {
+			t.Errorf("docs/RUNTIME.md does not contain %q", statement)
+		}
 	}
 	for tool, version := range manifest.Tools {
 		name := tool
@@ -559,12 +657,16 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 	}
 
 	goMod := mustReadContractFile(t, root, "go.mod")
-	goVersion := goDirectiveVersion(goMod)
-	if goVersion != manifest.Go {
-		t.Fatalf("go.mod version = %q, manifest version = %q", goVersion, manifest.Go)
+	if goVersion := goDirectiveVersion(goMod); !goDirectiveVersionPattern.MatchString(goVersion) {
+		t.Fatalf("go.mod has an invalid Go version %q", goVersion)
 	}
 
 	workflowRoot := filepath.Join(root, ".github", "workflows")
+	documentedActions := make(map[string]bool, len(manifest.Actions))
+	for _, action := range manifest.Actions {
+		documentedActions[action] = true
+	}
+	var workflowPins []workflowAction
 	seenActions := make(map[string]bool)
 	seenTools := make(map[string]bool)
 	var workflowContent strings.Builder
@@ -585,15 +687,15 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 			t.Errorf("%s: %v", filepath.Base(path), actionErr)
 		}
 		for _, action := range actions {
-			pin, ok := manifest.Actions[action.name]
-			if !ok {
+			if !documentedActions[action.name] {
 				t.Errorf("%s uses undocumented action %s", filepath.Base(path), action.name)
 				continue
 			}
 			seenActions[action.name] = true
-			if action.sha != pin.SHA {
-				t.Errorf("%s uses %s@%s, want %s", filepath.Base(path), action.name, action.sha, pin.SHA)
-			}
+		}
+		workflowPins = append(workflowPins, actions...)
+		if goSetupErr := validateWorkflowGoSetup(content); goSetupErr != nil {
+			t.Errorf("%s: %v", filepath.Base(path), goSetupErr)
 		}
 		installedTools, toolErr := workflowTools(content)
 		if toolErr != nil {
@@ -626,7 +728,10 @@ func TestRuntimeManifestMatchesRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for action := range manifest.Actions {
+	if err := validateWorkflowActionPins(workflowPins); err != nil {
+		t.Error(err)
+	}
+	for _, action := range manifest.Actions {
 		if !seenActions[action] {
 			t.Errorf("runtime manifest action %s is not used", action)
 		}
@@ -707,9 +812,6 @@ func decodeRuntimeManifest(reader io.Reader) (runtimeManifest, error) {
 }
 
 func validateRuntimeManifest(manifest runtimeManifest) error {
-	if manifest.Go == "" {
-		return fmt.Errorf("runtime manifest has no Go version")
-	}
 	seenRunners := make(map[string]bool, len(manifest.Runners))
 	for _, runner := range manifest.Runners {
 		if runner == "" {
@@ -720,11 +822,15 @@ func validateRuntimeManifest(manifest runtimeManifest) error {
 		}
 		seenRunners[runner] = true
 	}
-	shaPattern := regexp.MustCompile(`^[0-9a-f]{40}$`)
-	for action, pin := range manifest.Actions {
-		if action == "" || !shaPattern.MatchString(pin.SHA) {
-			return fmt.Errorf("runtime manifest action %q has an invalid commit SHA", action)
+	seenActions := make(map[string]bool, len(manifest.Actions))
+	for _, action := range manifest.Actions {
+		if action == "" || strings.ContainsAny(action, "@ \t") {
+			return fmt.Errorf("runtime manifest action %q must be an action name without a revision", action)
 		}
+		if seenActions[action] {
+			return fmt.Errorf("runtime manifest action %s occurs more than once", action)
+		}
+		seenActions[action] = true
 	}
 	digestPattern := regexp.MustCompile(`^[0-9a-f]{64}$`)
 	for container, pin := range manifest.Containers {
@@ -968,6 +1074,88 @@ func workflowActions(content string) ([]workflowAction, error) {
 		actions = append(actions, workflowAction{name: name, sha: sha})
 	}
 	return actions, nil
+}
+
+// validateWorkflowActionPins requires a full commit SHA on each external action
+// and one SHA for all actions from the same repository.
+func validateWorkflowActionPins(actions []workflowAction) error {
+	shaPattern := regexp.MustCompile(`^[0-9a-f]{40}$`)
+	repositoryPins := make(map[string]string)
+	for _, action := range actions {
+		if !shaPattern.MatchString(action.sha) {
+			return fmt.Errorf("external action %s uses non-immutable revision %q", action.name, action.sha)
+		}
+		parts := strings.SplitN(action.name, "/", 3)
+		if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+			return fmt.Errorf("external action %q has no owner and repository", action.name)
+		}
+		repository := parts[0] + "/" + parts[1]
+		if previous, ok := repositoryPins[repository]; ok && previous != action.sha {
+			return fmt.Errorf("actions from %s use two commit SHAs: %s and %s", repository, previous, action.sha)
+		}
+		repositoryPins[repository] = action.sha
+	}
+	return nil
+}
+
+// validateWorkflowGoSetup requires each actions/setup-go step to install the
+// latest patch release of the go.mod minor version. The step must follow the
+// canonical resolver step in the same job.
+func validateWorkflowGoSetup(content string) error {
+	mappings, err := workflowMappings(content)
+	if err != nil {
+		return err
+	}
+	type step struct {
+		job, id, uses string
+		number        int
+		with          map[string]string
+	}
+	var steps []*step
+	for _, mapping := range mappings {
+		if len(mapping.path) < 4 || mapping.path[0] != "jobs" || mapping.path[2] != "steps" {
+			continue
+		}
+		if len(mapping.path) == 4 && mapping.sequence {
+			steps = append(steps, &step{job: mapping.path[1], number: mapping.number, with: make(map[string]string)})
+		}
+		if len(steps) == 0 || steps[len(steps)-1].job != mapping.path[1] {
+			continue
+		}
+		current := steps[len(steps)-1]
+		switch {
+		case len(mapping.path) == 4 && mapping.key == "id":
+			current.id = workflowScalar(mapping.value)
+		case len(mapping.path) == 4 && mapping.key == "uses":
+			current.uses = workflowScalar(mapping.value)
+		case len(mapping.path) == 5 && mapping.path[3] == "with":
+			current.with[mapping.key] = workflowScalar(mapping.value)
+		}
+	}
+	resolvers := 0
+	resolvedJobs := make(map[string]bool)
+	for _, current := range steps {
+		if current.id == "go-version" {
+			resolvers++
+			resolvedJobs[current.job] = true
+		}
+		if !strings.HasPrefix(current.uses, "actions/setup-go@") {
+			continue
+		}
+		if !resolvedJobs[current.job] {
+			return fmt.Errorf("line %d sets up Go before the Go version resolver step", current.number)
+		}
+		if _, ok := current.with["go-version-file"]; ok {
+			return fmt.Errorf("line %d uses go-version-file, which pins the exact go.mod patch release", current.number)
+		}
+		if current.with["go-version"] != "${{ steps.go-version.outputs.range }}" || current.with["check-latest"] != "true" {
+			return fmt.Errorf("line %d must set go-version to the resolver range and check-latest to true", current.number)
+		}
+	}
+	if got := strings.Count(strings.ReplaceAll(content, "\r\n", "\n"), goVersionResolverStep); got != resolvers {
+		return fmt.Errorf("workflow has %d Go version resolver steps, but only %d use the canonical run block", resolvers, got)
+	}
+	return nil
 }
 
 func workflowShellBlocks(content string) ([]string, error) {

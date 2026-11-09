@@ -199,7 +199,8 @@ Behavior notes:
 
 ## Toolchain
 
-Build and test with a patched Go toolchain. The module requires Go `1.26.10`.
+Build and test with a patched Go toolchain. The `go` directive in `go.mod` sets
+the minimum Go version. CI uses the latest patch release of that minor version.
 See [`docs/RUNTIME.md`](docs/RUNTIME.md) for all build and CI runtime pins.
 Read [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) before you deploy a scheduled writer.
 
