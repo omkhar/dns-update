@@ -35,6 +35,8 @@ If you protect `main`, require these checks:
 
 - Public releases are versioned with SemVer tags such as `v1.0`.
 - The GitHub release workflow publishes assets from signed tags only.
+- The `Build Binaries` workflow publishes `build-*` pre-releases from `main`
+  for automatic host installs. These never take the Latest release slot.
 - Keep `CHANGELOG.md`, `debian/changelog`, and `packaging/rpm/dns-update.spec`
   aligned before cutting a release tag.
 

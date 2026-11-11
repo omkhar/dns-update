@@ -65,6 +65,8 @@ It reads external actions only from jobs and steps that GitHub Actions can run.
 It reads integration container pins only from the systemd matrix entries.
 
 Each tracked tool installation must use its exact canonical run block.
+More than one workflow can install a tracked tool.
+Each installation must use the version in `docs/runtime-versions.json`.
 The check rejects a full tracked tool name outside these blocks.
 The check does not interpret arbitrary shell syntax.
 It cannot detect a tracked tool name that a workflow builds from separate string fragments.
