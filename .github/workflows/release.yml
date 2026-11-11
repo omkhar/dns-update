@@ -115,8 +115,8 @@ jobs:
       - name: Install packaging tools
         shell: bash
         run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends rpm unzip
+          sudo ./packaging/apt-get-retry.sh update
+          sudo DEBIAN_FRONTEND=noninteractive ./packaging/apt-get-retry.sh install -y --no-install-recommends rpm unzip
 
       - name: Verify tag matches packaged version
         shell: bash

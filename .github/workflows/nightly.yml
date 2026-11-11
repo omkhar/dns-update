@@ -88,8 +88,8 @@ jobs:
       - name: Install packaging tooling
         shell: bash
         run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+          sudo ./packaging/apt-get-retry.sh update
+          sudo DEBIAN_FRONTEND=noninteractive ./packaging/apt-get-retry.sh install -y \
             --no-install-recommends rpm unzip zip
 
       - name: Check release artifact reproducibility
