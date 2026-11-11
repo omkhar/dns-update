@@ -85,7 +85,8 @@ jobs:
             github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           sudo ./packaging/apt-get-retry.sh update
-          sudo DEBIAN_FRONTEND=noninteractive ./packaging/apt-get-retry.sh install -y --no-install-recommends shellcheck
+          sudo DEBIAN_FRONTEND=noninteractive ./packaging/apt-get-retry.sh install \
+            -y --no-install-recommends shellcheck
 
       - name: Install YAML lint
         shell: bash
