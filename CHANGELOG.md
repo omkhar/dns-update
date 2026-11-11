@@ -2,6 +2,16 @@
 
 All notable public releases of `dns-update` are documented in this file.
 
+## Unreleased
+
+- Adds the `Build Binaries` workflow. Each push to `main` that changes a shipped
+  input, and a weekly run when the resolved Go toolchain changes, publishes a
+  tested, Sigstore-signed `build-<version>` pre-release with Debian packages,
+  Linux archives, and `SHA256SUMS` for hosts that install builds with
+  `release-puller`.
+- Adds a `DEB_PACKAGE_VERSION` override to `packaging/build-deb.sh` for the
+  direct `dpkg-deb` path. Tagged release packages do not change.
+
 ## 1.4.4 - 2026-07-01
 
 - Refreshes Go dependency metadata and GitHub Actions tool pins for repository

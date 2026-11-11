@@ -360,6 +360,24 @@ func TestWorkflowToolsRejectConflictingVersions(t *testing.T) {
 	}
 }
 
+func TestWorkflowToolReferencesAcceptRepeatedCanonicalInstall(t *testing.T) {
+	install := `      - run: |
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/sigstore/cosign/v3/cmd/cosign@v3.1.2
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+`
+	workflows := "jobs:\n  release:\n    runs-on: ubuntu-24.04\n    steps:\n" + install +
+		"  build:\n    runs-on: ubuntu-24.04\n    steps:\n" + install
+	tools := map[string]string{"github.com/sigstore/cosign/v3/cmd/cosign": "v3.1.2"}
+	if err := validateWorkflowToolReferences(tools, workflows); err != nil {
+		t.Fatalf("validateWorkflowToolReferences rejected two canonical installs at the manifest version: %v", err)
+	}
+	mixed := workflows + strings.ReplaceAll(
+		"  old:\n    runs-on: ubuntu-24.04\n    steps:\n"+install, "v3.1.2", "v3.0.0")
+	if err := validateWorkflowToolReferences(tools, mixed); err == nil {
+		t.Fatal("validateWorkflowToolReferences accepted a canonical install at another version")
+	}
+}
+
 func TestWorkflowToolsRejectNonCommandDecoys(t *testing.T) {
 	workflow := `jobs:
   lint:
@@ -1217,6 +1235,9 @@ func workflowTools(content string) (map[string]string, error) {
 	tools := make(map[string]string)
 	record := func(name, version string) error {
 		if oldVersion, exists := tools[name]; exists {
+			if oldVersion == version {
+				return nil
+			}
 			return fmt.Errorf("tool %s occurs more than once at versions %s and %s", name, oldVersion, version)
 		}
 		tools[name] = version
@@ -1320,7 +1341,7 @@ func validateWorkflowToolReferences(tools map[string]string, workflows string) e
 	}
 	for tool, version := range tools {
 		if installed[tool] != version {
-			return fmt.Errorf("workflow tool %s must have exactly one reference at version %s", tool, version)
+			return fmt.Errorf("workflow tool %s must be installed only at version %s", tool, version)
 		}
 	}
 	return nil

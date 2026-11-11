@@ -81,6 +81,13 @@ GitHub Actions runs package creation in two places:
   a draft release, and only then publishes the release payload plus the
   `*.sigstore.json` bundles.
 
+The `Build Binaries` workflow publishes signed `build-<version>` pre-releases
+from `main`. It sets `DEB_VERSION` and `DEB_PACKAGE_VERSION` to the build
+version. `DEB_PACKAGE_VERSION` replaces the full Debian version, with no Debian
+revision, in the control file and the file name. It forces the direct
+`dpkg-deb` path. Without it, `build-deb.sh` keeps the `<version>-<revision>`
+form from `debian/changelog`.
+
 To rebuild an already tagged release from the GitHub-hosted builder, run the
 `Release` workflow manually and pass the existing tag plus
 `rebuild_existing_release=true`. For example:

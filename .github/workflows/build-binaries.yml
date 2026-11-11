@@ -1,0 +1,220 @@
+---
+name: Build Binaries
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - go.mod
+      - go.sum
+      - cmd/**
+      - internal/**
+      - debian/**
+      - packaging/**
+      - deploy/**
+      - docs/dns-update.1
+      - config.example.json
+      - cloudflare.token.example
+      - .github/workflows/build-binaries.yml
+      - '!**/*.md'
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and publish build release
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write  # Create the build-* tag and release and upload its assets.
+      id-token: write  # Mint the OIDC identity for Sigstore keyless signing.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolve Go version
+        id: go-version
+        shell: bash
+        run: |
+          go_version="$(sed -n 's/^go \([0-9][0-9.]*\)[[:space:]]*$/\1/p' go.mod)"
+          test -n "$go_version"
+          echo "range=~$go_version" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          cache: false
+          go-version: ${{ steps.go-version.outputs.range }}
+          check-latest: true
+          cache-dependency-path: |
+            go.mod
+            go.sum
+
+      - name: Resolve build version
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          . ./packaging/lib.sh
+          toolchain="$(go env GOVERSION)"
+          upstream="$(package_version "$PWD")"
+          stamp="$(TZ=UTC git log -1 --format=%cd --date=format-local:%Y%m%d%H%M HEAD)"
+          sha7="$(git rev-parse HEAD | cut -c1-7)"
+          version="${upstream}+git${stamp}.g${sha7}"
+
+          tag_exists() {
+            gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/build-$1" >/dev/null 2>&1
+          }
+
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then
+            previous="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '
+              [.[] | select(.draft == false and (.tag_name | startswith("build-")))]
+              | first | .body // ""' |
+              sed -n 's/^Go toolchain: \(go[0-9][0-9.]*\)[[:space:]]*$/\1/p' | head -n1)"
+            if [[ "$previous" == "$toolchain" ]]; then
+              echo "Newest build release already uses $toolchain; nothing to rebuild."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          # A rebuild of an already released commit (new Go toolchain or a
+          # manual run) appends the toolchain so dpkg sees a newer version.
+          if tag_exists "$version"; then
+            version="${version}.${toolchain}"
+            if tag_exists "$version"; then
+              echo "build-$version already exists; nothing to publish."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          if [[ ! "$version" =~ ^[0-9][0-9A-Za-z.+~]*$ ]]; then
+            echo "unexpected build version: $version" >&2
+            exit 1
+          fi
+
+          {
+            echo "publish=true"
+            echo "version=$version"
+            echo "toolchain=$toolchain"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Vet Go
+        if: ${{ steps.build.outputs.publish == 'true' }}
+        run: go vet ./...
+
+      - name: Test Go
+        if: ${{ steps.build.outputs.publish == 'true' }}
+        env:
+          DNS_UPDATE_SKIP_COVERAGE_TEST: "1"
+          DNS_UPDATE_SKIP_MUTATION_TEST: "1"
+        run: go test -count=1 ./...
+
+      - name: Install cosign
+        if: ${{ steps.build.outputs.publish == 'true' }}
+        shell: bash
+        run: |
+          GOBIN="$RUNNER_TEMP/bin" go install github.com/sigstore/cosign/v3/cmd/cosign@v3.1.2
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Build packages and archives
+        if: ${{ steps.build.outputs.publish == 'true' }}
+        env:
+          BUILD_VERSION: ${{ steps.build.outputs.version }}
+        shell: bash
+        run: |
+          DEB_VERSION="$BUILD_VERSION" \
+          DEB_PACKAGE_VERSION="$BUILD_VERSION" \
+          PACKAGING_FORCE_DIRECT_DEB=1 \
+          PACKAGING_SKIP_NATIVE_TESTS=1 \
+          PACKAGING_SKIP_SIGN=1 \
+            ./packaging/build-deb.sh
+
+          RELEASE_VERSION="$BUILD_VERSION" \
+          RELEASE_OUTPUT_DIR="$PWD/out/build-archives" \
+          RELEASE_SKIP_PACKAGES=1 \
+          RELEASE_WRITE_CHECKSUMS=0 \
+            ./packaging/build-release-assets.sh
+
+          mkdir -p out/build
+          for arch in amd64 arm64 armhf; do
+            cp "out/packages/deb/"*"/dns-update_${BUILD_VERSION}_${arch}.deb" out/build/
+          done
+          cp out/build-archives/dns-update_"${BUILD_VERSION}"_linux_*.tar.gz out/build/
+
+          mapfile -t artifacts < <(find out/build -maxdepth 1 -type f | LC_ALL=C sort)
+          ./packaging/verify-release-assets.sh "${artifacts[@]}"
+          for arch in amd64 arm64 armhf; do
+            deb="out/build/dns-update_${BUILD_VERSION}_${arch}.deb"
+            test "$(dpkg-deb -f "$deb" Version)" = "$BUILD_VERSION"
+            test "$(dpkg-deb -f "$deb" Architecture)" = "$arch"
+          done
+
+      - name: Write checksums and sign
+        if: ${{ steps.build.outputs.publish == 'true' }}
+        shell: bash
+        run: |
+          . ./packaging/lib.sh
+          cd out/build
+          mapfile -t assets < <(find . -maxdepth 1 -type f | sed 's#^\./##' | LC_ALL=C sort)
+          write_checksums SHA256SUMS "${assets[@]}"
+          sha256sum -c SHA256SUMS
+          sign_artifacts "${assets[@]}" SHA256SUMS
+
+      - name: Verify Sigstore signatures
+        if: ${{ steps.build.outputs.publish == 'true' }}
+        env:
+          SIGSTORE_OIDC_ISSUER: https://token.actions.githubusercontent.com
+        shell: bash
+        run: |
+          workflow_path=.github/workflows/build-binaries.yml
+          SIGSTORE_CERTIFICATE_IDENTITY="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/$workflow_path@refs/heads/main"
+          export SIGSTORE_CERTIFICATE_IDENTITY
+          mapfile -t artifacts < <(
+            find out/build -maxdepth 1 -type f ! -name '*.sigstore.json' | LC_ALL=C sort
+          )
+          ./packaging/verify-artifacts.sh "${artifacts[@]}"
+
+      - name: Publish build release
+        if: ${{ steps.build.outputs.publish == 'true' }}
+        env:
+          BUILD_TOOLCHAIN: ${{ steps.build.outputs.toolchain }}
+          BUILD_VERSION: ${{ steps.build.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="build-$BUILD_VERSION"
+          notes="$RUNNER_TEMP/build-notes.md"
+          cat > "$notes" <<EOF
+          Automatic build of \`main\` at ${GITHUB_SHA}.
+
+          Version: ${BUILD_VERSION}
+          Go toolchain: ${BUILD_TOOLCHAIN}
+
+          This pre-release is for hosts that install build releases with
+          \`release-puller\`. Verify each file against \`SHA256SUMS\` and its
+          \`.sigstore.json\` bundle. The Sigstore identity is
+          \`${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/build-binaries.yml@refs/heads/main\`.
+          EOF
+
+          gh release create "$tag" out/build/* \
+            --draft \
+            --prerelease \
+            --latest=false \
+            --target "$GITHUB_SHA" \
+            --title "dns-update build $BUILD_VERSION" \
+            --notes-file "$notes"
+          gh release edit "$tag" --draft=false --prerelease --latest=false

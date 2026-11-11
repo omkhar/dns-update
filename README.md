@@ -20,6 +20,7 @@ Linux packages also install the `dns-update(1)` man page; its source lives at
 
 Current GitHub Actions workflow status:
 
+- [Build Binaries](https://github.com/omkhar/dns-update/actions/workflows/build-binaries.yml): [![Build Binaries](https://github.com/omkhar/dns-update/actions/workflows/build-binaries.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/build-binaries.yml)
 - [CI](https://github.com/omkhar/dns-update/actions/workflows/ci.yml): [![CI](https://github.com/omkhar/dns-update/actions/workflows/ci.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/ci.yml)
 - [CodeQL](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml): [![CodeQL](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml)
 - [Dependabot Auto-Merge](https://github.com/omkhar/dns-update/actions/workflows/dependabot-auto-merge.yml): [![Dependabot Auto-Merge](https://github.com/omkhar/dns-update/actions/workflows/dependabot-auto-merge.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/dependabot-auto-merge.yml)
@@ -481,6 +482,50 @@ macOS and Windows release archives also include native scheduler helpers under:
 
 - `deploy/launchd`
 - `deploy/windows`
+
+### Automatic build releases
+
+The `Build Binaries` workflow publishes a GitHub pre-release named
+`build-<version>` for each push to `main` that changes a shipped input: Go
+code, `go.mod`, `go.sum`, `debian/`, `packaging/`, `deploy/`, the man page, or
+the sample config and token files. Dependabot Go module updates therefore cut a
+new build. A weekly run rebuilds `main` when the Go toolchain that
+`actions/setup-go` resolves differs from the `Go toolchain:` line of the newest
+build release, so Go standard-library fixes ship without a repository change.
+The workflow runs `go vet ./...` and `go test ./...` before it publishes.
+
+The version has the form `<upstream>+git<YYYYMMDDHHMM>.g<commit>`, for example
+`1.4.4+git202611111235.g6fdd7a9`. `<upstream>` is the `debian/changelog`
+version without the Debian revision, and the timestamp is the UTC commit time.
+A rebuild of an already released commit appends `.<go toolchain>`. dpkg orders
+every build after the `<upstream>-1` package of the same SemVer release.
+
+Each build release has:
+
+- `dns-update_<version>_amd64.deb`, `_arm64.deb`, and `_armhf.deb`
+- `dns-update_<version>_linux_amd64.tar.gz`, `_linux_arm64.tar.gz`, and
+  `_linux_armv7.tar.gz`
+- `SHA256SUMS` for those files
+- a `.sigstore.json` keyless bundle for each file, `SHA256SUMS` included
+
+The signing identity is
+`https://github.com/omkhar/dns-update/.github/workflows/build-binaries.yml@refs/heads/main`
+with issuer `https://token.actions.githubusercontent.com`. Build releases are
+pre-releases and do not take GitHub's Latest slot, which stays with the signed
+`v*` release.
+
+To install build releases automatically with `release-puller` from
+`omkhar/ad-block`, add this line to `/etc/release-puller/packages.tsv` (fields
+separated by tabs):
+
+```text
+omkhar/dns-update	dns-update	0	dns-update.timer
+```
+
+`dns-update.service` is a oneshot unit that is inactive between runs, so the
+health check uses the timer. The package does not enable the timer; enable it
+once with `systemctl enable --now dns-update.timer` after you create the config
+and token files. A new package takes effect at the next timer run.
 
 ## Release Notes
 

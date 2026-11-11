@@ -7,6 +7,9 @@ set -eu
 repo_root=$(repo_root "$0")
 version=${DEB_VERSION:-$(package_version "$repo_root")}
 release=${DEB_RELEASE:-$(package_release "$repo_root")}
+# DEB_PACKAGE_VERSION replaces the full Debian version, including any Debian
+# revision, for the direct dpkg-deb path. The build-binaries workflow sets it.
+package_version_string=${DEB_PACKAGE_VERSION:-$version-$release}
 targets=$(resolve_targets "$@")
 output_root=${DEB_OUTPUT_DIR:-"$repo_root/out/packages/deb"}
 release_goflags=${DNS_UPDATE_RELEASE_GOFLAGS:-$(release_goflags)}
@@ -161,7 +164,7 @@ build_without_debhelper() {
 	installed_size=$(du -sk "$package_dir" | awk '{print $1}')
 	cat > "$package_dir/DEBIAN/control" <<EOF
 Package: dns-update
-Version: $version-$release
+Version: $package_version_string
 Section: net
 Priority: optional
 Architecture: $deb_arch
@@ -179,7 +182,7 @@ EOF
 
 	normalize_tree_timestamps "$package_dir" "$source_epoch"
 
-	deb_file=$target_dir/dns-update_${version}-${release}_${deb_arch}.deb
+	deb_file=$target_dir/dns-update_${package_version_string}_${deb_arch}.deb
 	SOURCE_DATE_EPOCH="$source_epoch" \
 		dpkg-deb --root-owner-group --build "$package_dir" "$deb_file"
 	sign_artifacts "$deb_file"
@@ -197,6 +200,7 @@ parent_dir=$(CDPATH='' cd -- "$repo_root/.." && pwd)
 		target_dir=$output_root/$target
 		prepare_clean_dir "$target_dir"
 		if [ "${PACKAGING_FORCE_DIRECT_DEB:-}" != 1 ] && \
+			[ -z "${DEB_PACKAGE_VERSION:-}" ] && \
 			command -v dpkg-buildpackage >/dev/null 2>&1 && \
 			command -v dh >/dev/null 2>&1; then
 			build_with_debhelper "$target" "$deb_arch" "$target_dir" "$parent_dir"
