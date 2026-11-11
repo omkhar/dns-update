@@ -7,8 +7,13 @@ This document uses these technical names: Go, GitHub Actions, Git, runner,
 commit SHA, container, image, tag, digest, SemVer, actionlint, govulncheck,
 golangci-lint, yamllint, cosign, and ShellCheck.
 
-Use Go 1.26.6 to build, test, and release `dns-update`.
 The `go` directive in `go.mod` is the source for the Go version.
+It sets the minimum Go version.
+CI installs the latest patch release of that Go minor version.
+Each workflow job resolves the `go` directive to a SemVer tilde range before `actions/setup-go` runs.
+Then `actions/setup-go` uses `check-latest` to install the newest release in that range.
+Thus, a new Go patch release that fixes a standard-library vulnerability needs no repository change.
+Use the latest patch release of the same Go minor version for local builds and release builds.
 
 GitHub Actions uses these runner images:
 
@@ -30,9 +35,12 @@ The workflows install these tool versions:
 Ubuntu package repositories supply ShellCheck.
 The repository does not specify the ShellCheck version.
 
-See `docs/runtime-versions.json` for the action SHAs, runner labels, container
+See `docs/runtime-versions.json` for the action names, runner labels, container
 names, container digests, and tool versions.
-Repository tests compare that file with `go.mod` and all workflow files.
+Repository tests compare that file with all workflow files.
+The file does not copy values that Dependabot changes.
+The tests read each action commit SHA from its workflow `uses:` line.
+All actions from one repository must use the same commit SHA.
 
 The scheduled systemd drift job uses floating container tags.
 This job detects a new distribution image before the repository changes its deterministic pull-request pins.

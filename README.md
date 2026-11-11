@@ -22,6 +22,7 @@ Current GitHub Actions workflow status:
 
 - [CI](https://github.com/omkhar/dns-update/actions/workflows/ci.yml): [![CI](https://github.com/omkhar/dns-update/actions/workflows/ci.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/ci.yml)
 - [CodeQL](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml): [![CodeQL](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/codeql.yml)
+- [Dependabot Auto-Merge](https://github.com/omkhar/dns-update/actions/workflows/dependabot-auto-merge.yml): [![Dependabot Auto-Merge](https://github.com/omkhar/dns-update/actions/workflows/dependabot-auto-merge.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/dependabot-auto-merge.yml)
 - [Dependabot Updates](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/dependabot-updates): [![Dependabot Updates](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/dependabot-updates/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/dependabot-updates)
 - [Dependency Graph](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/update-graph): [![Dependency Graph](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/update-graph/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/dynamic/dependabot/update-graph)
 - [Dependency Review](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml): [![Dependency Review](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml/badge.svg)](https://github.com/omkhar/dns-update/actions/workflows/dependency-review.yml)
@@ -198,7 +199,8 @@ Behavior notes:
 
 ## Toolchain
 
-Build and test with a patched Go toolchain. The module requires Go `1.26.6`.
+Build and test with a patched Go toolchain. The `go` directive in `go.mod` sets
+the minimum Go version. CI uses the latest patch release of that minor version.
 See [`docs/RUNTIME.md`](docs/RUNTIME.md) for all build and CI runtime pins.
 Read [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) before you deploy a scheduled writer.
 

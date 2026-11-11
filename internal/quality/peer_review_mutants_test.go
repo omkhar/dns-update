@@ -61,7 +61,7 @@ env GOBIN="$RUNNER_TEMP/bin" "$binary" "$subcommand" "$tool"`,
 }
 
 func TestPeerReviewRejectsMutableToolVersion(t *testing.T) {
-	manifest := `{"go":"1.26.5","runners":[],"actions":{},"containers":{},"tools":{"github.com/sigstore/cosign/v3/cmd/cosign":"latest"}}`
+	manifest := `{"runners":[],"actions":[],"containers":{},"tools":{"github.com/sigstore/cosign/v3/cmd/cosign":"latest"}}`
 	if _, err := decodeRuntimeManifest(strings.NewReader(manifest)); err == nil {
 		t.Fatal("mutable tool version survived the runtime manifest contract")
 	}

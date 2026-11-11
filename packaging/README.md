@@ -218,7 +218,7 @@ Requirements:
 
 - `rpmbuild`
 - `cosign`
-- `golang >= 1.26.6`
+- `golang` at or above the `go` directive version in `go.mod`
 - `tar` or `gtar` (GNU tar is preferred on macOS)
 
 Build:
