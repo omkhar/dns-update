@@ -47,9 +47,13 @@ done
 
 case "$family" in
 debian | ubuntu)
-	install_packages='apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd dbus && apt-get clean && rm -rf /var/lib/apt/lists/*'
+	# apt-get-retry retries mirror errors and falls back to other official
+	# Ubuntu mirrors when the ubuntu.com hosts cannot be reached.
+	copy_tools='COPY apt-get-retry.sh /usr/local/bin/apt-get-retry'
+	install_packages='apt-get-retry update && DEBIAN_FRONTEND=noninteractive apt-get-retry install -y --no-install-recommends systemd dbus && apt-get clean && rm -rf /var/lib/apt/lists/*'
 	;;
 fedora)
+	copy_tools=
 	install_packages='dnf install -y systemd dbus-daemon procps-ng && dnf clean all'
 	;;
 *)
@@ -300,9 +304,12 @@ sed -i.bak \
 rm -f "$tmpdir/container-check.sh.bak"
 chmod 0755 "$tmpdir/container-check.sh"
 
+cp "$script_dir/apt-get-retry.sh" "$tmpdir/apt-get-retry.sh"
+
 cat >"$tmpdir/Dockerfile" <<EOF
 FROM $image
 ENV container=docker
+$copy_tools
 RUN $install_packages
 STOPSIGNAL SIGRTMIN+3
 CMD ["/usr/lib/systemd/systemd"]

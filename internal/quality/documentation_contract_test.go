@@ -547,8 +547,8 @@ env:
     GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
     GOBIN="$RUNNER_TEMP/bin" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
     echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-    sudo apt-get update
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends shellcheck
+    sudo ./packaging/apt-get-retry.sh update
+    sudo DEBIAN_FRONTEND=noninteractive ./packaging/apt-get-retry.sh install -y --no-install-recommends shellcheck
 
 jobs:
   lint:
@@ -1273,8 +1273,8 @@ func canonicalWorkflowToolBlock(block string) (map[string]string, bool) {
 	lines := strings.Split(block, "\n")
 	if len(lines) == 6 &&
 		lines[3] == `echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"` &&
-		lines[4] == "sudo apt-get update" &&
-		lines[5] == "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends shellcheck" {
+		lines[4] == "sudo ./packaging/apt-get-retry.sh update" &&
+		lines[5] == "sudo DEBIAN_FRONTEND=noninteractive ./packaging/apt-get-retry.sh install -y --no-install-recommends shellcheck" {
 		names := []string{
 			"github.com/rhysd/actionlint/cmd/actionlint",
 			"golang.org/x/vuln/cmd/govulncheck",

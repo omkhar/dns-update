@@ -86,8 +86,9 @@ jobs:
       - name: Install packaging tools
         shell: bash
         run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends rpm
+          sudo ./packaging/apt-get-retry.sh update
+          sudo DEBIAN_FRONTEND=noninteractive ./packaging/apt-get-retry.sh install \
+            -y --no-install-recommends rpm
 
       - name: Select systemd test image
         id: test-image

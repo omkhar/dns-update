@@ -283,6 +283,13 @@ non-validation action.
 For local runs, `packaging/test-systemd-timer.sh` requires Docker and currently
 supports amd64 and arm64 hosts.
 
+CI installs Debian and Ubuntu packages through `packaging/apt-get-retry.sh`.
+It retries apt with backoff and short connection timeouts. Run as root on
+Ubuntu, it also lists other official Ubuntu mirrors after the `ubuntu.com`
+hosts, so one DNS fault on `ubuntu.com` does not stop the job. apt still
+checks each repository signature. Set `APT_UBUNTU_MIRROR_FALLBACK=0` to skip
+the mirror step.
+
 Release package builds use Go release-oriented flags only for the package build
 step: `-mod=readonly -trimpath -buildvcs=false` plus
 `-ldflags='-s -w -buildid= -X dns-update/internal/buildinfo.Version=<version>'`.
